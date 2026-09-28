@@ -74,7 +74,9 @@ def main():
         ".stats{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:20px}"
         ".stat-badge{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);"
         "padding:6px 14px;border-radius:20px;font-size:.85rem;color:#b0b0c8}"
-        ".filters{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:24px}"
+        ".filters{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px}"
+        ".filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}"
+        ".filter-label{font-size:.8rem;color:#9090a8;margin-right:4px}"
         ".filter-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);"
         "color:#d0d0e0;padding:6px 14px;border-radius:18px;cursor:pointer;font-size:.85rem;transition:.2s}"
         ".filter-btn:hover,.filter-btn.active{background:linear-gradient(135deg,#ff6b9d33,#c44dff33);"
@@ -101,17 +103,21 @@ def main():
         '<span class="stat-badge">🕐 更新于 ' + esc(now) + '</span>'
         '<span class="stat-badge">📡 多源聚合</span>'
         "</div><div class=\"filters\" id=\"filters\">"
-        '<button class="filter-btn active" data-filter="all">全部</button>'
-        '<button class="filter-btn" data-sort="relevance" data-active="true">按匹配度</button>'
-        '<button class="filter-btn" data-sort="time" data-active="false">按时间</button>'
-        '<button class="filter-btn" data-filter="linuxsb">linux.sb</button>'
-        '<button class="filter-btn" data-filter="baipiao">baipiao.org</button>'
-        '<button class="filter-btn" data-filter="nodeloc">nodeloc.com</button>'
-        '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button>'
-        '<button class="filter-btn" data-filter="兑换码">🎫 兑换码</button>'
-        '<button class="filter-btn" data-filter="公益站">💝 公益站</button>'
-        '<button class="filter-btn" data-filter="额度赠送">💰 额度赠送</button>'
-        '<button class="filter-btn" data-filter="福利放送">🎉 福利放送</button>'
+        '<div class=\"filter-row\" data-group=\"sort\"><span class=\"filter-label\">排序：</span>'
+        '<button class=\"filter-btn active\" data-sort=\"relevance\">按匹配度</button>'
+        '<button class=\"filter-btn\" data-sort=\"time\">按时间</button></div>'
+        '<div class=\"filter-row\" data-group=\"source\"><span class=\"filter-label\">来源：</span>'
+        '<button class=\"filter-btn active\" data-filter=\"all\">全部</button>'
+        '<button class=\"filter-btn\" data-filter=\"linuxsb\">linux.sb</button>'
+        '<button class=\"filter-btn\" data-filter=\"baipiao\">baipiao.org</button>'
+        '<button class=\"filter-btn\" data-filter=\"nodeloc\">nodeloc.com</button></div>'
+        '<div class=\"filter-row\" data-group=\"category\"><span class=\"filter-label\">分类：</span>'
+        '<button class=\"filter-btn active\" data-filter=\"all\">全部</button>'
+        '<button class=\"filter-btn\" data-filter=\"抽奖\">🎲 抽奖</button>'
+        '<button class=\"filter-btn\" data-filter=\"兑换码\">🎫 兑换码</button>'
+        '<button class=\"filter-btn\" data-filter=\"公益站\">💝 公益站</button>'
+        '<button class=\"filter-btn\" data-filter=\"额度赠送\">💰 额度赠送</button>'
+        '<button class=\"filter-btn\" data-filter=\"福利放送\">🎉 福利放送</button></div>'
         "</div><div class=\"cards\" id=\"cards\">" + cards_html + "</div><footer>"
         '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
         '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
@@ -124,40 +130,51 @@ def main():
         "const container=document.getElementById('cards');"
         "const filters=document.querySelectorAll('.filter-btn');"
         "let sortMode='relevance';"
+        "let sourceFilter='all';"
+        "let categoryFilter='all';"
 
         "function getFiltered(){"
-        "const activeFilter=[...filters].find(b=>b.dataset.filter&&b.classList.contains('active'));"
-        "const filter=activeFilter?activeFilter.dataset.filter:'all';"
-        "const filtered=filter==='all'?cards:cards.filter(c=>{"
-        "if(['抽奖','兑换码','公益站','额度赠送','福利放送'].includes(filter)){return c.tags.includes(filter);}"
-        "if(filter==='linuxsb'){return c.source && c.source.startsWith('linuxsb');}"
-        "if(filter==='baipiao'){return c.source && c.source.startsWith('baipiao');}"
-        "if(filter==='nodeloc'){return c.source && c.source.startsWith('nodeloc');}"
+        "const filtered=cards.filter(c=>{"
+        "if(sourceFilter!=='all'){"
+        "if(sourceFilter==='linuxsb'){if(!(c.source&&c.source.startsWith('linuxsb'))) return false;}"
+        "else if(sourceFilter==='baipiao'){if(!(c.source&&c.source.startsWith('baipiao'))) return false;}"
+        "else if(sourceFilter==='nodeloc'){if(!(c.source&&c.source.startsWith('nodeloc'))) return false;}"
+        "}"
+        "if(categoryFilter!=='all'){if(!c.tags.includes(categoryFilter)) return false;}"
         "return true;});"
         "return filtered;}"
 
         "function render(){"
         "let filtered=getFiltered();"
-        "if(sortMode==='time'){filtered=[...filtered].sort((a,b)=>(b.fetched_at||'').localeCompare(a.fetched_at||''));}"
+        "if(sortMode==='time'){filtered=[...filtered].sort((a,b)=>{"
+        "const at=a.created_at||a.fetched_at||'';const bt=b.created_at||b.fetched_at||'';"
+        "return bt.localeCompare(at);});}"
         "else{filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(b.fetched_at||'').localeCompare(a.fetched_at||''));}"
-        "if(!filtered.length){container.innerHTML='<div class=\"empty\">该分类下暂无内容</div>';return;}"
+        "if(!filtered.length){container.innerHTML='<div class=\"empty\">该筛选下暂无内容</div>';return;}"
         "container.innerHTML=filtered.map(card=>`"
         '<a class="card" href="${escapeAttr(card.url)}" target="_blank" rel="noopener">'
         '<div class="card-title">${escapeHtml(card.title)}</div>'
         '<div class="card-meta">${card.tags.map(t=>`<span class="tag tag-${escapeAttr(t)}">${escapeHtml(t)}</span>`).join("")}'
         '<span class="source">${escapeHtml(card.source||"")}</span>'
-        '<span class="score">匹配度 ${card.score}</span></div></a>'
+        '<span class="score">匹配度 ${card.score}</span>'
+        '<span class="post-time">${formatTime(card.created_at||card.fetched_at)}</span></div></a>'
         '`).join("");}'
 
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
+        "function formatTime(iso){if(!iso) return '未知时间';try{const d=new Date(iso);return d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}"
         "filters.forEach(btn=>{btn.addEventListener('click',()=>{"
-        "if(btn.dataset.sort){sortMode=btn.dataset.sort;"
-        "filters.forEach(b=>{if(b.dataset.sort){b.classList.remove('active');b.dataset.active='false';}"
-        "if(b.dataset.filter){b.classList.remove('active');}});"
-        "btn.classList.add('active');btn.dataset.active='true';"
+        "if(btn.dataset.sort){"
+        "sortMode=btn.dataset.sort;"
+        "filters.forEach(b=>{if(b.dataset.sort){b.classList.remove('active');}"
+        "else{b.classList.remove('active');}});"
+        "btn.classList.add('active');"
         "render();return;}"
-        "filters.forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();"
+        "const group=btn.closest('.filter-row');"
+        "if(group && group.dataset.group==='source'){sourceFilter=btn.dataset.filter;"
+        "group.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();return;}"
+        "if(group && group.dataset.group==='category'){categoryFilter=btn.dataset.filter;"
+        "group.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();return;}"
         "});});render();</script></body></html>"
     )
 

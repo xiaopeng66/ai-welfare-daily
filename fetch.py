@@ -4,8 +4,8 @@ linuxsb-daily fetcher
 Scrapes multiple sites for AI 中转站福利 posts and emits a JSON lines file.
 Sources:
   - linux.sb: /forum/2, /forum/8, /index.php?sort=lucky, /index.php?sort=card, /
-  - baipiao.org: /bbs
-  - nodeloc.com: /latest
+  - baipiao.org: /bbs/api/discussions
+  - nodeloc.com: /latest.json
 """
 import argparse
 import json
@@ -46,7 +46,7 @@ def fetch(url: str, timeout: int = 20) -> str:
     try:
         with opener.open(req, timeout=timeout) as resp:
             return resp.read().decode("utf-8", errors="replace")
-    except Exception as e:
+    except Exception:
         if _PROXY_HOST not in (None, "", "127.0.0.1", "localhost"):
             raise
         # In GitHub Actions or when proxy is unavailable, retry direct
@@ -66,23 +66,28 @@ CATEGORY_KEYWORDS = {
 
 
 class LinuxSBHTMLParser(HTMLParser):
-    """Extract /topic/N links from linux.sb listing pages."""
+    """Extract /topic/N links and post times from linux.sb listing pages."""
+
     def __init__(self):
         super().__init__()
         self.topics = []
         self._current_href = None
         self._in_topic_link = False
+        self._current_time = None
 
     def handle_starttag(self, tag, attrs):
-        if tag != "a":
-            return
-        attrs_dict = dict(attrs)
-        href = attrs_dict.get("href", "")
-        if "/topic/" in href:
-            m = re.search(r"/topic/(\d+)", href)
-            if m:
-                self._current_href = m.group(1)
-                self._in_topic_link = True
+        if tag == "a":
+            attrs_dict = dict(attrs)
+            href = attrs_dict.get("href", "")
+            if "/topic/" in href:
+                m = re.search(r"/topic/(\d+)", href)
+                if m:
+                    self._current_href = m.group(1)
+                    self._in_topic_link = True
+        elif tag == "span" and self._in_topic_link:
+            attrs_dict = dict(attrs)
+            if "data-performance-time" in attrs_dict:
+                self._current_time = attrs_dict["data-performance-time"]
 
     def handle_data(self, data):
         if self._in_topic_link and self._current_href:
@@ -92,13 +97,25 @@ class LinuxSBHTMLParser(HTMLParser):
                     "id": self._current_href,
                     "title": title,
                     "url": f"{BASE_LINUXSB}/topic/{self._current_href}",
+                    "created_at": self._parse_unix(self._current_time),
                 })
             self._in_topic_link = False
             self._current_href = None
+            self._current_time = None
+
+    @staticmethod
+    def _parse_unix(ts):
+        if not ts:
+            return None
+        try:
+            return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+        except Exception:
+            return None
 
 
 class BaipiaoHTMLParser(HTMLParser):
-    """Extract /bbs/d/N-title links from baipiao.org/bbs listing pages."""
+    """Fallback parser for baipiao.org HTML listings."""
+
     def __init__(self):
         super().__init__()
         self.topics = []
@@ -109,8 +126,8 @@ class BaipiaoHTMLParser(HTMLParser):
         if tag != "a":
             return
         attrs_dict = dict(attrs)
-        href = attrs_dict.get("href", "")
-        m = re.search(r"/bbs/d/(\d+-[^\s\"#]+)", href)
+        href = attrs_dict.get("href") or ""
+        m = re.search(r'/bbs/d/(\d+-[^\s"#]+)', href)
         if m:
             self._current_href = m.group(0)
             self._in_link = True
@@ -123,6 +140,7 @@ class BaipiaoHTMLParser(HTMLParser):
                     "id": self._current_href,
                     "title": title,
                     "url": f"{BASE_BAIPIAO}{self._current_href}",
+                    "created_at": None,
                 })
             self._in_link = False
             self._current_href = None
@@ -130,6 +148,7 @@ class BaipiaoHTMLParser(HTMLParser):
 
 class NodeLocHTMLParser(HTMLParser):
     """Extract /t/topic/N links from nodeloc.com listing pages."""
+
     def __init__(self):
         super().__init__()
         self.topics = []
@@ -140,7 +159,7 @@ class NodeLocHTMLParser(HTMLParser):
         if tag != "a":
             return
         attrs_dict = dict(attrs)
-        href = attrs_dict.get("href", "")
+        href = attrs_dict.get("href") or ""
         m = re.search(r"/t/topic/(\d+)", href)
         if m:
             self._current_href = m.group(1)
@@ -154,6 +173,7 @@ class NodeLocHTMLParser(HTMLParser):
                     "id": self._current_href,
                     "title": title,
                     "url": f"{BASE_NODELOC}/t/topic/{self._current_href}",
+                    "created_at": None,
                 })
             self._in_link = False
             self._current_href = None
@@ -192,17 +212,38 @@ def score_topic(topic: dict) -> dict:
 
 def fetch_linuxsb() -> list:
     sources = [
-        ("linuxsb_福利放送", lambda: fetch(f"{BASE_LINUXSB}/forum/2?sort=post")),
-        ("linuxsb_我要推广", lambda: fetch(f"{BASE_LINUXSB}/forum/8?sort=post")),
-        ("linuxsb_抽奖", lambda: fetch(f"{BASE_LINUXSB}/index.php?sort=lucky")),
-        ("linuxsb_发卡", lambda: fetch(f"{BASE_LINUXSB}/index.php?sort=card")),
-        ("linuxsb_首页", lambda: fetch(f"{BASE_LINUXSB}/")),
+        ("linuxsb_福利放送", f"{BASE_LINUXSB}/forum/2?sort=post"),
+        ("linuxsb_我要推广", f"{BASE_LINUXSB}/forum/8?sort=post"),
+        ("linuxsb_抽奖", f"{BASE_LINUXSB}/index.php?sort=lucky"),
+        ("linuxsb_发卡", f"{BASE_LINUXSB}/index.php?sort=card"),
+        ("linuxsb_首页", f"{BASE_LINUXSB}/"),
     ]
+    pattern = re.compile(r'href=["\'](/topic/(\d+))["\'][^>]*>(.*?)</a>.*?<span[^>]*data-performance-time="(\d+)"', re.S)
     all_topics = []
-    for name, fetcher in sources:
+    for name, url in sources:
         try:
-            html = fetcher()
-            topics = parse_topics(html, LinuxSBHTMLParser)
+            html = fetch(url)
+            topics = []
+            seen = set()
+            for topic_id, num, title, ts in pattern.findall(html):
+                topic_id = topic_id.split("/")[-1]
+                if topic_id in seen:
+                    continue
+                seen.add(topic_id)
+                clean_title = re.sub(r"<[^>]+>", "", title).strip()
+                if not clean_title or len(clean_title) <= 2:
+                    continue
+                created_at = None
+                try:
+                    created_at = datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+                except Exception:
+                    pass
+                topics.append({
+                    "id": topic_id,
+                    "title": clean_title,
+                    "url": f"{BASE_LINUXSB}/topic/{topic_id}",
+                    "created_at": created_at,
+                })
             for t in topics:
                 t["source"] = name
             print(f"[fetch] {name}: {len(topics)} topics", file=sys.stderr)
@@ -215,12 +256,31 @@ def fetch_linuxsb() -> list:
 def fetch_baipiao() -> list:
     all_topics = []
     for page in range(1, 4):
-        url = f"{BASE_BAIPIAO}/bbs/all?page={page}"
+        api_url = f"{BASE_BAIPIAO}/bbs/api/discussions?page={page}&sort=-createdAt"
+        html_url = f"{BASE_BAIPIAO}/bbs/all?page={page}"
         try:
-            html = fetch(url)
-            topics = parse_topics(html, BaipiaoHTMLParser)
-            for t in topics:
-                t["source"] = f"baipiao_p{page}"
+            try:
+                html = fetch(api_url)
+                data = json.loads(html)
+                topics = []
+                for item in data.get("data", []):
+                    attr = item.get("attributes", {})
+                    topic_id = item.get("id", "")
+                    slug = attr.get("slug", "")
+                    title = attr.get("title", "")
+                    created = attr.get("createdAt") or attr.get("lastPostedAt")
+                    topics.append({
+                        "id": str(topic_id),
+                        "title": title,
+                        "url": f"{BASE_BAIPIAO}/bbs/d/{slug}",
+                        "created_at": created,
+                        "source": f"baipiao_p{page}",
+                    })
+            except Exception:
+                html = fetch(html_url)
+                topics = parse_topics(html, BaipiaoHTMLParser)
+                for t in topics:
+                    t["source"] = f"baipiao_p{page}"
             print(f"[fetch] baipiao page {page}: {len(topics)} topics", file=sys.stderr)
             all_topics.extend(topics)
         except Exception as e:
@@ -232,12 +292,29 @@ def fetch_baipiao() -> list:
 def fetch_nodeloc() -> list:
     all_topics = []
     for page in range(1, 4):
-        url = f"{BASE_NODELOC}/latest?order=created&page={page}"
+        api_url = f"{BASE_NODELOC}/latest.json?order=created&page={page}"
+        html_url = f"{BASE_NODELOC}/latest?order=created&page={page}"
         try:
-            html = fetch(url)
-            topics = parse_topics(html, NodeLocHTMLParser)
-            for t in topics:
-                t["source"] = f"nodeloc_p{page}"
+            try:
+                html = fetch(api_url)
+                data = json.loads(html)
+                topics = []
+                for t in data.get("topic_list", {}).get("topics", []):
+                    topic_id = t.get("id")
+                    title = t.get("title", "")
+                    created = t.get("bumped_at") or t.get("created_at") or t.get("last_posted_at")
+                    topics.append({
+                        "id": str(topic_id),
+                        "title": title,
+                        "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
+                        "created_at": created,
+                        "source": f"nodeloc_p{page}",
+                    })
+            except Exception:
+                html = fetch(html_url)
+                topics = parse_topics(html, NodeLocHTMLParser)
+                for t in topics:
+                    t["source"] = f"nodeloc_p{page}"
             print(f"[fetch] nodeloc page {page}: {len(topics)} topics", file=sys.stderr)
             all_topics.extend(topics)
         except Exception as e:
@@ -255,12 +332,8 @@ def main():
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
     all_topics = []
-
-    # Source 1-5: linux.sb
     all_topics.extend(fetch_linuxsb())
-    # Source 6: baipiao.org
     all_topics.extend(fetch_baipiao())
-    # Source 7: nodeloc.com
     all_topics.extend(fetch_nodeloc())
 
     # Deduplicate
@@ -269,24 +342,30 @@ def main():
     # Score and tag
     all_topics = [score_topic(t) for t in all_topics]
 
-    # Sort by score desc, then by id (newer first)
-    all_topics.sort(key=lambda t: (-t["score"], -int(re.search(r"\d+", t["id"]).group(0))))
+    # Sort by score desc, then by created_at desc, then id desc as tiebreaker
+    def sort_key(t):
+        score = -t.get("score", 0)
+        created = -(int(_parse_sortable(t.get("created_at") or "0")) if t.get("created_at") else 0)
+        id_num = -int(re.search(r"\d+", t["id"]).group(0)) if re.search(r"\d+", t["id"]) else 0
+        return (score, created, id_num)
+
+    all_topics.sort(key=sort_key)
 
     # Limit
     all_topics = all_topics[: args.limit]
 
-    # Add metadata
-    now = datetime.now(timezone.utc).isoformat()
+    # Normalize output
     out = []
     for t in all_topics:
         out.append({
             "id": t["id"],
             "title": t["title"],
             "url": t["url"],
-            "tags": t["tags"],
-            "score": t["score"],
+            "tags": t.get("tags", []),
+            "score": t.get("score", 0),
             "source": t.get("source", ""),
-            "fetched_at": now,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": t.get("created_at"),
         })
 
     with open(args.output, "w", encoding="utf-8") as f:
@@ -294,6 +373,18 @@ def main():
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
     print(f"[done] wrote {len(out)} topics to {args.output}", file=sys.stderr)
+
+
+def _parse_sortable(created_at):
+    if not created_at:
+        return 0
+    try:
+        # Handles ISO strings with timezone like 2026-09-28T17:20:50.573Z
+        s = created_at.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return dt.timestamp()
+    except Exception:
+        return 0
 
 
 if __name__ == "__main__":
