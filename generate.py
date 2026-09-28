@@ -102,6 +102,8 @@ def main():
         '<span class="stat-badge">📡 多源聚合</span>'
         "</div><div class=\"filters\" id=\"filters\">"
         '<button class="filter-btn active" data-filter="all">全部</button>'
+        '<button class="filter-btn" data-sort="relevance" data-active="true">按匹配度</button>'
+        '<button class="filter-btn" data-sort="time" data-active="false">按时间</button>'
         '<button class="filter-btn" data-filter="linuxsb">linux.sb</button>'
         '<button class="filter-btn" data-filter="baipiao">baipiao.org</button>'
         '<button class="filter-btn" data-filter="nodeloc">nodeloc.com</button>'
@@ -121,14 +123,23 @@ def main():
         "const cards=" + cards_json + ";"
         "const container=document.getElementById('cards');"
         "const filters=document.querySelectorAll('.filter-btn');"
+        "let sortMode='relevance';"
 
-        "function render(filter){"
+        "function getFiltered(){"
+        "const activeFilter=[...filters].find(b=>b.dataset.filter&&b.classList.contains('active'));"
+        "const filter=activeFilter?activeFilter.dataset.filter:'all';"
         "const filtered=filter==='all'?cards:cards.filter(c=>{"
         "if(['抽奖','兑换码','公益站','额度赠送','福利放送'].includes(filter)){return c.tags.includes(filter);}"
         "if(filter==='linuxsb'){return c.source && c.source.startsWith('linuxsb');}"
         "if(filter==='baipiao'){return c.source && c.source.startsWith('baipiao');}"
         "if(filter==='nodeloc'){return c.source && c.source.startsWith('nodeloc');}"
         "return true;});"
+        "return filtered;}"
+
+        "function render(){"
+        "let filtered=getFiltered();"
+        "if(sortMode==='time'){filtered=[...filtered].sort((a,b)=>(b.fetched_at||'').localeCompare(a.fetched_at||''));}"
+        "else{filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(b.fetched_at||'').localeCompare(a.fetched_at||''));}"
         "if(!filtered.length){container.innerHTML='<div class=\"empty\">该分类下暂无内容</div>';return;}"
         "container.innerHTML=filtered.map(card=>`"
         '<a class="card" href="${escapeAttr(card.url)}" target="_blank" rel="noopener">'
@@ -141,8 +152,13 @@ def main():
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
         "filters.forEach(btn=>{btn.addEventListener('click',()=>{"
-        "filters.forEach(b=>b.classList.remove('active'));btn.classList.add('active');render(btn.dataset.filter);"
-        "});});render('all');</script></body></html>"
+        "if(btn.dataset.sort){sortMode=btn.dataset.sort;"
+        "filters.forEach(b=>{if(b.dataset.sort){b.classList.remove('active');b.dataset.active='false';}"
+        "if(b.dataset.filter){b.classList.remove('active');}});"
+        "btn.classList.add('active');btn.dataset.active='true';"
+        "render();return;}"
+        "filters.forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();"
+        "});});render();</script></body></html>"
     )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
