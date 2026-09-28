@@ -64,6 +64,14 @@ CATEGORY_KEYWORDS = {
     "福利放送": ["福利", "鸡蛋", "羊毛", "白嫖"],
 }
 
+# Strong relevance keywords; title must contain at least one
+RELEVANCE_KEYWORDS = [
+    "中转站", "公益站", "鸡蛋", "兑换码", "抽奖", "福利", "额度", "送", "邀请码",
+    "注册码", "code", "key", "cdk", "免费", "白嫖", "羊毛", "token", "credit",
+    "刀", "积分", "体验金", "订阅", "会员", "gpt", "claude", "gemini", "deepseek",
+    "qwen", "kimi", "glm", "api", "api2d", "openai", "azure", "模型",
+]
+
 
 class LinuxSBHTMLParser(HTMLParser):
     """Extract /topic/N links and post times from linux.sb listing pages."""
@@ -341,6 +349,15 @@ def main():
 
     # Score and tag
     all_topics = [score_topic(t) for t in all_topics]
+
+    # Keep only welfare-relevant topics based on title keywords
+    def is_relevant(t: dict) -> bool:
+        title = t.get("title", "").lower()
+        return any(kw.lower() in title for kw in RELEVANCE_KEYWORDS)
+
+    before = len(all_topics)
+    all_topics = [t for t in all_topics if is_relevant(t)]
+    print(f"[filter] relevance filter: {before} -> {len(all_topics)} topics", file=sys.stderr)
 
     # Sort by score desc, then by created_at desc, then id desc as tiebreaker
     def sort_key(t):

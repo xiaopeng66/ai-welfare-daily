@@ -23,6 +23,16 @@ def esc(s):
     return escape(s)
 
 
+def _fmt_time(iso):
+    if not iso:
+        return "未知时间"
+    try:
+        d = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        return d.strftime("%m-%d %H:%M")
+    except Exception:
+        return iso[:16] if iso else "未知时间"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", "-i", default="data/topics.jsonl")
@@ -53,7 +63,8 @@ def main():
             "<div class=\"card-title\">" + esc(t["title"]) + "</div>"
             "<div class=\"card-meta\">" + tags_html
             + '<span class="source">' + esc(source_label) + "</span>"
-            + '<span class="score">匹配度 ' + str(t.get("score", 0)) + "</span></div>"
+            + '<span class="score">匹配度 ' + str(t.get("score", 0)) + "</span>"
+            + '<span class="post-time">' + esc(_fmt_time(t.get("created_at") or t.get("fetched_at"))) + "</span></div>"
             "</a>"
         )
     cards_html = "\n".join(card_parts)
@@ -81,7 +92,7 @@ def main():
         "color:#d0d0e0;padding:6px 14px;border-radius:18px;cursor:pointer;font-size:.85rem;transition:.2s}"
         ".filter-btn:hover,.filter-btn.active{background:linear-gradient(135deg,#ff6b9d33,#c44dff33);"
         "border-color:#c44dff88;color:#fff}"
-        ".cards{display:grid;gap:12px}"
+        ".cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,480px),1fr));}"
         ".card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);"
         "border-radius:12px;padding:16px;transition:.2s;cursor:pointer;text-decoration:none;color:inherit;display:block}"
         ".card:hover{background:rgba(255,255,255,.07);border-color:rgba(196,77,255,.4);transform:translateY(-1px)}"
