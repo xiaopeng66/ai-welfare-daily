@@ -103,9 +103,9 @@ def main():
         ".card-title{font-size:.95rem;font-weight:600;color:#f0f0ff;margin-bottom:6px;line-height:1.4}"
         ".card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}"
         ".tag{font-size:.72rem;padding:2px 8px;border-radius:10px;font-weight:500}"
-        ".tag-抽奖{background:#ff6b9d33;color:#ff9dbf}.tag-兑换码{background:#ffb34733;color:#ffd080}"
-        ".tag-公益站{background:#4ade8033;color:#86efac}.tag-额度赠送{background:#60a5fa33;color:#93c5fd}"
-        ".tag-福利放送{background:#c084fc33;color:#d8b4fe}"
+        ".tag-中转站{background:#60a5fa33;color:#93c5fd}.tag-公益站{background:#4ade8033;color:#86efac}.tag-鸡蛋{background:#ffb34733;color:#ffd080}"
+        ".tag-兑换码{background:#ff6b9d33;color:#ff9dbf}.tag-额度{background:#c084fc33;color:#d8b4fe}.tag-体验金{background:#f472b633;color:#f9a8d4}"
+        ".tag-抽奖{background:#34d39933;color:#6ee7b7}"
         ".source{font-size:.72rem;color:#9090a0;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05)}"
         ".score{font-size:.72rem;color:#808090;margin-left:4px}"
         ".post-time{font-size:.72rem;color:#a0a0a0;margin-left:auto;padding:2px 6px;border-radius:6px}"
@@ -125,8 +125,8 @@ def main():
         ".tag,.source,.score,.post-time{font-size:.68rem}"
         "}"
         "</style></head><body><div class=\"container\"><header>"
-        "<h1>🎁 LinuxSB 每日福利站</h1>"
-        "<p>聚合多站 AI 福利信息：中转站、兑换码、公益站、额度赠送、鸡蛋活动</p>"
+        "<h1>🎁 AI 福利日报</h1>"
+        "<p>聚合多站 AI 福利信息：中转站、公益站、鸡蛋、兑换码、额度、体验金、抽奖</p>"
         "</header><div class=\"stats\">"
         '<span class="stat-badge">📊 共 ' + str(len(topics)) + ' 条</span>'
         '<span class="stat-badge">🕐 更新于 ' + esc(now) + '</span>'
@@ -140,13 +140,15 @@ def main():
         '<button class=\"filter-btn\" data-filter=\"linuxsb\">linux.sb</button>'
         '<button class=\"filter-btn\" data-filter=\"baipiao\">baipiao.org</button>'
         '<button class=\"filter-btn\" data-filter=\"nodeloc\">nodeloc.com</button></div>'
-        '<div class=\"filter-row\" data-group=\"category\"><span class=\"filter-label\">分类：</span>'
-        '<button class=\"filter-btn active\" data-filter=\"all\">全部</button>'
-        '<button class=\"filter-btn\" data-filter=\"抽奖\">🎲 抽奖</button>'
-        '<button class=\"filter-btn\" data-filter=\"兑换码\">🎫 兑换码</button>'
-        '<button class=\"filter-btn\" data-filter=\"公益站\">💝 公益站</button>'
-        '<button class=\"filter-btn\" data-filter=\"额度赠送\">💰 额度赠送</button>'
-        '<button class=\"filter-btn\" data-filter=\"福利放送\">🎉 福利放送</button></div>'
+        '<div class="filter-row" data-group="category"><span class="filter-label">分类：</span>'
+        '<button class="filter-btn active" data-filter="all">全部</button>'
+        '<button class="filter-btn" data-filter="中转站">🔄 中转站</button>'
+        '<button class="filter-btn" data-filter="公益站">💝 公益站</button>'
+        '<button class="filter-btn" data-filter="鸡蛋">🥚 鸡蛋</button>'
+        '<button class="filter-btn" data-filter="兑换码">🎫 兑换码</button>'
+        '<button class="filter-btn" data-filter="额度">💰 额度</button>'
+        '<button class="filter-btn" data-filter="体验金">🎁 体验金</button>'
+        '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button></div>'
         "</div><div class=\"cards\" id=\"cards\">" + cards_html + "</div><footer>"
         '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
         '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
