@@ -6,7 +6,6 @@ Sources:
   - linux.sb: /forum/2, /forum/8, /index.php?sort=lucky, /index.php?sort=card, /
   - baipiao.org: /bbs
   - nodeloc.com: /latest
-  - linux.do: /c/welfare/36 (best-effort, often unreachable)
 """
 import argparse
 import json
@@ -22,7 +21,6 @@ import ssl
 BASE_LINUXSB = "https://linux.sb"
 BASE_BAIPIAO = "https://baipiao.org"
 BASE_NODELOC = "https://www.nodeloc.com"
-BASE_LINUXDO = "https://linux.do"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; linuxsb-daily/1.0; +https://github.com/xiaopeng66/linuxsb-daily)",
@@ -205,6 +203,8 @@ def fetch_linuxsb() -> list:
         try:
             html = fetcher()
             topics = parse_topics(html, LinuxSBHTMLParser)
+            for t in topics:
+                t["source"] = name
             print(f"[fetch] {name}: {len(topics)} topics", file=sys.stderr)
             all_topics.extend(topics)
         except Exception as e:
@@ -219,6 +219,8 @@ def fetch_baipiao() -> list:
         try:
             html = fetch(url)
             topics = parse_topics(html, BaipiaoHTMLParser)
+            for t in topics:
+                t["source"] = f"baipiao_p{page}"
             print(f"[fetch] baipiao page {page}: {len(topics)} topics", file=sys.stderr)
             all_topics.extend(topics)
         except Exception as e:
@@ -234,24 +236,14 @@ def fetch_nodeloc() -> list:
         try:
             html = fetch(url)
             topics = parse_topics(html, NodeLocHTMLParser)
+            for t in topics:
+                t["source"] = f"nodeloc_p{page}"
             print(f"[fetch] nodeloc page {page}: {len(topics)} topics", file=sys.stderr)
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] nodeloc page {page} failed: {e}", file=sys.stderr)
             break
     return all_topics
-
-
-def fetch_linuxdo() -> list:
-    """Linux.do is often unreachable from some networks; skip gracefully."""
-    topics = []
-    try:
-        html = fetch(f"{BASE_LINUXDO}/c/welfare/36", timeout=20)
-        topics = parse_topics(html, LinuxSBHTMLParser)
-        print(f"[fetch] linux.do: {len(topics)} topics", file=sys.stderr)
-    except Exception as e:
-        print(f"[warn] linux.do skipped: {e}", file=sys.stderr)
-    return topics
 
 
 def main():
@@ -270,8 +262,6 @@ def main():
     all_topics.extend(fetch_baipiao())
     # Source 7: nodeloc.com
     all_topics.extend(fetch_nodeloc())
-    # Source 8: linux.do (best-effort)
-    all_topics.extend(fetch_linuxdo())
 
     # Deduplicate
     all_topics = deduplicate(all_topics)
@@ -295,6 +285,7 @@ def main():
             "url": t["url"],
             "tags": t["tags"],
             "score": t["score"],
+            "source": t.get("source", ""),
             "fetched_at": now,
         })
 

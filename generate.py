@@ -33,16 +33,26 @@ def main():
     topics = load_topics(args.input)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
+    # Build cards HTML
     card_parts = []
     for t in topics:
         tags_html = "".join(
             '<span class="tag tag-' + esc(tag) + '">' + esc(tag) + "</span>"
             for tag in t.get("tags", [])
         )
+        source = t.get("source", "")
+        source_label = {
+            "linuxsb_福利放送": "linux.sb 福利放送",
+            "linuxsb_我要推广": "linux.sb 推广",
+            "linuxsb_抽奖": "linux.sb 抽奖",
+            "linuxsb_发卡": "linux.sb 发卡",
+            "linuxsb_首页": "linux.sb 首页",
+        }.get(source, source)
         card_parts.append(
             '<a class="card" href="' + esc(t["url"]) + '" target="_blank" rel="noopener">'
             "<div class=\"card-title\">" + esc(t["title"]) + "</div>"
             "<div class=\"card-meta\">" + tags_html
+            + '<span class="source">' + esc(source_label) + "</span>"
             + '<span class="score">匹配度 ' + str(t.get("score", 0)) + "</span></div>"
             "</a>"
         )
@@ -79,25 +89,31 @@ def main():
         ".tag-抽奖{background:#ff6b9d33;color:#ff9dbf}.tag-兑换码{background:#ffb34733;color:#ffd080}"
         ".tag-公益站{background:#4ade8033;color:#86efac}.tag-额度赠送{background:#60a5fa33;color:#93c5fd}"
         ".tag-福利放送{background:#c084fc33;color:#d8b4fe}"
-        ".score{font-size:.75rem;color:#808090;margin-left:auto}"
+        ".source{font-size:.75rem;color:#9090a0;margin-left:auto;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.05)}"
+        ".score{font-size:.75rem;color:#808090;margin-left:8px}"
         "footer{text-align:center;padding:30px 0 10px;color:#606070;font-size:.8rem}"
         "footer a{color:#8888a0;text-decoration:none}.empty{text-align:center;padding:60px 20px;color:#707080}"
         "</style></head><body><div class=\"container\"><header>"
         "<h1>🎁 LinuxSB 每日福利站</h1>"
-        "<p>自动聚合 linux.sb 的 AI 中转站福利 · 抽奖 · 兑换码 · 公益站 · 额度赠送</p>"
+        "<p>自动聚合 linux.sb / baipiao.org / nodeloc.com 的 AI 中转站福利 · 抽奖 · 兑换码 · 公益站 · 额度赠送</p>"
         "</header><div class=\"stats\">"
         '<span class="stat-badge">📊 共 ' + str(len(topics)) + ' 条</span>'
         '<span class="stat-badge">🕐 更新于 ' + esc(now) + '</span>'
-        '<span class="stat-badge">📡 数据来源 linux.sb</span>'
+        '<span class="stat-badge">📡 多源聚合</span>'
         "</div><div class=\"filters\" id=\"filters\">"
         '<button class="filter-btn active" data-filter="all">全部</button>'
+        '<button class="filter-btn" data-filter="linuxsb">linux.sb</button>'
+        '<button class="filter-btn" data-filter="baipiao">baipiao.org</button>'
+        '<button class="filter-btn" data-filter="nodeloc">nodeloc.com</button>'
         '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button>'
         '<button class="filter-btn" data-filter="兑换码">🎫 兑换码</button>'
         '<button class="filter-btn" data-filter="公益站">💝 公益站</button>'
         '<button class="filter-btn" data-filter="额度赠送">💰 额度赠送</button>'
         '<button class="filter-btn" data-filter="福利放送">🎉 福利放送</button>'
         "</div><div class=\"cards\" id=\"cards\">" + cards_html + "</div><footer>"
-        '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> · 由 '
+        '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
+        '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
+        '<a href="https://www.nodeloc.com/latest" target="_blank">nodeloc.com</a> · 由 '
         '<a href="https://github.com/' + esc(args.repo) + '" target="_blank">'
         + esc(args.repo) + "</a> 自动更新</p>"
         '<p style="margin-top:4px;">⚠️ 本站仅做信息聚合，不保证链接有效性和安全性，请自行甄别</p>'
@@ -105,15 +121,23 @@ def main():
         "const cards=" + cards_json + ";"
         "const container=document.getElementById('cards');"
         "const filters=document.querySelectorAll('.filter-btn');"
+
         "function render(filter){"
-        "const filtered=filter==='all'?cards:cards.filter(c=>c.tags.includes(filter));"
+        "const filtered=filter==='all'?cards:cards.filter(c=>{"
+        "if(['抽奖','兑换码','公益站','额度赠送','福利放送'].includes(filter)){return c.tags.includes(filter);}"
+        "if(filter==='linuxsb'){return c.source && c.source.startsWith('linuxsb');}"
+        "if(filter==='baipiao'){return c.source && c.source.startsWith('baipiao');}"
+        "if(filter==='nodeloc'){return c.source && c.source.startsWith('nodeloc');}"
+        "return true;});"
         "if(!filtered.length){container.innerHTML='<div class=\"empty\">该分类下暂无内容</div>';return;}"
         "container.innerHTML=filtered.map(card=>`"
         '<a class="card" href="${escapeAttr(card.url)}" target="_blank" rel="noopener">'
         '<div class="card-title">${escapeHtml(card.title)}</div>'
         '<div class="card-meta">${card.tags.map(t=>`<span class="tag tag-${escapeAttr(t)}">${escapeHtml(t)}</span>`).join("")}'
+        '<span class="source">${escapeHtml(card.source||"")}</span>'
         '<span class="score">匹配度 ${card.score}</span></div></a>'
         '`).join("");}'
+
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
         "filters.forEach(btn=>{btn.addEventListener('click',()=>{"
