@@ -1,8 +1,8 @@
 # LinuxSB 每日福利站
 
-自动抓取 [linux.sb](https://linux.sb) 的 AI 中转站福利帖子，每日更新。
+自动抓取 **linux.sb**、**baipiao.org**、**nodeloc.com** 等站的 AI 中转站福利帖子，每日更新。
 
-**数据来源：** linux.sb 的福利放送、我要推广、抽奖、发卡板块  
+**数据来源：** linux.sb（福利放送/我要推广/抽奖/发卡）、baipiao.org/bbs、nodeloc.com/latest  
 **更新频率：** 每天 20:00（UTC+8）  
 **托管：** GitHub Pages
 
