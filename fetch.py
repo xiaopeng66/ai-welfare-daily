@@ -45,8 +45,17 @@ def fetch(url: str, timeout: int = 20) -> str:
     proxy_handler = urllib.request.ProxyHandler({"http": _PROXY_URL, "https": _PROXY_URL})
     opener = urllib.request.build_opener(proxy_handler)
     req = urllib.request.Request(url, headers=HEADERS)
-    with opener.open(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        if _PROXY_HOST not in (None, "", "127.0.0.1", "localhost"):
+            raise
+        # In GitHub Actions or when proxy is unavailable, retry direct
+        direct_opener = urllib.request.build_opener()
+        req2 = urllib.request.Request(url, headers=HEADERS)
+        with direct_opener.open(req2, timeout=timeout) as resp:
+            return resp.read().decode("utf-8", errors="replace")
 
 
 CATEGORY_KEYWORDS = {
