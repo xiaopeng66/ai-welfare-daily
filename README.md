@@ -18,4 +18,4 @@ python3 generate.py -i data/topics.jsonl -o docs/index.html
 
 ## 在线访问
 
-https://1847531284.github.io/linuxsb-daily/
+https://xiaopeng66.github.io/linuxsb-daily/

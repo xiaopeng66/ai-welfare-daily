@@ -27,7 +27,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", "-i", default="data/topics.jsonl")
     ap.add_argument("--output", "-o", default="docs/index.html")
-    ap.add_argument("--repo", default="1847531284/linuxsb-daily")
+    ap.add_argument("--repo", default="xiaopeng66/linuxsb-daily")
     args = ap.parse_args()
 
     topics = load_topics(args.input)
