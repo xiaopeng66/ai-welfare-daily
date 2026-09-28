@@ -35,6 +35,20 @@ _SSL_CTX = ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = ssl.CERT_NONE
 
+# Use Clash proxy for all HTTP requests
+_PROXY_HOST = os.environ.get("CLASH_PROXY_HOST", "127.0.0.1")
+_PROXY_PORT = int(os.environ.get("CLASH_PROXY_PORT", "7897"))
+_PROXY_URL = f"http://{_PROXY_HOST}:{_PROXY_PORT}"
+
+
+def fetch(url: str, timeout: int = 20) -> str:
+    proxy_handler = urllib.request.ProxyHandler({"http": _PROXY_URL, "https": _PROXY_URL})
+    opener = urllib.request.build_opener(proxy_handler)
+    req = urllib.request.Request(url, headers=HEADERS)
+    with opener.open(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
 CATEGORY_KEYWORDS = {
     "抽奖": ["抽奖", "盲盒", "中奖", "欧皇"],
     "兑换码": ["兑换码", "邀请码", "注册码", "code", "key", "cdk"],
@@ -89,7 +103,6 @@ class BaipiaoHTMLParser(HTMLParser):
             return
         attrs_dict = dict(attrs)
         href = attrs_dict.get("href", "")
-        # Match /bbs/d/N-slug without relying on complex character classes
         m = re.search(r"/bbs/d/(\d+-[^\s\"#]+)", href)
         if m:
             self._current_href = m.group(0)
@@ -137,12 +150,6 @@ class NodeLocHTMLParser(HTMLParser):
                 })
             self._in_link = False
             self._current_href = None
-
-
-def fetch(url: str, timeout: int = 20) -> str:
-    req = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
-        return resp.read().decode("utf-8", errors="replace")
 
 
 def parse_topics(html: str, parser_class) -> list:
@@ -230,7 +237,7 @@ def fetch_linuxdo() -> list:
     """Linux.do is often unreachable from some networks; skip gracefully."""
     topics = []
     try:
-        html = fetch(f"{BASE_LINUXDO}/c/welfare/36", timeout=15)
+        html = fetch(f"{BASE_LINUXDO}/c/welfare/36", timeout=20)
         topics = parse_topics(html, LinuxSBHTMLParser)
         print(f"[fetch] linux.do: {len(topics)} topics", file=sys.stderr)
     except Exception as e:
