@@ -62,11 +62,12 @@ def main():
         card_parts.append(
             '<a class="card" href="' + esc(t["url"]) + '" target="_blank" rel="noopener">'
             "<div class=\"card-title\">" + esc(t["title"]) + "</div>"
-            "<div class=\"card-meta\">" + tags_html
+            "<div class=\"card-meta\">" + tags_html + "</div>"
+            "<div class=\"card-footer\">"
             + '<span class="source">' + esc(source_label) + "</span>"
             + '<span class="score">匹配度 ' + str(t.get("score", 0)) + "</span>"
-            + '<span class="post-time">' + esc(_fmt_time(t.get("created_at") or t.get("fetched_at"))) + "</span></div>"
-            "</a>"
+            + '<span class="post-time">' + esc(_fmt_time(t.get("created_at") or t.get("fetched_at"))) + "</span>"
+            + "</div></a>"
         )
     cards_html = "\n".join(card_parts)
     cards_json = json.dumps(topics, ensure_ascii=False)
@@ -94,7 +95,8 @@ def main():
         "touch-action:manipulation;-webkit-tap-highlight-color:transparent}"
         ".filter-btn:hover,.filter-btn.active{background:linear-gradient(135deg,#ff6b9d33,#c44dff33);"
         "border-color:#c44dff88;color:#fff}"
-        ".cards{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));}"
+        ".cards{display:grid;gap:10px;grid-template-columns:1fr}"
+        "@media(min-width:768px){.cards{grid-template-columns:repeat(2,1fr)}}"
         ".card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);"
         "border-radius:12px;padding:14px;transition:.2s;cursor:pointer;text-decoration:none;color:inherit;display:block}"
         ".card:hover{background:rgba(255,255,255,.07);border-color:rgba(196,77,255,.4);transform:translateY(-1px)}"
@@ -104,9 +106,10 @@ def main():
         ".tag-抽奖{background:#ff6b9d33;color:#ff9dbf}.tag-兑换码{background:#ffb34733;color:#ffd080}"
         ".tag-公益站{background:#4ade8033;color:#86efac}.tag-额度赠送{background:#60a5fa33;color:#93c5fd}"
         ".tag-福利放送{background:#c084fc33;color:#d8b4fe}"
-        ".source{font-size:.72rem;color:#9090a0;margin-left:auto;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05)}"
+        ".source{font-size:.72rem;color:#9090a0;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05)}"
         ".score{font-size:.72rem;color:#808090;margin-left:4px}"
         ".post-time{font-size:.72rem;color:#a0a0a0;margin-left:auto;padding:2px 6px;border-radius:6px}"
+        ".card-footer{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}"
         "footer{text-align:center;padding:24px 0 10px;color:#606070;font-size:.78rem}"
         "footer a{color:#8888a0;text-decoration:none}.empty{text-align:center;padding:50px 16px;color:#707080}"
         "@media(max-width:600px){"
@@ -180,8 +183,8 @@ def main():
         "container.innerHTML=filtered.map(card=>`"
         '<a class="card" href="${escapeAttr(card.url)}" target="_blank" rel="noopener">'
         '<div class="card-title">${escapeHtml(card.title)}</div>'
-        '<div class="card-meta">${card.tags.map(t=>`<span class="tag tag-${escapeAttr(t)}">${escapeHtml(t)}</span>`).join("")}'
-        '<span class="source">${escapeHtml(card.source||"")}</span>'
+        '<div class="card-meta">${card.tags.map(t=>`<span class="tag tag-${escapeAttr(t)}">${escapeHtml(t)}</span>`).join("")}</div>'
+        '<div class="card-footer"><span class="source">${escapeHtml(card.source||"")}</span>'
         '<span class="score">匹配度 ${card.score}</span>'
         '<span class="post-time">${formatTime(card.created_at||card.fetched_at)}</span></div></a>'
         '`).join("");}'
