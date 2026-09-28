@@ -74,7 +74,7 @@ def main():
     html = (
         '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        "<title>LinuxSB 每日福利站</title><style>"
+        '<title>AI 福利日报 - 中转站/兑换码/公益站/额度/鸡蛋</title><style>'
         "*{box-sizing:border-box;margin:0;padding:0}"
         "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC',sans-serif;"
         "background:linear-gradient(135deg,#1e1e2e,#2d2d44);color:#e6e6e6;min-height:100vh;padding:16px}"
@@ -123,7 +123,7 @@ def main():
         "}"
         "</style></head><body><div class=\"container\"><header>"
         "<h1>🎁 LinuxSB 每日福利站</h1>"
-        "<p>自动聚合 linux.sb / baipiao.org / nodeloc.com 的 AI 中转站福利 · 抽奖 · 兑换码 · 公益站 · 额度赠送</p>"
+        "<p>聚合多站 AI 福利信息：中转站、兑换码、公益站、额度赠送、鸡蛋活动</p>"
         "</header><div class=\"stats\">"
         '<span class="stat-badge">📊 共 ' + str(len(topics)) + ' 条</span>'
         '<span class="stat-badge">🕐 更新于 ' + esc(now) + '</span>'
