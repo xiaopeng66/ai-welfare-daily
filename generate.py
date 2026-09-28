@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from html import escape
 
 
@@ -41,7 +41,8 @@ def main():
     args = ap.parse_args()
 
     topics = load_topics(args.input)
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    bj = timezone(timedelta(hours=8))
+    now = datetime.now(bj).strftime("%Y-%m-%d %H:%M")
 
     # Build cards HTML
     card_parts = []
@@ -76,36 +77,50 @@ def main():
         "<title>LinuxSB 每日福利站</title><style>"
         "*{box-sizing:border-box;margin:0;padding:0}"
         "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC',sans-serif;"
-        "background:linear-gradient(135deg,#1e1e2e,#2d2d44);color:#e6e6e6;min-height:100vh;padding:20px}"
-        ".container{max-width:960px;margin:0 auto}"
-        "header{text-align:center;padding:30px 0}"
-        "header h1{font-size:2rem;background:linear-gradient(90deg,#ff6b9d,#c44dff,#6b9dff);"
-        "-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}"
-        "header p{color:#a0a0b8;font-size:.9rem}"
-        ".stats{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:20px}"
+        "background:linear-gradient(135deg,#1e1e2e,#2d2d44);color:#e6e6e6;min-height:100vh;padding:16px}"
+        ".container{max-width:960px;margin:0 auto;padding:0 8px}"
+        "header{text-align:center;padding:24px 0}"
+        "header h1{font-size:1.6rem;background:linear-gradient(90deg,#ff6b9d,#c44dff,#6b9dff);"
+        "-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}"
+        "header p{color:#a0a0b8;font-size:.82rem;padding:0 12px}"
+        ".stats{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}"
         ".stat-badge{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);"
-        "padding:6px 14px;border-radius:20px;font-size:.85rem;color:#b0b0c8}"
-        ".filters{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px}"
-        ".filter-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}"
-        ".filter-label{font-size:.8rem;color:#9090a8;margin-right:4px}"
+        "padding:5px 12px;border-radius:18px;font-size:.78rem;color:#b0b0c8}"
+        ".filters{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:20px}"
+        ".filter-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:center}"
+        ".filter-label{font-size:.75rem;color:#9090a8;margin-right:2px;min-width:2.5em}"
         ".filter-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);"
-        "color:#d0d0e0;padding:6px 14px;border-radius:18px;cursor:pointer;font-size:.85rem;transition:.2s}"
+        "color:#d0d0e0;padding:5px 12px;border-radius:16px;cursor:pointer;font-size:.78rem;transition:.2s;"
+        "touch-action:manipulation;-webkit-tap-highlight-color:transparent}"
         ".filter-btn:hover,.filter-btn.active{background:linear-gradient(135deg,#ff6b9d33,#c44dff33);"
         "border-color:#c44dff88;color:#fff}"
-        ".cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,480px),1fr));}"
+        ".cards{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));}"
         ".card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);"
-        "border-radius:12px;padding:16px;transition:.2s;cursor:pointer;text-decoration:none;color:inherit;display:block}"
+        "border-radius:12px;padding:14px;transition:.2s;cursor:pointer;text-decoration:none;color:inherit;display:block}"
         ".card:hover{background:rgba(255,255,255,.07);border-color:rgba(196,77,255,.4);transform:translateY(-1px)}"
-        ".card-title{font-size:1rem;font-weight:600;color:#f0f0ff;margin-bottom:8px;line-height:1.4}"
-        ".card-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}"
-        ".tag{font-size:.75rem;padding:2px 10px;border-radius:10px;font-weight:500}"
+        ".card-title{font-size:.95rem;font-weight:600;color:#f0f0ff;margin-bottom:6px;line-height:1.4}"
+        ".card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}"
+        ".tag{font-size:.72rem;padding:2px 8px;border-radius:10px;font-weight:500}"
         ".tag-抽奖{background:#ff6b9d33;color:#ff9dbf}.tag-兑换码{background:#ffb34733;color:#ffd080}"
         ".tag-公益站{background:#4ade8033;color:#86efac}.tag-额度赠送{background:#60a5fa33;color:#93c5fd}"
         ".tag-福利放送{background:#c084fc33;color:#d8b4fe}"
-        ".source{font-size:.75rem;color:#9090a0;margin-left:auto;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.05)}"
-        ".score{font-size:.75rem;color:#808090;margin-left:8px}"
-        "footer{text-align:center;padding:30px 0 10px;color:#606070;font-size:.8rem}"
-        "footer a{color:#8888a0;text-decoration:none}.empty{text-align:center;padding:60px 20px;color:#707080}"
+        ".source{font-size:.72rem;color:#9090a0;margin-left:auto;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05)}"
+        ".score{font-size:.72rem;color:#808090;margin-left:4px}"
+        ".post-time{font-size:.72rem;color:#a0a0a0;margin-left:auto;padding:2px 6px;border-radius:6px}"
+        "footer{text-align:center;padding:24px 0 10px;color:#606070;font-size:.78rem}"
+        "footer a{color:#8888a0;text-decoration:none}.empty{text-align:center;padding:50px 16px;color:#707080}"
+        "@media(max-width:600px){"
+        "body{padding:12px}"
+        ".container{padding:0 4px}"
+        "header h1{font-size:1.35rem}"
+        "header p{font-size:.78rem}"
+        ".stat-badge{font-size:.72rem;padding:4px 10px}"
+        ".filter-btn{padding:5px 10px;font-size:.75rem;border-radius:14px}"
+        ".cards{gap:8px}"
+        ".card{padding:12px}"
+        ".card-title{font-size:.88rem}"
+        ".tag,.source,.score,.post-time{font-size:.68rem}"
+        "}"
         "</style></head><body><div class=\"container\"><header>"
         "<h1>🎁 LinuxSB 每日福利站</h1>"
         "<p>自动聚合 linux.sb / baipiao.org / nodeloc.com 的 AI 中转站福利 · 抽奖 · 兑换码 · 公益站 · 额度赠送</p>"

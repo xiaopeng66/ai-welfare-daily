@@ -66,10 +66,7 @@ CATEGORY_KEYWORDS = {
 
 # Strong relevance keywords; title must contain at least one
 RELEVANCE_KEYWORDS = [
-    "中转站", "公益站", "鸡蛋", "兑换码", "抽奖", "福利", "额度", "送", "邀请码",
-    "注册码", "code", "key", "cdk", "免费", "白嫖", "羊毛", "token", "credit",
-    "刀", "积分", "体验金", "订阅", "会员", "gpt", "claude", "gemini", "deepseek",
-    "qwen", "kimi", "glm", "api", "api2d", "openai", "azure", "模型",
+    "中转站", "公益站", "鸡蛋", "兑换码", "额度", "体验金",
 ]
 
 
