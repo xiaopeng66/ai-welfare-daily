@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from html.parser import HTMLParser
 
@@ -54,6 +55,24 @@ def fetch(url: str, timeout: int = 20) -> str:
         req2 = urllib.request.Request(url, headers=HEADERS)
         with direct_opener.open(req2, timeout=timeout) as resp:
             return resp.read().decode("utf-8", errors="replace")
+
+
+def fetch_topic_published_time(topic_id: str) -> str | None:
+    """Fetch a topic page and extract the true published time from meta tags."""
+    url = f"{BASE_LINUXSB}/topic/{topic_id}"
+    try:
+        html = fetch(url, timeout=15)
+        match = re.search(
+            r'<meta[^>]+property="article:published_time"[^>]+content="([^"]+)"',
+            html,
+        )
+        if match:
+            published = match.group(1)
+            dt = datetime.fromisoformat(published)
+            return dt.astimezone(timezone.utc).isoformat()
+    except Exception:
+        pass
+    return None
 
 
 CATEGORY_KEYWORDS = {
@@ -250,6 +269,7 @@ def fetch_linuxsb() -> list:
                     "title": clean_title,
                     "url": f"{BASE_LINUXSB}/topic/{topic_id}",
                     "created_at": created_at,
+                    "_ts_fallback": created_at,
                 })
             for t in topics:
                 t["source"] = name
@@ -257,6 +277,30 @@ def fetch_linuxsb() -> list:
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] {name} failed: {e}", file=sys.stderr)
+
+    unique_ids = [t["id"] for t in all_topics]
+    published_map = {}
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_id = {
+            executor.submit(fetch_topic_published_time, tid): tid
+            for tid in unique_ids
+        }
+        for future in as_completed(future_to_id):
+            tid = future_to_id[future]
+            try:
+                published_map[tid] = future.result()
+            except Exception:
+                pass
+
+    for t in all_topics:
+        true_time = published_map.get(t["id"])
+        if true_time:
+            t["created_at"] = true_time
+        elif not t.get("created_at"):
+            t["created_at"] = t.pop("_ts_fallback", None)
+        else:
+            t.pop("_ts_fallback", None)
+
     return all_topics
 
 
