@@ -33,6 +33,17 @@ def _fmt_time(iso):
         return iso[:16] if iso else "未知时间"
 
 
+def _parse_sortable(created_at):
+    if not created_at:
+        return 0
+    try:
+        s = created_at.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return dt.timestamp()
+    except Exception:
+        return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", "-i", default="data/topics.jsonl")
@@ -43,6 +54,19 @@ def main():
     topics = load_topics(args.input)
     bj = timezone(timedelta(hours=8))
     now = datetime.now(bj).strftime("%Y-%m-%d %H:%M")
+
+    # Determine new vs old topics based on last update timestamp
+    last_update_path = os.path.join(os.path.dirname(args.input) or ".", "last_update_bj.txt")
+    last_update_ts = 0
+    if os.path.exists(last_update_path):
+        try:
+            with open(last_update_path, "r", encoding="utf-8") as f:
+                last_update_ts = _parse_sortable(f.read().strip())
+        except Exception:
+            pass
+    for t in topics:
+        created = t.get("created_at") or t.get("fetched_bj") or t.get("fetched_at") or ""
+        t["is_new"] = bool(last_update_ts and _parse_sortable(created) > last_update_ts)
 
     # Build cards HTML
     card_parts = []
@@ -111,6 +135,8 @@ def main():
         ".score{font-size:.72rem;color:#808090;margin-left:4px}"
         ".post-time{font-size:.72rem;color:#a0a0a0;margin-left:auto;padding:2px 6px;border-radius:6px}"
         ".card-footer{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}"
+        ".section-header{font-size:.85rem;font-weight:600;padding:8px 4px;color:#c0c0d0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px}"
+        ".new-section{color:#ff9dbf}.old-section{color:#9090a0}"
         "footer{text-align:center;padding:24px 0 10px;color:#606070;font-size:.78rem}"
         "footer a{color:#8888a0;text-decoration:none}.empty{text-align:center;padding:50px 16px;color:#707080}"
         "@media(max-width:600px){"
@@ -151,7 +177,12 @@ def main():
         '<button class="filter-btn" data-filter="额度">💰 额度</button>'
         '<button class="filter-btn" data-filter="体验金">🎁 体验金</button>'
         '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button></div>'
-        "</div><div class=\"cards\" id=\"cards\">" + cards_html + "</div><footer>"
+        "</div><div id=\"cards\">"
+        '<div class="section-header new-section">🆕 本次更新后</div>'
+        '<div class="cards" id="cards-new"></div>'
+        '<div class="section-header old-section">📋 之前已有</div>'
+        '<div class="cards" id="cards-old"></div>'
+        "</div><footer>"
         '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
         '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
         '<a href="https://www.nodeloc.com/latest" target="_blank">nodeloc.com</a> · 由 '
@@ -160,7 +191,8 @@ def main():
         '<p style="margin-top:4px;">⚠️ 本站仅做信息聚合，不保证链接有效性和安全性，请自行甄别</p>'
         "</footer></div><script>"
         "const cards=" + cards_json + ";"
-        "const container=document.getElementById('cards');"
+        "const containerNew=document.getElementById('cards-new');"
+        "const containerOld=document.getElementById('cards-old');"
         "const filters=document.querySelectorAll('.filter-btn');"
         "let sortMode='relevance';"
         "let sourceFilter='all';"
@@ -177,21 +209,27 @@ def main():
         "return true;});"
         "return filtered;}"
 
+        "function renderCard(card){"
+        "return '<a class=\"card\" href=\"'+escapeAttr(card.url)+'\" target=\"_blank\" rel=\"noopener\">'"
+        "+'<div class=\"card-title\">'+escapeHtml(card.title)+'</div>'"
+        "+'<div class=\"card-meta\">'+card.tags.map(t=>'<span class=\"tag tag-'+escapeAttr(t)+'\">'+escapeHtml(t)+'</span>').join('')+'</div>'"
+        "+'<div class=\"card-footer\"><span class=\"source\">'+escapeHtml(card.source||'')+'</span>'"
+        "+'<span class=\"score\">匹配度 '+card.score+'</span>'"
+        "+'<span class=\"post-time\">'+formatTime(card.created_at||card.fetched_at)+'</span></div></a>';}"
+
         "function render(){"
         "let filtered=getFiltered();"
         "if(sortMode==='time'){filtered=[...filtered].sort((a,b)=>{"
         "const at=a.created_at||a.fetched_at||'';const bt=b.created_at||b.fetched_at||'';"
         "return bt.localeCompare(at);});}"
         "else{filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(b.fetched_at||'').localeCompare(a.fetched_at||''));}"
-        "if(!filtered.length){container.innerHTML='<div class=\"empty\">该筛选下暂无内容</div>';return;}"
-        "container.innerHTML=filtered.map(card=>`"
-        '<a class="card" href="${escapeAttr(card.url)}" target="_blank" rel="noopener">'
-        '<div class="card-title">${escapeHtml(card.title)}</div>'
-        '<div class="card-meta">${card.tags.map(t=>`<span class="tag tag-${escapeAttr(t)}">${escapeHtml(t)}</span>`).join("")}</div>'
-        '<div class="card-footer"><span class="source">${escapeHtml(card.source||"")}</span>'
-        '<span class="score">匹配度 ${card.score}</span>'
-        '<span class="post-time">${formatTime(card.created_at||card.fetched_at)}</span></div></a>'
-        '`).join("");}'
+        "const newCards=filtered.filter(c=>c.is_new);"
+        "const oldCards=filtered.filter(c=>!c.is_new);"
+        "if(!newCards.length){containerNew.innerHTML='<div class=\"empty\">该筛选下暂无新帖</div>';}"
+        "else{containerNew.innerHTML=newCards.map(renderCard).join('');}"
+        "if(!oldCards.length){containerOld.innerHTML='<div class=\"empty\">该筛选下暂无旧帖</div>';}"
+        "else{containerOld.innerHTML=oldCards.map(renderCard).join('');}"
+        "if(!filtered.length){containerNew.innerHTML='<div class=\"empty\">该筛选下暂无内容</div>';containerOld.innerHTML='';}"
 
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
