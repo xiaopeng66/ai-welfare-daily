@@ -217,6 +217,7 @@ def main():
         "if(!oldCards.length){containerOld.innerHTML='<div class=\"empty\">该筛选下暂无旧帖</div>';}"
         "else{containerOld.innerHTML=oldCards.map(renderCard).join('');}"
         "if(!filtered.length){containerNew.innerHTML='<div class=\"empty\">该筛选下暂无内容</div>';containerOld.innerHTML='';}"
+        "}"
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
         "function formatTime(iso){if(!iso) return '未知时间';try{const d=new Date(iso);return d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}"
@@ -233,7 +234,6 @@ def main():
         "if(group && group.dataset.group==='category'){categoryFilter=btn.dataset.filter;"
         "group.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();return;}"
         "});});"
-        "}"
         "render();</script></body></html>"
     )
 
