@@ -65,8 +65,8 @@ def main():
         except Exception:
             pass
     for t in topics:
-        created = t.get("created_at") or t.get("fetched_bj") or t.get("fetched_at") or ""
-        t["is_new"] = bool(last_update_ts and _parse_sortable(created) > last_update_ts)
+        fetched = t.get("fetched_bj") or t.get("fetched_at") or t.get("created_at") or ""
+        t["is_new"] = bool(last_update_ts and _parse_sortable(fetched) > last_update_ts)
 
     # Build cards HTML
     card_parts = []
