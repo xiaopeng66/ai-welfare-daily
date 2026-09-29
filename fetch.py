@@ -353,7 +353,8 @@ def fetch_nodeloc() -> list:
                 for t in data.get("topic_list", {}).get("topics", []):
                     topic_id = t.get("id")
                     title = t.get("title", "")
-                    created = t.get("bumped_at") or t.get("created_at") or t.get("last_posted_at")
+                    # Prefer created_at; bumped_at/last_posted_at are reply times
+                    created = t.get("created_at") or t.get("bumped_at") or t.get("last_posted_at")
                     topics.append({
                         "id": str(topic_id),
                         "title": title,
