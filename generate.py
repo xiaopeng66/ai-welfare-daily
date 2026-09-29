@@ -55,21 +55,6 @@ def main():
     bj = timezone(timedelta(hours=8))
     now = datetime.now(bj).strftime("%Y-%m-%d %H:%M")
 
-    # Determine new vs old topics based on last update timestamp
-    last_update_path = os.path.join(os.path.dirname(args.input) or ".", "last_update_bj.txt")
-    last_update_ts = 0
-    if os.path.exists(last_update_path):
-        try:
-            with open(last_update_path, "r", encoding="utf-8") as f:
-                last_update_ts = _parse_sortable(f.read().strip())
-        except Exception:
-            pass
-    for t in topics:
-        fetched = t.get("fetched_bj") or t.get("fetched_at") or t.get("created_at") or ""
-        t["is_new"] = bool(last_update_ts and _parse_sortable(fetched) > last_update_ts)
-    print("DEBUG: last_update_ts=", last_update_ts)
-    print("DEBUG: first 3 is_new values:", [t.get("is_new") for t in topics[:3]])
-
     # Build cards HTML
     card_parts = []
     for t in topics:

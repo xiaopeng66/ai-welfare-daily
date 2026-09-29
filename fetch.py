@@ -338,14 +338,12 @@ def main():
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
-    bj = timezone(timedelta(hours=8))
-    now_bj = datetime.now(bj).isoformat()
-    last_update_path = os.path.join(os.path.dirname(args.output) or ".", "last_update_bj.txt")
-    last_update_ts = 0
-    if os.path.exists(last_update_path):
+    seen_ids_path = os.path.join(os.path.dirname(args.output) or ".", "seen_ids.txt")
+    seen_ids = set()
+    if os.path.exists(seen_ids_path):
         try:
-            with open(last_update_path, "r", encoding="utf-8") as f:
-                last_update_ts = _parse_sortable(f.read().strip())
+            with open(seen_ids_path, "r", encoding="utf-8") as f:
+                seen_ids = {line.strip() for line in f if line.strip()}
         except Exception:
             pass
 
@@ -382,8 +380,6 @@ def main():
     all_topics = all_topics[: args.limit]
 
     # Normalize output
-    bj = timezone(timedelta(hours=8))
-    now_bj = datetime.now(bj).isoformat()
     out = []
     for t in all_topics:
         out.append({
@@ -394,18 +390,18 @@ def main():
             "score": t.get("score", 0),
             "source": t.get("source", ""),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
-            "fetched_bj": now_bj,
             "created_at": t.get("created_at"),
+            "is_new": t["id"] not in seen_ids,
         })
 
     with open(args.output, "w", encoding="utf-8") as f:
         for item in out:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-    # Persist last update timestamp for "new vs old" splitting
-    state_path = os.path.join(os.path.dirname(args.output) or ".", "last_update_bj.txt")
-    with open(state_path, "w", encoding="utf-8") as f:
-        f.write(now_bj)
+    # Persist seen ids for next "new vs old" splitting
+    with open(seen_ids_path, "w", encoding="utf-8") as f:
+        for t in all_topics:
+            f.write(t["id"] + "\n")
 
     print(f"[done] wrote {len(out)} topics to {args.output}", file=sys.stderr)
 
