@@ -69,6 +69,12 @@ def main():
             "linuxsb_抽奖": "linux.sb 抽奖",
             "linuxsb_发卡": "linux.sb 发卡",
             "linuxsb_首页": "linux.sb 首页",
+            "baipiao_p1": "baipiao.org",
+            "baipiao_p2": "baipiao.org",
+            "baipiao_p3": "baipiao.org",
+            "nodeloc_p1": "nodeloc.com",
+            "nodeloc_p2": "nodeloc.com",
+            "nodeloc_p3": "nodeloc.com",
         }.get(source, source)
         card_parts.append(
             '<a class="card" href="' + esc(t["url"]) + '" target="_blank" rel="noopener">'
@@ -207,9 +213,9 @@ def main():
         "function render(){"
         "let filtered=getFiltered();"
         "if(sortMode==='time'){filtered=[...filtered].sort((a,b)=>{"
-        "const at=a.created_at||a.fetched_at||'';const bt=b.created_at||b.fetched_at||'';"
-        "return bt.localeCompare(at);});}"
-        "else{filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(b.fetched_at||'').localeCompare(a.fetched_at||''));}"
+        "const at=Date.parse(a.created_at||a.fetched_at||0);const bt=Date.parse(b.created_at||b.fetched_at||0);"
+        "return bt-at;});}"
+        "else{filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(Date.parse(b.fetched_at||0)-Date.parse(a.fetched_at||0)));}"
         "const newCards=filtered.filter(c=>c.is_new);"
         "const oldCards=filtered.filter(c=>!c.is_new);"
         "if(!newCards.length){containerNew.innerHTML='<div class=\"empty\">该筛选下暂无新帖</div>';}"

@@ -134,9 +134,9 @@ class BaipiaoHTMLParser(HTMLParser):
             return
         attrs_dict = dict(attrs)
         href = attrs_dict.get("href") or ""
-        m = re.search(r'/bbs/d/(\d+-[^\s"#]+)', href)
+        m = re.search(r'/bbs/d/(\d+)', href)
         if m:
-            self._current_href = m.group(0)
+            self._current_href = m.group(1)
             self._in_link = True
 
     def handle_data(self, data):
@@ -399,9 +399,11 @@ def main():
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
     # Persist seen ids for next "new vs old" splitting
+    all_ids = {t["id"] for t in all_topics}
+    merged = seen_ids | all_ids
     with open(seen_ids_path, "w", encoding="utf-8") as f:
-        for t in all_topics:
-            f.write(t["id"] + "\n")
+        for id_ in sorted(merged):
+            f.write(id_ + "\n")
 
     print(f"[done] wrote {len(out)} topics to {args.output}", file=sys.stderr)
 
