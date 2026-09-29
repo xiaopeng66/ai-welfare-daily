@@ -67,6 +67,8 @@ def main():
     for t in topics:
         fetched = t.get("fetched_bj") or t.get("fetched_at") or t.get("created_at") or ""
         t["is_new"] = bool(last_update_ts and _parse_sortable(fetched) > last_update_ts)
+    print("DEBUG: last_update_ts=", last_update_ts)
+    print("DEBUG: first 3 is_new values:", [t.get("is_new") for t in topics[:3]])
 
     # Build cards HTML
     card_parts = []
