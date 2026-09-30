@@ -75,6 +75,9 @@ def main():
             "nodeloc_p1": "nodeloc.com",
             "nodeloc_p2": "nodeloc.com",
             "nodeloc_p3": "nodeloc.com",
+            "nodeloc_welfare_p1": "nodeloc 福利",
+            "nodeloc_welfare_p2": "nodeloc 福利",
+            "nodeloc_welfare_p3": "nodeloc 福利",
         }.get(source, source)
         card_parts.append(
             '<a class="card" href="' + esc(t["url"]) + '" target="_blank" rel="noopener">'
@@ -203,11 +206,19 @@ def main():
         "return true;});"
         "return filtered;}"
 
+        "function sourceLabel(s){"
+        "if(!s) return '';"
+        "if(s.indexOf('linuxsb')===0) return 'linux.sb';"
+        "if(s.indexOf('baipiao')===0) return 'baipiao.org';"
+        "if(s.indexOf('nodeloc_welfare')===0) return 'nodeloc 福利';"
+        "if(s.indexOf('nodeloc')===0) return 'nodeloc.com';"
+        "return s;}"
+
         "function renderCard(card){"
         "return '<a class=\"card\" href=\"'+escapeAttr(card.url)+'\" target=\"_blank\" rel=\"noopener\">'"
         "+'<div class=\"card-title\">'+escapeHtml(card.title)+'</div>'"
         "+'<div class=\"card-meta\">'+card.tags.map(t=>'<span class=\"tag tag-'+escapeAttr(t)+'\">'+escapeHtml(t)+'</span>').join('')+'</div>'"
-        "+'<div class=\"card-footer\"><span class=\"source\">'+escapeHtml(card.source||'')+'</span>'"
+        "+'<div class=\"card-footer\"><span class=\"source\">'+escapeHtml(sourceLabel(card.source))+'</span>'"
         "+'<span class=\"score\">匹配度 '+card.score+'</span>'"
         "+'<span class=\"post-time\">'+formatTime(card.created_at||card.fetched_at)+'</span></div></a>';}"
 

@@ -5,7 +5,7 @@ Scrapes multiple sites for AI 中转站福利 posts and emits a JSON lines file.
 Sources:
   - linux.sb: /forum/2, /forum/8, /index.php?sort=lucky, /index.php?sort=card, /
   - baipiao.org: /bbs/api/discussions
-  - nodeloc.com: /latest.json
+  - nodeloc.com: /latest.json, /c/welfare/12.json
 """
 import argparse
 import json
@@ -376,6 +376,36 @@ def fetch_baipiao() -> list:
     return all_topics
 
 
+def fetch_nodeloc_welfare() -> list:
+    """Fetch nodeloc.com welfare category (抽奖福利)."""
+    all_topics = []
+    for page in range(1, 4):
+        api_url = f"{BASE_NODELOC}/c/welfare/12.json?order=created&page={page}"
+        try:
+            html = fetch(api_url)
+            data = json.loads(html)
+            topics = []
+            for t in data.get("topic_list", {}).get("topics", []):
+                topic_id = t.get("id")
+                title = t.get("title", "")
+                created = t.get("created_at") or t.get("bumped_at") or t.get("last_posted_at")
+                topics.append({
+                    "id": str(topic_id),
+                    "title": title,
+                    "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
+                    "created_at": created,
+                    "source": f"nodeloc_welfare_p{page}",
+                    "published_verified": True,
+                })
+            print(f"[fetch] nodeloc welfare page {page}: {len(topics)} topics", file=sys.stderr)
+            all_topics.extend(topics)
+        except Exception as e:
+            print(f"[warn] nodeloc welfare page {page} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"nodeloc welfare page {page}: {e}")
+            break
+    return all_topics
+
+
 def fetch_nodeloc() -> list:
     all_topics = []
     for page in range(1, 4):
@@ -456,7 +486,8 @@ def main():
     linuxsb_topics = fetch_linuxsb(known_linuxsb_ids)
     baipiao_topics = fetch_baipiao()
     nodeloc_topics = fetch_nodeloc()
-    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics
+    nodeloc_welfare_topics = fetch_nodeloc_welfare()
+    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics
 
     # Partial failures are survivable now that we merge incrementally: cached
     # rows for the failed source stay in the store. Warn loudly (the workflow
