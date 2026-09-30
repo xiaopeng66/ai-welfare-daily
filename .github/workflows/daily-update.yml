@@ -28,12 +28,12 @@ jobs:
           python-version: '3.12'
 
       # linux.do is Cloudflare-protected and is fetched through Scrapling's
-      # StealthyFetcher. Without these deps fetch.py records a partial-fetch
-      # error and this workflow goes red, so install them up front.
+      # StealthyFetcher. The core wheel alone is not enough: the [fetchers]
+      # extra brings playwright/patchright AND click, which the `scrapling`
+      # CLI needs. Without this the CI run is red on "scrapling not installed".
       - name: Install scraper deps (Cloudflare-protected sources)
-        continue-on-error: true
         run: |
-          pip install "scrapling==0.4.8"
+          pip install "scrapling[fetchers]==0.4.8"
           scrapling install
 
       - name: Fetch topics from linux.sb
