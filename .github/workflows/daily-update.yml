@@ -19,6 +19,13 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      # linux.do answers GitHub runner (datacenter) IPs with 429, so this source
+      # is only fetched by the Windows scheduled task on a residential IP.
+      # Flip to "1" (the install step below is kept ready for it) if that
+      # ever stops being true — otherwise every scheduled run goes red on
+      # "linux.do welfare page 1: status=429".
+      LINUXDO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v4
 

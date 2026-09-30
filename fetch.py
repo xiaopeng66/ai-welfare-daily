@@ -454,7 +454,15 @@ def fetch_linuxdo_welfare() -> list:
 
     Uses CSS selectors on the rendered page to extract topic links, then
     parses escaped JSON in the HTML for created_at timestamps.
+
+    Set LINUXDO_ENABLED=0 to skip this source. GitHub-hosted runners sit on
+    datacenter IPs that linux.do answers with 429, which would otherwise make
+    every scheduled CI run red; the Windows task on a residential IP fetches it.
     """
+    if os.environ.get("LINUXDO_ENABLED", "1") == "0":
+        print("[info] linux.do: skipped (LINUXDO_ENABLED=0)", file=sys.stderr)
+        return []
+
     try:
         from scrapling import StealthyFetcher
     except ImportError:
