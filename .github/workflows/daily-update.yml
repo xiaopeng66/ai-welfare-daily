@@ -6,6 +6,13 @@ on:
     - cron: '0 0,12 * * *'
   workflow_dispatch:  # 允许手动触发
 
+# The Windows scheduled task (\linuxsb-daily-08 / -20) runs the same job at the
+# same wall-clock time; serialize GH runs and let the pull --rebase below absorb
+# the interleaving instead of racing for the branch.
+concurrency:
+  group: daily-welfare-update
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -20,6 +27,15 @@ jobs:
         with:
           python-version: '3.12'
 
+      # linux.do is Cloudflare-protected and is fetched through Scrapling's
+      # StealthyFetcher. Without these deps fetch.py records a partial-fetch
+      # error and this workflow goes red, so install them up front.
+      - name: Install scraper deps (Cloudflare-protected sources)
+        continue-on-error: true
+        run: |
+          pip install "scrapling==0.4.8"
+          scrapling install
+
       - name: Fetch topics from linux.sb
         run: |
           python3 fetch.py -o data/topics.jsonl
@@ -32,11 +48,13 @@ jobs:
         run: |
           git config --global user.name "linuxsb-daily-bot"
           git config --global user.email "bot@users.noreply.github.com"
-          git add data/topics.jsonl data/seen_ids.txt docs/index.html
+          git add -A -- data docs
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: daily welfare update $(date +%Y-%m-%d)"
+            # The Windows task may have pushed while we were fetching.
+            git pull --rebase --autostash origin main || exit 1
             git push
           fi
 

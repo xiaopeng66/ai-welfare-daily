@@ -92,7 +92,18 @@ def main():
             + "</div></a>"
         )
     cards_html = "\n".join(card_parts)
-    cards_json = json.dumps(topics, ensure_ascii=False)
+    # json.dumps leaves '<' untouched, so a scraped title containing
+    # "</script>" would break out of the embedding <script> block (stored XSS
+    # on the public Pages site). Escape the HTML-sensitive characters: the JSON
+    # parser still yields the original strings.
+    cards_json = (
+        json.dumps(topics, ensure_ascii=False)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
     html = (
         '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'

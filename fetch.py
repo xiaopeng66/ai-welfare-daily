@@ -513,15 +513,16 @@ def fetch_linuxdo_welfare() -> list:
 
             # Method 2: escaped JSON for created_at (enriches Method 1 topics)
             # Discourse embeds topic data as escaped JSON in <script> tags.
-            # Pattern: \"id\":NNNN,...\"created_at\":\"YYYY-MM-DDTHH:MM:SS.mmmZ\"
+            # Each topic block starts with \"id\":NNNN,\"title\" and contains
+            # \"created_at\":\"YYYY-MM-DDTHH:MM:SS.mmmZ\"
+            blocks = re.split(
+                r'(?=\"id\":\\d{3,7},\"title\")', html
+            )
             if count > 0:
-                blocks = re.split(
-                    r'(?=\\"id\\":\d{3,7},\"title\")', html
-                )
                 created_map = {}
                 for block in blocks[1:30]:
-                    tid_m = re.match(r'\\"id\\":(\d+)', block)
-                    created_m = re.search(r'\\"created_at\\":\"([^"\\]+)', block)
+                    tid_m = re.match(r'\"id\":(\d+)', block)
+                    created_m = re.search(r'\"created_at\":\\"([^"\\]+)', block)
                     if tid_m and created_m:
                         created_map[tid_m.group(1)] = created_m.group(1)
 
