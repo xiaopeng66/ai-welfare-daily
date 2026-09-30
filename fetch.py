@@ -6,6 +6,7 @@ Sources:
   - linux.sb: /forum/2, /forum/8, /index.php?sort=lucky, /index.php?sort=card, /
   - baipiao.org: /bbs/api/discussions
   - nodeloc.com: /latest.json, /c/welfare/12.json
+  - linux.do: /c/welfare/36 (via Scrapling StealthyFetcher, Cloudflare protected)
 """
 import argparse
 import json
@@ -22,6 +23,7 @@ import ssl
 BASE_LINUXSB = "https://linux.sb"
 BASE_BAIPIAO = "https://baipiao.org"
 BASE_NODELOC = "https://www.nodeloc.com"
+BASE_LINUXDO = "https://linux.do"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; linuxsb-daily/1.0; +https://github.com/xiaopeng66/linuxsb-daily)",
@@ -444,6 +446,99 @@ def fetch_nodeloc() -> list:
     return all_topics
 
 
+def fetch_linuxdo_welfare() -> list:
+    """Fetch linux.do /c/welfare/36 via Scrapling StealthyFetcher.
+
+    linux.do is behind Cloudflare; plain urllib gets a challenge page.
+    Scrapling's StealthyFetcher uses patchright (stealth Playwright) to pass.
+
+    Uses CSS selectors on the rendered page to extract topic links, then
+    parses escaped JSON in the HTML for created_at timestamps.
+    """
+    try:
+        from scrapling import StealthyFetcher
+    except ImportError:
+        print("[warn] linux.do: scrapling not installed, skipping", file=sys.stderr)
+        FETCH_ERRORS.append("linux.do: scrapling not installed")
+        return []
+
+    all_topics = []
+    fetcher = StealthyFetcher()
+
+    for page_num in range(1, 3):
+        url = f"{BASE_LINUXDO}/c/welfare/36"
+        if page_num > 1:
+            url += f"?page={page_num}"
+        try:
+            page = fetcher.fetch(url, headless=True, timeout=90000)
+            html = page.html_content
+
+            if page.status != 200 or len(html) < 50000:
+                print(
+                    f"[warn] linux.do welfare page {page_num}: "
+                    f"status={page.status}, html_len={len(html)}",
+                    file=sys.stderr,
+                )
+                FETCH_ERRORS.append(
+                    f"linux.do welfare page {page_num}: status={page.status}"
+                )
+                continue
+
+            # Method 1: CSS selectors on rendered DOM (primary)
+            links = page.css('a[href*="/t/topic/"]')
+            seen_ids = set()
+            count = 0
+            for a in links:
+                href = a.attrib.get("href", "")
+                # Only base topic links (no /post_number suffix)
+                m = re.match(r"/t/topic/(\d+)$", href)
+                if not m:
+                    continue
+                topic_id = m.group(1)
+                if topic_id in seen_ids:
+                    continue
+                seen_ids.add(topic_id)
+                title = a.get_all_text(separator=" ", strip=True)
+                if not title or len(title) <= 2:
+                    continue
+                all_topics.append({
+                    "id": topic_id,
+                    "title": title,
+                    "url": f"{BASE_LINUXDO}/t/topic/{topic_id}",
+                    "created_at": None,
+                    "source": f"linuxdo_welfare_p{page_num}",
+                    "published_verified": False,
+                })
+                count += 1
+
+            # Method 2: escaped JSON for created_at (enriches Method 1 topics)
+            # Discourse embeds topic data as escaped JSON in <script> tags.
+            # Pattern: \"id\":NNNN,...\"created_at\":\"YYYY-MM-DDTHH:MM:SS.mmmZ\"
+            if count > 0:
+                blocks = re.split(
+                    r'(?=\\"id\\":\d{3,7},\"title\")', html
+                )
+                created_map = {}
+                for block in blocks[1:30]:
+                    tid_m = re.match(r'\\"id\\":(\d+)', block)
+                    created_m = re.search(r'\\"created_at\\":\"([^"\\]+)', block)
+                    if tid_m and created_m:
+                        created_map[tid_m.group(1)] = created_m.group(1)
+
+                # Enrich topics with created_at
+                for t in all_topics:
+                    if t["id"] in created_map:
+                        t["created_at"] = created_map[t["id"]]
+                        t["published_verified"] = True
+
+            print(f"[fetch] linux.do welfare page {page_num}: {count} topics", file=sys.stderr)
+        except Exception as e:
+            print(f"[warn] linux.do welfare page {page_num} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"linux.do welfare page {page_num}: {e}")
+            break
+
+    return all_topics
+
 def main():
     ap = argparse.ArgumentParser(description="Fetch welfare topics from multiple sources")
     ap.add_argument("--output", "-o", default="data/topics.jsonl")
@@ -487,7 +582,8 @@ def main():
     baipiao_topics = fetch_baipiao()
     nodeloc_topics = fetch_nodeloc()
     nodeloc_welfare_topics = fetch_nodeloc_welfare()
-    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics
+    linuxdo_topics = fetch_linuxdo_welfare()
+    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics + linuxdo_topics
 
     # Partial failures are survivable now that we merge incrementally: cached
     # rows for the failed source stay in the store. Warn loudly (the workflow

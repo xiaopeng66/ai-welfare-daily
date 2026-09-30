@@ -78,6 +78,8 @@ def main():
             "nodeloc_welfare_p1": "nodeloc 福利",
             "nodeloc_welfare_p2": "nodeloc 福利",
             "nodeloc_welfare_p3": "nodeloc 福利",
+            "linuxdo_welfare_p1": "linux.do 福利",
+            "linuxdo_welfare_p2": "linux.do 福利",
         }.get(source, source)
         card_parts.append(
             '<a class="card" href="' + esc(t["url"]) + '" target="_blank" rel="noopener">'
@@ -163,7 +165,8 @@ def main():
         '<button class=\"filter-btn active\" data-filter=\"all\">全部</button>'
         '<button class=\"filter-btn\" data-filter=\"linuxsb\">linux.sb</button>'
         '<button class=\"filter-btn\" data-filter=\"baipiao\">baipiao.org</button>'
-        '<button class=\"filter-btn\" data-filter=\"nodeloc\">nodeloc.com</button></div>'
+        '<button class=\"filter-btn\" data-filter=\"nodeloc\">nodeloc.com</button>'
+        '<button class=\"filter-btn\" data-filter=\"linuxdo\">linux.do</button></div>'
         '<div class="filter-row" data-group="category"><span class="filter-label">分类：</span>'
         '<button class="filter-btn active" data-filter="all">全部</button>'
         '<button class="filter-btn" data-filter="中转站">🔄 中转站</button>'
@@ -182,7 +185,8 @@ def main():
         "</div><footer>"
         '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
         '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
-        '<a href="https://www.nodeloc.com/latest" target="_blank">nodeloc.com</a> · 由 '
+        '<a href="https://www.nodeloc.com/latest" target="_blank">nodeloc.com</a> / '
+        '<a href="https://linux.do/c/welfare/36" target="_blank">linux.do</a> · 由 '
         '<a href="https://github.com/' + esc(args.repo) + '" target="_blank">'
         + esc(args.repo) + "</a> 自动更新</p>"
         '<p style="margin-top:4px;">⚠️ 本站仅做信息聚合，不保证链接有效性和安全性，请自行甄别</p>'
@@ -201,6 +205,7 @@ def main():
         "if(sourceFilter==='linuxsb'){if(!(c.source&&c.source.startsWith('linuxsb'))) return false;}"
         "else if(sourceFilter==='baipiao'){if(!(c.source&&c.source.startsWith('baipiao'))) return false;}"
         "else if(sourceFilter==='nodeloc'){if(!(c.source&&c.source.startsWith('nodeloc'))) return false;}"
+        "else if(sourceFilter==='linuxdo'){if(!(c.source&&c.source.startsWith('linuxdo'))) return false;}"
         "}"
         "if(categoryFilter!=='all'){if(!c.tags.includes(categoryFilter)) return false;}"
         "return true;});"
@@ -212,6 +217,7 @@ def main():
         "if(s.indexOf('baipiao')===0) return 'baipiao.org';"
         "if(s.indexOf('nodeloc_welfare')===0) return 'nodeloc 福利';"
         "if(s.indexOf('nodeloc')===0) return 'nodeloc.com';"
+        "if(s.indexOf('linuxdo')===0) return 'linux.do';"
         "return s;}"
 
         "function renderCard(card){"
