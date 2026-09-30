@@ -39,3 +39,15 @@ jobs:
             git commit -m "chore: daily welfare update $(date +%Y-%m-%d)"
             git push
           fi
+
+      # Runs last so a partial fetch still publishes good data, but marks the
+      # build red so the failure is not silently swallowed.
+      - name: Report partial fetch
+        if: always()
+        run: |
+          if [ -f data/.fetch_errors ]; then
+            echo "::error::Partial fetch - some sources failed, cached data kept:"
+            cat data/.fetch_errors
+            exit 1
+          fi
+          echo "All sources fetched cleanly"

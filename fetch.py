@@ -39,6 +39,10 @@ _PROXY_HOST = os.environ.get("CLASH_PROXY_HOST", "127.0.0.1")
 _PROXY_PORT = int(os.environ.get("CLASH_PROXY_PORT", "7897"))
 _PROXY_URL = f"http://{_PROXY_HOST}:{_PROXY_PORT}"
 
+# Per-run counter of failed source fetches; used to refuse writing a store that
+# silently lost a whole source (e.g. CI without a working proxy).
+FETCH_ERRORS = []
+
 
 def fetch(url: str, timeout: int = 20) -> str:
     proxy_handler = urllib.request.ProxyHandler({"http": _PROXY_URL, "https": _PROXY_URL})
@@ -236,7 +240,13 @@ def score_topic(topic: dict) -> dict:
     return topic
 
 
-def fetch_linuxsb() -> list:
+def fetch_linuxsb(known_ids: set | None = None) -> list:
+    """Fetch linux.sb listings.
+
+    known_ids: ids already stored with a trustworthy created_at. Detail pages
+    are only fetched for ids NOT in this set, keeping incremental runs cheap.
+    """
+    known_ids = known_ids or set()
     sources = [
         ("linuxsb_福利放送", f"{BASE_LINUXSB}/forum/2?sort=post"),
         ("linuxsb_我要推广", f"{BASE_LINUXSB}/forum/8?sort=post"),
@@ -277,25 +287,48 @@ def fetch_linuxsb() -> list:
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] {name} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"linux.sb listing {name}: {e}")
 
-    unique_ids = [t["id"] for t in all_topics]
+    # data-performance-time is the last-modified time, not the post creation time.
+    # Fetch detail pages only for topics we will actually keep: skip ids already
+    # stored, and skip titles the relevance filter would drop anyway.
+    def _relevant(t):
+        title = t.get("title", "").lower()
+        return any(kw.lower() in title for kw in RELEVANCE_KEYWORDS)
+
+    need_detail = [
+        t["id"] for t in all_topics
+        if t["id"] not in known_ids and _relevant(t)
+    ]
+    skipped = len(all_topics) - len(need_detail)
+    print(
+        f"[fetch] linux.sb detail pages: {len(need_detail)} to fetch, "
+        f"{skipped} skipped (cached or irrelevant)",
+        file=sys.stderr,
+    )
+
     published_map = {}
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        future_to_id = {
-            executor.submit(fetch_topic_published_time, tid): tid
-            for tid in unique_ids
-        }
-        for future in as_completed(future_to_id):
-            tid = future_to_id[future]
-            try:
-                published_map[tid] = future.result()
-            except Exception:
-                pass
+    if need_detail:
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            future_to_id = {
+                executor.submit(fetch_topic_published_time, tid): tid
+                for tid in need_detail
+            }
+            for future in as_completed(future_to_id):
+                tid = future_to_id[future]
+                try:
+                    published_map[tid] = future.result()
+                except Exception:
+                    pass
+
+    # Drop topics we already have; they will be merged back from the store.
+    all_topics = [t for t in all_topics if t["id"] not in known_ids]
 
     for t in all_topics:
         true_time = published_map.get(t["id"])
         if true_time:
             t["created_at"] = true_time
+            t["published_verified"] = True
         elif not t.get("created_at"):
             t["created_at"] = t.pop("_ts_fallback", None)
         else:
@@ -326,6 +359,8 @@ def fetch_baipiao() -> list:
                         "url": f"{BASE_BAIPIAO}/bbs/d/{slug}",
                         "created_at": created,
                         "source": f"baipiao_p{page}",
+                        # baipiao's API createdAt IS the publish time.
+                        "published_verified": True,
                     })
             except Exception:
                 html = fetch(html_url)
@@ -336,6 +371,7 @@ def fetch_baipiao() -> list:
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] baipiao page {page} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"baipiao page {page}: {e}")
             break
     return all_topics
 
@@ -361,6 +397,8 @@ def fetch_nodeloc() -> list:
                         "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
                         "created_at": created,
                         "source": f"nodeloc_p{page}",
+                        # nodeloc's API created_at IS the publish time.
+                        "published_verified": True,
                     })
             except Exception:
                 html = fetch(html_url)
@@ -371,6 +409,7 @@ def fetch_nodeloc() -> list:
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] nodeloc page {page} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"nodeloc page {page}: {e}")
             break
     return all_topics
 
@@ -383,6 +422,28 @@ def main():
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
+    # Load existing topics for incremental merge
+    existing = {}
+    if os.path.exists(args.output):
+        try:
+            with open(args.output, "r", encoding="utf-8") as f:
+                for line in f:
+                    t = json.loads(line)
+                    existing[t["id"]] = t
+            print(f"[merge] loaded {len(existing)} existing topics", file=sys.stderr)
+        except Exception:
+            pass
+
+    # linux.sb ids whose created_at is trustworthy (real publish time, not the
+    # last-modified time from the listing). Only these may skip detail fetches.
+    # Scoped to linuxsb_* sources: other sites use their own id namespaces.
+    known_linuxsb_ids = {
+        t["id"]
+        for t in existing.values()
+        if t.get("published_verified")
+        and str(t.get("source", "")).startswith("linuxsb_")
+    }
+
     seen_ids_path = os.path.join(os.path.dirname(args.output) or ".", "seen_ids.txt")
     seen_ids = set()
     if os.path.exists(seen_ids_path):
@@ -392,12 +453,43 @@ def main():
         except Exception:
             pass
 
-    all_topics = []
-    all_topics.extend(fetch_linuxsb())
-    all_topics.extend(fetch_baipiao())
-    all_topics.extend(fetch_nodeloc())
+    linuxsb_topics = fetch_linuxsb(known_linuxsb_ids)
+    baipiao_topics = fetch_baipiao()
+    nodeloc_topics = fetch_nodeloc()
+    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics
 
-    # Deduplicate
+    # Partial failures are survivable now that we merge incrementally: cached
+    # rows for the failed source stay in the store. Warn loudly (the workflow
+    # turns this into a red run) but still write.
+    if FETCH_ERRORS:
+        print(f"[warn] {len(FETCH_ERRORS)} fetch error(s); cached rows are kept:", file=sys.stderr)
+        for err in FETCH_ERRORS:
+            print(f"        - {err}", file=sys.stderr)
+        # Marker so CI can surface a partial run as a red build *after* the
+        # good data has been committed and pushed.
+        status_path = os.path.join(os.path.dirname(args.output) or ".", ".fetch_errors")
+        try:
+            with open(status_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(FETCH_ERRORS) + "\n")
+        except Exception:
+            pass
+    else:
+        status_path = os.path.join(os.path.dirname(args.output) or ".", ".fetch_errors")
+        if os.path.exists(status_path):
+            os.remove(status_path)
+
+    # Total blackout: nothing fetched at all AND we already have data. That is a
+    # network/proxy outage, not an empty site. Refuse to write rather than risk
+    # clobbering the store.
+    if not all_topics and existing:
+        print(
+            "[fatal] every source returned 0 topics while the store has "
+            f"{len(existing)} rows — refusing to write (network/proxy outage?)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    # Deduplicate fetched topics
     all_topics = deduplicate(all_topics)
 
     # Score and tag
@@ -412,21 +504,48 @@ def main():
     all_topics = [t for t in all_topics if is_relevant(t)]
     print(f"[filter] relevance filter: {before} -> {len(all_topics)} topics", file=sys.stderr)
 
-    # Sort by score desc, then by created_at desc, then id desc as tiebreaker
+    # Merge fetched topics with existing: new data overrides old for same id
+    merged = dict(existing)
+    collisions = []
+    for t in all_topics:
+        prev = merged.get(t["id"])
+        if prev is not None and prev.get("url") and t.get("url") and prev["url"] != t["url"]:
+            collisions.append((t["id"], prev.get("url"), t.get("url")))
+        merged[t["id"]] = t
+    if collisions:
+        for cid, old_url, new_url in collisions:
+            print(f"[warn] id collision {cid}: {old_url} -> {new_url}", file=sys.stderr)
+    print(f"[merge] {len(existing)} existing + {len(all_topics)} fetched -> {len(merged)} total", file=sys.stderr)
+
+    # Cap total: drop the OLDEST posts first (rolling window). Missing
+    # created_at counts as oldest so the cap always holds.
+    def age_key(t):
+        ts = _parse_sortable(t.get("created_at"))
+        return ts if ts else 0
+
+    merged_list = list(merged.values())
+    if len(merged_list) > args.limit:
+        merged_list.sort(key=age_key, reverse=True)  # newest first
+        dropped = merged_list[args.limit:]
+        merged_list = merged_list[: args.limit]
+        print(
+            f"[limit] trimmed {len(dropped)} oldest posts (cap {args.limit}); "
+            f"oldest dropped id={dropped[0].get('id')} at {dropped[0].get('created_at')}",
+            file=sys.stderr,
+        )
+
+    # Display order: score desc, then created_at desc, then id desc
     def sort_key(t):
         score = -t.get("score", 0)
-        created = -(int(_parse_sortable(t.get("created_at") or "0")) if t.get("created_at") else 0)
+        created = -age_key(t)
         id_num = -int(re.search(r"\d+", t["id"]).group(0)) if re.search(r"\d+", t["id"]) else 0
         return (score, created, id_num)
 
-    all_topics.sort(key=sort_key)
-
-    # Limit
-    all_topics = all_topics[: args.limit]
+    merged_list.sort(key=sort_key)
 
     # Normalize output
     out = []
-    for t in all_topics:
+    for t in merged_list:
         out.append({
             "id": t["id"],
             "title": t["title"],
@@ -436,6 +555,7 @@ def main():
             "source": t.get("source", ""),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
             "created_at": t.get("created_at"),
+            "published_verified": bool(t.get("published_verified")),
             "is_new": t["id"] not in seen_ids,
         })
 
@@ -444,10 +564,10 @@ def main():
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
     # Persist seen ids for next "new vs old" splitting
-    all_ids = {t["id"] for t in all_topics}
-    merged = seen_ids | all_ids
+    all_ids = {t["id"] for t in merged_list}
+    merged_seen = seen_ids | all_ids
     with open(seen_ids_path, "w", encoding="utf-8") as f:
-        for id_ in sorted(merged):
+        for id_ in sorted(merged_seen):
             f.write(id_ + "\n")
 
     print(f"[done] wrote {len(out)} topics to {args.output}", file=sys.stderr)
@@ -457,7 +577,6 @@ def _parse_sortable(created_at):
     if not created_at:
         return 0
     try:
-        # Handles ISO strings with timezone like 2026-09-28T17:20:50.573Z
         s = created_at.replace("Z", "+00:00")
         dt = datetime.fromisoformat(s)
         return dt.timestamp()
