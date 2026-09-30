@@ -171,10 +171,11 @@ def main():
         '<button class="filter-btn" data-filter="体验金">🎁 体验金</button>'
         '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button></div>'
         "</div><div id=\"cards\">"
-        '<div class="section-header new-section">🆕 本次更新后</div>'
+        '<div class="section-header new-section" id="header-new">🆕 本次更新后</div>'
         '<div class="cards" id="cards-new"></div>'
-        '<div class="section-header old-section">📋 之前已有</div>'
+        '<div class="section-header old-section" id="header-old">📋 之前已有</div>'
         '<div class="cards" id="cards-old"></div>'
+        '<div id="cards-time" style="display:none"></div>'
         "</div><footer>"
         '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
         '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
@@ -211,18 +212,33 @@ def main():
         "+'<span class=\"post-time\">'+formatTime(card.created_at||card.fetched_at)+'</span></div></a>';}"
 
         "function render(){"
+        "const containerNew=document.getElementById('cards-new');"
+        "const containerOld=document.getElementById('cards-old');"
+        "const containerTime=document.getElementById('cards-time');"
+        "const headerNew=document.getElementById('header-new');"
+        "const headerOld=document.getElementById('header-old');"
         "let filtered=getFiltered();"
         "if(sortMode==='time'){filtered=[...filtered].sort((a,b)=>{"
         "const at=Date.parse(a.created_at||a.fetched_at||0);const bt=Date.parse(b.created_at||b.fetched_at||0);"
-        "return bt-at;});}"
-        "else{filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(Date.parse(b.fetched_at||0)-Date.parse(a.fetched_at||0)));}"
+        "return bt-at;});"
+        "const groups={};filtered.forEach(c=>{"
+        "const d=c.created_at||c.fetched_at||'';const key=d?d.slice(0,10):'未知日期';"
+        "if(!groups[key]) groups[key]=[];groups[key].push(c);});"
+        "const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));"
+        "containerNew.style.display='none';containerOld.style.display='none';headerNew.style.display='none';headerOld.style.display='none';"
+        "containerTime.style.display='';"
+        "containerTime.innerHTML=keys.length?keys.map(k=>'<div class=\\\"section-header\\\">📅 '+escapeHtml(k)+'</div><div class=\\\"cards\\\">'+groups[k].map(renderCard).join('')+'</div>').join(''):'<div class=\\\"empty\\\">该筛选下暂无内容</div>';"
+        "}else{"
+        "filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(Date.parse(b.fetched_at||0)-Date.parse(a.fetched_at||0)));"
+        "containerTime.style.display='none';containerNew.style.display='';containerOld.style.display='';headerNew.style.display='';headerOld.style.display='';"
         "const newCards=filtered.filter(c=>c.is_new);"
         "const oldCards=filtered.filter(c=>!c.is_new);"
-        "if(!newCards.length){containerNew.innerHTML='<div class=\"empty\">该筛选下暂无新帖</div>';}"
+        "if(!newCards.length){containerNew.innerHTML='<div class=\\\"empty\\\">该筛选下暂无新帖</div>';}"
         "else{containerNew.innerHTML=newCards.map(renderCard).join('');}"
-        "if(!oldCards.length){containerOld.innerHTML='<div class=\"empty\">该筛选下暂无旧帖</div>';}"
+        "if(!oldCards.length){containerOld.innerHTML='<div class=\\\"empty\\\">该筛选下暂无旧帖</div>';}"
         "else{containerOld.innerHTML=oldCards.map(renderCard).join('');}"
-        "if(!filtered.length){containerNew.innerHTML='<div class=\"empty\">该筛选下暂无内容</div>';containerOld.innerHTML='';}"
+        "if(!filtered.length){containerNew.innerHTML='<div class=\\\"empty\\\">该筛选下暂无内容</div>';containerOld.innerHTML='';}"
+        "}"
         "}"
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
