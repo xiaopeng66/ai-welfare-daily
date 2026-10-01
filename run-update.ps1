@@ -54,24 +54,24 @@ $py = 'python'
 # minutes mid-fetch). Redirecting to files and waiting on the process handle is
 # immune to that, and the timeout guarantees no run can wedge indefinitely.
 function Run-Py {
-    param([string]$Label, [int]$TimeoutSec, [string[]]$PyArgs)
+    param([string]$Label, [string[]]$PyArgs)
     $outFile = Join-Path $env:TEMP ('lsb-out-' + [guid]::NewGuid().ToString('N') + '.log')
     $errFile = Join-Path $env:TEMP ('lsb-err-' + [guid]::NewGuid().ToString('N') + '.log')
-    $proc = Start-Process -FilePath $py -ArgumentList $PyArgs -NoNewWindow -PassThru `
+    # -Wait is required: PowerShell 5.1 only fills in ExitCode when Start-Process
+    # is called with it (verified: -PassThru alone leaves it empty even after
+    # WaitForExit). A step that still wedges is killed by the reaper at the top
+    # of the next trigger, which is what the mutex makes safe.
+    $proc = Start-Process -FilePath $py -ArgumentList $PyArgs -NoNewWindow -Wait -PassThru `
                           -RedirectStandardOutput $outFile -RedirectStandardError $errFile
-    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
-        Log "FAIL $Label exceeded ${TimeoutSec}s - killing the process tree"
-        & taskkill /T /F /PID $proc.Id 2>&1 | ForEach-Object { Log $_ }
-        $rc = 124
-    } else {
-        $rc = $proc.ExitCode
-    }
+    $rc = $proc.ExitCode
+    if ($null -eq $rc) { $rc = 1 }
     foreach ($f in @($outFile, $errFile)) {
         if (Test-Path $f) {
             Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
             Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
         }
     }
+    Log ("$Label exit code $rc")
     return $rc
 }
 
@@ -131,11 +131,11 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 Log 'step 1/3 fetch'
-$rc = Run-Py -Label 'fetch' -TimeoutSec 600 -PyArgs @('fetch.py', '-o', 'data/topics.jsonl')
+$rc = Run-Py -Label 'fetch' -PyArgs @('fetch.py', '-o', 'data/topics.jsonl')
 if ($rc -ne 0) { Log "FAIL fetch exit=$rc"; exit 1 }
 
 Log 'step 2/3 generate'
-$rc = Run-Py -Label 'generate' -TimeoutSec 180 -PyArgs @('generate.py', '-i', 'data/topics.jsonl', '-o', 'docs/index.html')
+$rc = Run-Py -Label 'generate' -PyArgs @('generate.py', '-i', 'data/topics.jsonl', '-o', 'docs/index.html')
 if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }
 
 Log 'step 3/3 commit + push'
