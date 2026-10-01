@@ -43,6 +43,19 @@ function Invoke-Git {
 Set-Location $repo
 Log '=== update start ==='
 
+# Self-heal a checkout left mid-rebase/mid-merge by an earlier interrupted run
+# (shutdown or task kill while pulling). Without this every later automated run
+# dies on "a rebase is in progress" and needs a human to unblock it.
+$gitDir = Join-Path $repo '.git'
+if ((Test-Path (Join-Path $gitDir 'rebase-merge')) -or (Test-Path (Join-Path $gitDir 'rebase-apply'))) {
+    Log 'stale rebase found - aborting before sync'
+    & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
+}
+if (Test-Path (Join-Path $gitDir 'MERGE_HEAD')) {
+    Log 'stale merge found - aborting before sync'
+    & $git merge --abort 2>&1 | ForEach-Object { Log $_ }
+}
+
 # Sync BEFORE fetching. GitHub Actions runs the same job on the same wall-clock
 # schedule (0 0,12 * * * UTC == 08:00/20:00 CST), so starting from a stale tip
 # makes the push below non-fast-forward and loses this run's data.
@@ -50,12 +63,21 @@ Log 'step 0/3 sync with origin'
 $rc = Invoke-Git pull --rebase --autostash origin main
 if ($rc -ne 0) { Log "FAIL git pull --rebase exit=$rc"; exit 1 }
 
+# The scraper deps live in Miniconda; do not assume `python` is on PATH in the
+# task scheduler / Hermes cron context.
+$py = 'python'
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    $condaPy = 'C:\ProgramData\Miniconda3\python.exe'
+    if (Test-Path $condaPy) { $py = $condaPy; Log "python not on PATH - using $condaPy" }
+    else { Log 'FAIL python not found on PATH or in Miniconda'; exit 1 }
+}
+
 Log 'step 1/3 fetch'
-& python fetch.py -o data/topics.jsonl 2>&1 | ForEach-Object { Log $_ }
+& $py fetch.py -o data/topics.jsonl 2>&1 | ForEach-Object { Log $_ }
 if ($LASTEXITCODE -ne 0) { Log "FAIL fetch exit=$LASTEXITCODE"; exit 1 }
 
 Log 'step 2/3 generate'
-& python generate.py -i data/topics.jsonl -o docs/index.html 2>&1 | ForEach-Object { Log $_ }
+& $py generate.py -i data/topics.jsonl -o docs/index.html 2>&1 | ForEach-Object { Log $_ }
 if ($LASTEXITCODE -ne 0) { Log "FAIL generate exit=$LASTEXITCODE"; exit 1 }
 
 Log 'step 3/3 commit + push'

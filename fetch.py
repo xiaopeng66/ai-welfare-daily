@@ -17,8 +17,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from html.parser import HTMLParser
 
+import tempfile
 import urllib.request
-import ssl
 
 BASE_LINUXSB = "https://linux.sb"
 BASE_BAIPIAO = "https://baipiao.org"
@@ -31,10 +31,28 @@ HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
 
-# Permissive SSL context for sites with cert issues
-_SSL_CTX = ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = ssl.CERT_NONE
+def _atomic_write(path: str, text: str) -> None:
+    """Write through a temp file in the same directory, then os.replace().
+
+    A run killed mid-write (machine shutdown, task kill -- these run at boot
+    and logon) must never leave a truncated store or page behind. The store is
+    the only copy of the merged history, so a half-written file is data loss.
+    """
+    directory = os.path.dirname(path) or "."
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".tmp-", suffix=".part")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
 
 # Use Clash proxy for all HTTP requests
 _PROXY_HOST = os.environ.get("CLASH_PROXY_HOST", "127.0.0.1")
@@ -557,16 +575,41 @@ def main():
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
     # Load existing topics for incremental merge
+    # A damaged store must never be silently treated as "empty": the blackout
+    # guard below keys off `existing`, so swallowing a parse failure would let
+    # a partial fetch overwrite the whole merged history.
     existing = {}
+    store_lines = 0
+    store_bad = 0
     if os.path.exists(args.output):
-        try:
-            with open(args.output, "r", encoding="utf-8") as f:
-                for line in f:
+        with open(args.output, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                store_lines += 1
+                try:
                     t = json.loads(line)
                     existing[t["id"]] = t
-            print(f"[merge] loaded {len(existing)} existing topics", file=sys.stderr)
-        except Exception:
-            pass
+                except Exception:
+                    store_bad += 1
+        print(f"[merge] loaded {len(existing)} existing topics", file=sys.stderr)
+        if store_lines and not existing:
+            print(
+                f"[fatal] {args.output} has {store_lines} line(s) but none parsed "
+                "- refusing to overwrite a damaged store",
+                file=sys.stderr,
+            )
+            sys.exit(3)
+        if store_bad:
+            print(
+                f"[warn] {store_bad}/{store_lines} store line(s) unparseable; "
+                f"kept {len(existing)}",
+                file=sys.stderr,
+            )
+            FETCH_ERRORS.append(
+                f"store: {store_bad}/{store_lines} unparseable line(s) in {args.output}"
+            )
 
     # linux.sb ids whose created_at is trustworthy (real publish time, not the
     # last-modified time from the listing). Only these may skip detail fetches.
@@ -605,8 +648,7 @@ def main():
         # good data has been committed and pushed.
         status_path = os.path.join(os.path.dirname(args.output) or ".", ".fetch_errors")
         try:
-            with open(status_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(FETCH_ERRORS) + "\n")
+            _atomic_write(status_path, "\n".join(FETCH_ERRORS) + "\n")
         except Exception:
             pass
     else:
@@ -695,16 +737,15 @@ def main():
             "is_new": t["id"] not in seen_ids,
         })
 
-    with open(args.output, "w", encoding="utf-8") as f:
-        for item in out:
-            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    _atomic_write(
+        args.output,
+        "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in out),
+    )
 
     # Persist seen ids for next "new vs old" splitting
     all_ids = {t["id"] for t in merged_list}
     merged_seen = seen_ids | all_ids
-    with open(seen_ids_path, "w", encoding="utf-8") as f:
-        for id_ in sorted(merged_seen):
-            f.write(id_ + "\n")
+    _atomic_write(seen_ids_path, "".join(id_ + "\n" for id_ in sorted(merged_seen)))
 
     print(f"[done] wrote {len(out)} topics to {args.output}", file=sys.stderr)
 

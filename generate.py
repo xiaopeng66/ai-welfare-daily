@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone, timedelta
 from html import escape
 
@@ -23,14 +24,22 @@ def esc(s):
     return escape(s)
 
 
-def _fmt_time(iso):
-    if not iso:
-        return "未知时间"
+def _atomic_write(path, text):
+    """Temp file + os.replace: a killed run must not leave a half-written page."""
+    directory = os.path.dirname(path) or "."
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".tmp-", suffix=".part")
     try:
-        d = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        return d.strftime("%m-%d %H:%M")
-    except Exception:
-        return iso[:16] if iso else "未知时间"
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def _parse_sortable(created_at):
@@ -55,43 +64,6 @@ def main():
     bj = timezone(timedelta(hours=8))
     now = datetime.now(bj).strftime("%Y-%m-%d %H:%M")
 
-    # Build cards HTML
-    card_parts = []
-    for t in topics:
-        tags_html = "".join(
-            '<span class="tag tag-' + esc(tag) + '">' + esc(tag) + "</span>"
-            for tag in t.get("tags", [])
-        )
-        source = t.get("source", "")
-        source_label = {
-            "linuxsb_福利放送": "linux.sb 福利放送",
-            "linuxsb_我要推广": "linux.sb 推广",
-            "linuxsb_抽奖": "linux.sb 抽奖",
-            "linuxsb_发卡": "linux.sb 发卡",
-            "linuxsb_首页": "linux.sb 首页",
-            "baipiao_p1": "baipiao.org",
-            "baipiao_p2": "baipiao.org",
-            "baipiao_p3": "baipiao.org",
-            "nodeloc_p1": "nodeloc.com",
-            "nodeloc_p2": "nodeloc.com",
-            "nodeloc_p3": "nodeloc.com",
-            "nodeloc_welfare_p1": "nodeloc 福利",
-            "nodeloc_welfare_p2": "nodeloc 福利",
-            "nodeloc_welfare_p3": "nodeloc 福利",
-            "linuxdo_welfare_p1": "linux.do 福利",
-            "linuxdo_welfare_p2": "linux.do 福利",
-        }.get(source, source)
-        card_parts.append(
-            '<a class="card" href="' + esc(t["url"]) + '" target="_blank" rel="noopener">'
-            "<div class=\"card-title\">" + esc(t["title"]) + "</div>"
-            "<div class=\"card-meta\">" + tags_html + "</div>"
-            "<div class=\"card-footer\">"
-            + '<span class="source">' + esc(source_label) + "</span>"
-            + '<span class="score">匹配度 ' + str(t.get("score", 0)) + "</span>"
-            + '<span class="post-time">' + esc(_fmt_time(t.get("created_at") or t.get("fetched_at"))) + "</span>"
-            + "</div></a>"
-        )
-    cards_html = "\n".join(card_parts)
     # json.dumps leaves '<' untouched, so a scraped title containing
     # "</script>" would break out of the embedding <script> block (stored XSS
     # on the public Pages site). Escape the HTML-sensitive characters: the JSON
@@ -287,8 +259,7 @@ def main():
     )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
-        f.write(html)
+    _atomic_write(args.output, html)
 
     print("[done] wrote {} cards to {}".format(len(topics), args.output), file=sys.stderr)
 

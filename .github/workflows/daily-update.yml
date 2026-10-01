@@ -27,10 +27,16 @@ jobs:
       # "linux.do welfare page 1: status=429".
       LINUXDO_ENABLED: "0"
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to commit SHAs: a moving major tag lets an upstream force-push
+      # change what runs in a job that holds contents:write.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          # Real history: the commit step rebases onto origin, which a depth-1
+          # shallow clone cannot do reliably.
+          fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: '3.12'
 
