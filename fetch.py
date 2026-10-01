@@ -489,20 +489,23 @@ def fetch_linuxdo_welfare() -> list:
         return []
 
     all_topics = []
-    fetcher = StealthyFetcher()
 
     for page_num in range(1, 3):
-        url = f"{BASE_LINUXDO}/c/welfare/36"
+        url = f"{BASE_LINUXDO}/c/welfare/36.json"
         if page_num > 1:
             url += f"?page={page_num}"
         try:
-            page = fetcher.fetch(url, headless=True, timeout=90000)
-            html = page.html_content
+            # 0.4.8+: fetch is a classmethod; instantiating StealthyFetcher() is the
+            # deprecated path (logs a v0.3-removal warning on every run).
+            # JSON endpoint + page.body: 1.2s vs 90s+ browser HTML render, and
+            # Discourse JSON carries native created_at (no escaped-JSON regex needed).
+            page = StealthyFetcher.fetch(url, headless=True, timeout=90000)
+            raw = page.body if isinstance(page.body, str) else page.body.decode("utf-8", "replace")
 
-            if page.status != 200 or len(html) < 50000:
+            if page.status != 200 or len(raw) < 1000:
                 print(
                     f"[warn] linux.do welfare page {page_num}: "
-                    f"status={page.status}, html_len={len(html)}",
+                    f"status={page.status}, body_len={len(raw)}",
                     file=sys.stderr,
                 )
                 FETCH_ERRORS.append(
@@ -510,53 +513,28 @@ def fetch_linuxdo_welfare() -> list:
                 )
                 continue
 
-            # Method 1: CSS selectors on rendered DOM (primary)
-            links = page.css('a[href*="/t/topic/"]')
-            seen_ids = set()
+            # Discourse JSON endpoint: topic_list.topics carries id/title/created_at
+            # natively (verified 2026-10-02: 30 topics/page, every field populated).
+            # NOTE: page.html_content wraps the payload in <html><body> — use page.body.
+            data = json.loads(raw)
+            topics = data.get("topic_list", {}).get("topics", [])
+            # The first topic of the board is the pinned category description
+            # ("关于福利羊毛类别", created 2024) — drop pinned/no-title entries.
             count = 0
-            for a in links:
-                href = a.attrib.get("href", "")
-                # Only base topic links (no /post_number suffix)
-                m = re.match(r"/t/topic/(\d+)$", href)
-                if not m:
-                    continue
-                topic_id = m.group(1)
-                if topic_id in seen_ids:
-                    continue
-                seen_ids.add(topic_id)
-                title = a.get_all_text(separator=" ", strip=True)
-                if not title or len(title) <= 2:
+            for topic in topics:
+                topic_id = str(topic.get("id", ""))
+                title = (topic.get("title") or "").strip()
+                if not topic_id or not title or topic.get("pinned"):
                     continue
                 all_topics.append({
                     "id": topic_id,
                     "title": title,
                     "url": f"{BASE_LINUXDO}/t/topic/{topic_id}",
-                    "created_at": None,
+                    "created_at": topic.get("created_at"),
                     "source": f"linuxdo_welfare_p{page_num}",
-                    "published_verified": False,
+                    "published_verified": True,
                 })
                 count += 1
-
-            # Method 2: escaped JSON for created_at (enriches Method 1 topics)
-            # Discourse embeds topic data as escaped JSON in <script> tags.
-            # Each topic block starts with \"id\":NNNN,\"title\" and contains
-            # \"created_at\":\"YYYY-MM-DDTHH:MM:SS.mmmZ\"
-            blocks = re.split(
-                r'(?=\"id\":\\d{3,7},\"title\")', html
-            )
-            if count > 0:
-                created_map = {}
-                for block in blocks[1:30]:
-                    tid_m = re.match(r'\"id\":(\d+)', block)
-                    created_m = re.search(r'\"created_at\":\\"([^"\\]+)', block)
-                    if tid_m and created_m:
-                        created_map[tid_m.group(1)] = created_m.group(1)
-
-                # Enrich topics with created_at
-                for t in all_topics:
-                    if t["id"] in created_map:
-                        t["created_at"] = created_map[t["id"]]
-                        t["published_verified"] = True
 
             print(f"[fetch] linux.do welfare page {page_num}: {count} topics", file=sys.stderr)
         except Exception as e:
