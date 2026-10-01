@@ -1,6 +1,25 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Continue'
 
+# Hide the console window. The scheduled task launches powershell.exe with a
+# visible console at 08:00 and 20:00 unless -WindowStyle Hidden is on it (the
+# task XML and the Hermes cron wrapper both pass that flag now); this block is
+# the second layer, so a manual run or a task registered without the flag is
+# invisible too.
+#
+# Use GetConsoleWindow(), NOT (Get-Process -Id $PID).MainWindowHandle. Measured
+# 2026-10-02: MainWindowHandle is 0 whenever powershell was started from WSL, so
+# ShowWindow(0, 0) was a silent no-op there, and it only happened to work from
+# Task Scheduler. GetConsoleWindow() returns the real console handle on both
+# launch paths.
+$Console = Add-Type -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@ -Name Con -Namespace Native -PassThru
+$hWnd = $Console::GetConsoleWindow()
+if ($hWnd -ne [IntPtr]::Zero) { [void]$Console::ShowWindow($hWnd, 0) }
+
+
 $repo = 'E:\AI\Hermes\scripts\linuxsb-daily'
 $log  = Join-Path $repo 'update.log'
 $git  = 'C:\Program Files\Git\cmd\git.exe'
@@ -57,6 +76,9 @@ function Run-Py {
     param([string]$Label, [string[]]$PyArgs)
     $outFile = Join-Path $env:TEMP ('lsb-out-' + [guid]::NewGuid().ToString('N') + '.log')
     $errFile = Join-Path $env:TEMP ('lsb-err-' + [guid]::NewGuid().ToString('N') + '.log')
+    # python on Windows writes the ANSI code page when stdout is redirected, which
+    # the log read below then renders as mojibake. Pin both sides to UTF-8.
+    $env:PYTHONIOENCODING = 'utf-8'
     # -Wait is required: PowerShell 5.1 only fills in ExitCode when Start-Process
     # is called with it (verified: -PassThru alone leaves it empty even after
     # WaitForExit). A step that still wedges is killed by the reaper at the top
@@ -67,7 +89,7 @@ function Run-Py {
     if ($null -eq $rc) { $rc = 1 }
     foreach ($f in @($outFile, $errFile)) {
         if (Test-Path $f) {
-            Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
+            Get-Content -LiteralPath $f -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
             Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
         }
     }
@@ -89,11 +111,31 @@ foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'
 }
 
 # One run at a time: the two triggers fire on the same wall clock and two
-# concurrent fetches fight over Cloudflare and the git branch.
-$mutex = New-Object System.Threading.Mutex($false, 'Global\linuxsb-daily-run')
+# concurrent fetches fight over Cloudflare and the git branch. Verified on
+# 2026-10-01 20:00: without a working lock the scheduled task and the Hermes cron
+# both fetched and both committed into the same worktree.
+$mutex = $null
 $locked = $false
-try { $locked = $mutex.WaitOne(0) }
-catch { $locked = $true }   # abandoned by a killed run: we own it now
+try {
+    $mutex = New-Object System.Threading.Mutex($false, 'Global\linuxsb-daily-run')
+    $locked = $mutex.WaitOne(0)
+} catch [System.Threading.AbandonedMutexException] {
+    $locked = $true   # holder was killed - ownership is ours now
+} catch {
+    # Global\ creation can be refused outright (no SeCreateGlobalPrivilege).
+    # Falling straight through would disable the lock silently, so retry under
+    # Local\ - both triggers run in the same user session.
+    Log ('global mutex unavailable (' + $_.Exception.GetType().Name + ') - retrying under Local\')
+    try {
+        $mutex = New-Object System.Threading.Mutex($false, 'Local\linuxsb-daily-run')
+        $locked = $mutex.WaitOne(0)
+    } catch [System.Threading.AbandonedMutexException] {
+        $locked = $true
+    } catch {
+        Log ('no mutex available (' + $_.Exception.GetType().Name + ') - proceeding unlocked')
+        $locked = $true
+    }
+}
 if (-not $locked) {
     Write-Host 'another run is already in progress - exiting'
     Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: another run holds the lock') -Encoding UTF8
@@ -118,9 +160,27 @@ if (Test-Path (Join-Path $gitDir 'MERGE_HEAD')) {
 # Sync BEFORE fetching. GitHub Actions runs the same job on the same wall-clock
 # schedule (0 0,12 * * * UTC == 08:00/20:00 CST), so starting from a stale tip
 # makes the push below non-fast-forward and loses this run's data.
+#
+# A tracked file left dirty outside data/docs is committed by nothing here and
+# makes the rebase refuse to run ("cannot rebase: You have unstaged changes").
+# That is exactly how the 2026-10-01 20:00 GitHub Actions run went red after
+# .gitattributes landed and renormalized run-update.ps1. Print the dirty list so
+# the next occurrence is diagnosable instead of invisible.
+$dirty = @(& $git status --porcelain)
+if ($dirty.Count -gt 0) {
+    Log 'working tree not clean:'
+    $dirty | ForEach-Object { Log ('  ' + $_) }
+}
+
 Log 'step 0/3 sync with origin'
 $rc = Invoke-Git pull --rebase --autostash origin main
-if ($rc -ne 0) { Log "FAIL git pull --rebase exit=$rc"; exit 1 }
+if ($rc -ne 0) {
+    # Do not lose the whole update over a sync problem: clear any half-applied
+    # rebase and carry on with the fetch. The push path below reconciles with
+    # origin and still fails loudly if it cannot.
+    Log "WARN git pull --rebase exit=$rc - clearing any partial rebase and continuing"
+    & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
+}
 
 # The scraper deps live in Miniconda; do not assume `python` is on PATH in the
 # task scheduler / Hermes cron context.
