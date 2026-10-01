@@ -15,9 +15,12 @@ function Log($msg) {
 # Network git commands with a direct-connection retry. Clash only starts at
 # logon, so a run triggered while nobody is logged on (Hermes cron) has no
 # proxy to reach, and the user-level http.proxy setting would fail the command.
+# Abort a transfer that stalls instead of hanging on it for the whole run.
+$gitStall = @('-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=45')
+
 function Invoke-Git {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
-    & $git @GitArgs 2>&1 | ForEach-Object { Log $_ }
+    & $git @gitStall @GitArgs 2>&1 | ForEach-Object { Log $_ }
     if ($LASTEXITCODE -eq 0) { return 0 }
 
     # Retry over a direct connection. Two different things point git at Clash:
@@ -32,7 +35,7 @@ function Invoke-Git {
         $saved[$n] = [Environment]::GetEnvironmentVariable($n)
         [Environment]::SetEnvironmentVariable($n, $null)
     }
-    & $git -c http.proxy= -c https.proxy= @GitArgs 2>&1 | ForEach-Object { Log $_ }
+    & $git @gitStall -c http.proxy= -c https.proxy= @GitArgs 2>&1 | ForEach-Object { Log $_ }
     $rc = $LASTEXITCODE
     foreach ($n in $names) {
         if ($saved[$n]) { [Environment]::SetEnvironmentVariable($n, $saved[$n]) }
@@ -40,7 +43,63 @@ function Invoke-Git {
     return $rc
 }
 
+$py = 'python'
+
+# Run a python step and copy its output into the log.
+#
+# Do NOT go back to `& $py ... 2>&1 | ForEach-Object { Log $_ }`: that pipeline
+# waits for EOF on the child stdout handle, and Playwright's fingerprint helper
+# processes inherit it. When the fetch's python exits but a helper survives, EOF
+# never arrives and the run blocks forever at 0% CPU (observed: wedged 14+
+# minutes mid-fetch). Redirecting to files and waiting on the process handle is
+# immune to that, and the timeout guarantees no run can wedge indefinitely.
+function Run-Py {
+    param([string]$Label, [int]$TimeoutSec, [string[]]$PyArgs)
+    $outFile = Join-Path $env:TEMP ('lsb-out-' + [guid]::NewGuid().ToString('N') + '.log')
+    $errFile = Join-Path $env:TEMP ('lsb-err-' + [guid]::NewGuid().ToString('N') + '.log')
+    $proc = Start-Process -FilePath $py -ArgumentList $PyArgs -NoNewWindow -PassThru `
+                          -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
+        Log "FAIL $Label exceeded ${TimeoutSec}s - killing the process tree"
+        & taskkill /T /F /PID $proc.Id 2>&1 | ForEach-Object { Log $_ }
+        $rc = 124
+    } else {
+        $rc = $proc.ExitCode
+    }
+    foreach ($f in @($outFile, $errFile)) {
+        if (Test-Path $f) {
+            Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+    return $rc
+}
+
 Set-Location $repo
+
+# Reap a run that wedged. Scheduled task and Hermes cron both fire at
+# 08:00/20:00, and a wedged run holds the resources the next one needs.
+$self = $PID
+foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'")) {
+    if ($proc.ProcessId -ne $self -and $proc.CommandLine -match 'run-update\.ps1' -and
+        $proc.CreationDate -lt (Get-Date).AddMinutes(-10)) {
+        Write-Host ('reaping wedged run PID ' + $proc.ProcessId)
+        & taskkill /T /F /PID $proc.ProcessId 2>&1 | Out-Null
+    }
+}
+
+# One run at a time: the two triggers fire on the same wall clock and two
+# concurrent fetches fight over Cloudflare and the git branch.
+$mutex = New-Object System.Threading.Mutex($false, 'Global\linuxsb-daily-run')
+$locked = $false
+try { $locked = $mutex.WaitOne(0) }
+catch { $locked = $true }   # abandoned by a killed run: we own it now
+if (-not $locked) {
+    Write-Host 'another run is already in progress - exiting'
+    Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: another run holds the lock') -Encoding UTF8
+    exit 0
+}
+
 Log '=== update start ==='
 
 # Self-heal a checkout left mid-rebase/mid-merge by an earlier interrupted run
@@ -65,7 +124,6 @@ if ($rc -ne 0) { Log "FAIL git pull --rebase exit=$rc"; exit 1 }
 
 # The scraper deps live in Miniconda; do not assume `python` is on PATH in the
 # task scheduler / Hermes cron context.
-$py = 'python'
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     $condaPy = 'C:\ProgramData\Miniconda3\python.exe'
     if (Test-Path $condaPy) { $py = $condaPy; Log "python not on PATH - using $condaPy" }
@@ -73,12 +131,12 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 Log 'step 1/3 fetch'
-& $py fetch.py -o data/topics.jsonl 2>&1 | ForEach-Object { Log $_ }
-if ($LASTEXITCODE -ne 0) { Log "FAIL fetch exit=$LASTEXITCODE"; exit 1 }
+$rc = Run-Py -Label 'fetch' -TimeoutSec 600 -PyArgs @('fetch.py', '-o', 'data/topics.jsonl')
+if ($rc -ne 0) { Log "FAIL fetch exit=$rc"; exit 1 }
 
 Log 'step 2/3 generate'
-& $py generate.py -i data/topics.jsonl -o docs/index.html 2>&1 | ForEach-Object { Log $_ }
-if ($LASTEXITCODE -ne 0) { Log "FAIL generate exit=$LASTEXITCODE"; exit 1 }
+$rc = Run-Py -Label 'generate' -TimeoutSec 180 -PyArgs @('generate.py', '-i', 'data/topics.jsonl', '-o', 'docs/index.html')
+if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }
 
 Log 'step 3/3 commit + push'
 & $git config user.name 'linuxsb-daily-bot'
