@@ -103,6 +103,17 @@ if ($LASTEXITCODE -eq 0) {
         if ($rc -eq 0) {
             $rc = Invoke-Git push origin main
         }
+        if ($rc -ne 0) {
+            # Both runners rewrite every data row, so this rebase conflicts as a
+            # rule rather than an exception. Keep this run's snapshot - it is a
+            # complete fetch - and merge onto origin instead of failing.
+            Log 'rebase conflicted - aborting and merging onto origin'
+            & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
+            $rc = Invoke-Git pull --no-rebase -X ours origin main
+            if ($rc -eq 0) {
+                $rc = Invoke-Git push origin main
+            }
+        }
         if ($rc -ne 0) { Log "FAIL git push exit=$rc"; exit 1 }
     }
     Log 'push ok'
