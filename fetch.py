@@ -64,6 +64,23 @@ _PROXY_URL = f"http://{_PROXY_HOST}:{_PROXY_PORT}"
 FETCH_ERRORS = []
 
 
+def _write_if_changed(path: str, text: str) -> bool:
+    """Write only when the content differs. Returns True if the file changed.
+
+    Every run rebuilds the whole store, so without this the bytes changed on
+    every single run (one fresh fetched_at per row) and the scheduled job pushed
+    a commit plus a Pages deploy even when no post was new.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            if f.read() == text:
+                return False
+    except OSError:
+        pass
+    _atomic_write(path, text)
+    return True
+
+
 def fetch(url: str, timeout: int = 20) -> str:
     proxy_handler = urllib.request.ProxyHandler({"http": _PROXY_URL, "https": _PROXY_URL})
     opener = urllib.request.build_opener(proxy_handler)
@@ -549,6 +566,31 @@ def fetch_linuxdo_welfare() -> list:
 
     return all_topics
 
+_ROW_FIELDS = ("title", "url", "source", "created_at")
+
+
+def _row_changed(prev: dict, t: dict, is_new_flag: bool) -> bool:
+    """True when a freshly fetched row differs from the stored one in anything
+    the site shows.
+
+    fetched_at is deliberately excluded: it means "when this row last changed",
+    not "when we last looked at it". Keeping it stable for unchanged rows is what
+    makes a run with no news produce a byte-identical store (and therefore no
+    commit).
+    """
+    if any((t.get(f) or None) != (prev.get(f) or None) for f in _ROW_FIELDS):
+        return True
+    if list(t.get("tags") or []) != list(prev.get("tags") or []):
+        return True
+    if int(t.get("score") or 0) != int(prev.get("score") or 0):
+        return True
+    if bool(t.get("published_verified")) != bool(prev.get("published_verified")):
+        return True
+    # is_new flips to False on the run after first sighting: that moves the card
+    # from the 新帖 section to the 旧帖 section, so it IS a change.
+    return bool(prev.get("is_new")) != bool(is_new_flag)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fetch welfare topics from multiple sources")
     ap.add_argument("--output", "-o", default="data/topics.jsonl")
@@ -714,9 +756,23 @@ def main():
 
     merged_items.sort(key=lambda kv: sort_key(kv[1]))
 
-    # Normalize output
+    # Normalize output. fetched_at moves only for rows that actually changed, so
+    # a run that finds nothing new leaves the store byte-identical and the
+    # scheduled job has nothing to commit and no Pages deploy to trigger.
+    now_iso = datetime.now(timezone.utc).isoformat()
     out = []
+    updated = 0
     for key, t in merged_items:
+        prev = existing.get(key)
+        # `existing` (the previous store) is the source of truth: seen_ids.txt is
+        # a derived file, so if it goes missing every cached row would otherwise
+        # be announced as brand new again.
+        is_new_flag = key not in seen_ids and key not in existing
+        if prev is not None and not _row_changed(prev, t, is_new_flag):
+            fetched_at = prev.get("fetched_at") or now_iso
+        else:
+            fetched_at = now_iso
+            updated += 1
         out.append({
             "id": t["id"],
             "title": t["title"],
@@ -724,16 +780,13 @@ def main():
             "tags": t.get("tags", []),
             "score": t.get("score", 0),
             "source": t.get("source", ""),
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": fetched_at,
             "created_at": t.get("created_at"),
             "published_verified": bool(t.get("published_verified")),
-            # `existing` (the previous store) is the source of truth: seen_ids.txt
-            # is a derived file, so if it goes missing every cached row would
-            # otherwise be announced as brand new again.
-            "is_new": key not in seen_ids and key not in existing,
+            "is_new": is_new_flag,
         })
 
-    _atomic_write(
+    store_changed = _write_if_changed(
         args.output,
         "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in out),
     )
@@ -741,9 +794,14 @@ def main():
     # Persist seen ids for next "new vs old" splitting
     all_ids = {key for key, _ in merged_items}
     merged_seen = seen_ids | all_ids
-    _atomic_write(seen_ids_path, "".join(id_ + "\n" for id_ in sorted(merged_seen)))
+    _write_if_changed(seen_ids_path, "".join(id_ + "\n" for id_ in sorted(merged_seen)))
 
-    print(f"[done] wrote {len(out)} topics to {args.output}", file=sys.stderr)
+    print(
+        f"[done] {len(out)} topics in {args.output}: {updated} updated, "
+        f"{len(out) - updated} unchanged"
+        + ("" if store_changed else " (store already up to date, nothing written)"),
+        file=sys.stderr,
+    )
 
 
 def _parse_sortable(created_at):

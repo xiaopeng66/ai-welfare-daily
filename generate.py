@@ -53,6 +53,25 @@ def _parse_sortable(created_at):
         return 0
 
 
+def _data_updated(topics, store_path, bj):
+    """Newest fetched_at in the store, formatted in Beijing time.
+
+    fetched_at is bumped only when a row actually changes (see fetch.py), so its
+    maximum is "when the data last moved". Using it instead of the wall clock
+    keeps the page a pure function of the store: a run with no news renders a
+    byte-identical file, so there is nothing to commit or redeploy.
+    """
+    newest = 0.0
+    for t in topics:
+        newest = max(newest, _parse_sortable(t.get("fetched_at")))
+    if not newest:
+        try:
+            newest = os.path.getmtime(store_path)
+        except OSError:
+            newest = datetime.now(timezone.utc).timestamp()
+    return datetime.fromtimestamp(newest, bj).strftime("%Y-%m-%d %H:%M")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", "-i", default="data/topics.jsonl")
@@ -62,7 +81,8 @@ def main():
 
     topics = load_topics(args.input)
     bj = timezone(timedelta(hours=8))
-    now = datetime.now(bj).strftime("%Y-%m-%d %H:%M")
+    # "更新于" = when the DATA last changed, not when we happened to render.
+    now = _data_updated(topics, args.input, bj)
 
     # json.dumps leaves '<' untouched, so a scraped title containing
     # "</script>" would break out of the embedding <script> block (stored XSS
