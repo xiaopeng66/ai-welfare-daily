@@ -38,7 +38,7 @@ def digest(b):
 def row(tid, title, created, fetched, source='linuxsb_p1', **kw):
     r = {'id': str(tid), 'title': title, 'url': f'https://linux.sb/topic/{tid}',
          'source': source, 'tags': [], 'score': 0, 'created_at': created,
-         'fetched_at': fetched, 'published_verified': True, 'is_new': False}
+         'fetched_at': fetched, 'published_verified': True}
     r.update(kw)
     return r
 

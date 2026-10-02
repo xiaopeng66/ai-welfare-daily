@@ -33,9 +33,12 @@
   - 用站点限定键是因为各站 id 都从 1 开始自增：linux.sb 已到 ~2.4 万而 nodeloc 已过 10 万，两个区间迟早相遇。裸数字 id 做键时，跨站撞号会静默丢掉一条或覆盖另一站的帖子；现在撞号只是让新来者改用 `nodeloc.com#12345` 这种键，两条都留下。同站 URL 变更（改 slug）仍按原键覆盖。
 - **滚动上限 200 条**：超出时按发布时间淘汰最旧的；`created_at` 缺失视为最旧，优先淘汰。
 - **相关性过滤**：标题须含 `中转站 / 公益站 / 鸡蛋 / 兑换码 / 额度 / 体验金 / 抽奖` 之一。
-- **新旧拆分**：`data/seen_ids.txt` 记录历史出现过的键，配合 store 里已有的行，决定帖子显示在「新帖」还是「旧帖」区。
+- **「近 24 小时」由浏览器判定**：卡片是否算「新」= 发布时间落在**读者本地时钟往前的 24 小时内**，不落进 store。
+  - 为什么不写进数据：这条属性只取决于 (读页面那一刻, `created_at`)，写进 store 就意味着随时间老化都要重新提交一次；放在浏览器里则页面始终是 store 的纯函数，帖子到期自然滑出分区、零提交，而且页面被缓存或开了很久也仍然显示正确的窗口。
+  - `created_at` 缺失的行（老 HTML 路径遗留）退回用 `fetched_at` 判定，与卡片显示的时间保持一致。
 - **只写变化**：`fetched_at` 的语义是「这一行上次变化的时间」，不是「上次查看的时间」。每轮逐字段比对（标题 / URL / 来源 / 发布时间 / 标签 / 匹配度 / 验证标记 / 新旧标记），只有真变化的行才刷新时间戳；整个 store 没变化时**连文件都不重写**。所以「没有新帖」的那次运行不产生提交，也不触发 Pages 部署。
-  - 一条新帖会带来两次提交：出现时（`is_new=true`）和次日翻成旧帖时（`is_new` 由 true→false，卡片要在页面上换区块）。
+  - 一条新帖只带来**一次**提交（出现时）。它之后从「近 24 小时」滑出去不再产生任何提交。
+  - 逐字段比对里也包含发布时间 / 标签 / 匹配度 / 验证标记，所以标题被站长改了、或某行从「未验证」升级为「已验证」时，都会如实产生一次提交。
 - **原子写入**：store / 页面 / 状态文件都先写同目录临时文件再 `os.replace()`，中途被杀不会留下半截文件。
 
 ### 失败处理（都会让 CI 变红，但绝不丢数据）
@@ -52,12 +55,13 @@
 
 单页静态 HTML，无外部依赖（无 CDN、无框架）：
 
-- 三种视图：**新帖 / 旧帖**、**按时间分组**（每个日期一个 `📅 YYYY-MM-DD` 区块）
+- 两种分区 + 一种视图：**近 24 小时** / **24 小时前**（默认按匹配度排序）、**按时间分组**（每个日期一个 `📅 YYYY-MM-DD` 区块）
+  - 「近 24 小时」用浏览器时钟实时算，不是抓取时冻结的标记（`tests/test_page_js.mjs` 守着这条）
 - 两个筛选维度：来源（linux.sb / baipiao.org / nodeloc.com / nodeloc 福利 / linux.do）、分类（按标题关键词）
 - 排序：匹配度 / 时间；卡片显示来源、匹配度、发布时间
 - 顶部「更新于」取自 store 里最新的 `fetched_at`（= 数据最后一次真正变化的时间），而不是渲染时刻：
   页面因此是输入的纯函数，没有新数据时两次渲染的文件逐字节相同
-- **日期分组按北京时区切分**（`created_at` 是 UTC，直接切字符串会把 16:00–24:00 UTC 的帖子归到前一天 —— 与卡片上显示的时间自相矛盾）
+- **全站统一北京时间**：日期分组（`bjDateKey`）和卡片时间（`formatTime`，显式 `timeZone:'Asia/Shanghai'`）都是北京时区。`created_at` 是 UTC，直接切字符串会把 16:00–24:00 UTC 的帖子归到前一天；卡片时间若用访客本地时区，国外访客看到的时刻会和它上方的日期分组对不上。
 - 所有落进 DOM 的字段都转义；单条记录字段残缺只会让那张卡片难看，不会让整页空白
 
 ## 本地运行
@@ -84,10 +88,10 @@ generate.py                      读 store，渲染 docs/index.html（含内联 
 run-update.ps1                   Windows / Hermes cron 侧更新脚本
 tests/test_guards.py             抓取护栏：注入各类故障，断言「不丢数据」
 tests/test_site.py               页面不变量：数据驱动的「更新于」、渲染幂等、转义
+tests/test_page_js.mjs           页面 JS 运行时：近 24 小时分区、created_at 兜底、北京时间
 .github/workflows/daily-update.yml   CI 主管道（先跑护栏，再抓取）
 .github/workflows/tests.yml          测试：push / PR 触发
 data/topics.jsonl                store：一行一个 JSON，合并后的历史
-data/seen_ids.txt                历史出现过的键，用于「新帖/旧帖」拆分
 docs/index.html                  生成的站点（GitHub Pages 直接服务这个目录）
 ```
 
@@ -112,6 +116,7 @@ docs/index.html                  生成的站点（GitHub Pages 直接服务这�
 ```bash
 python3 tests/test_guards.py    # 抓取护栏（不联网，注入所有源）
 python3 tests/test_site.py      # 页面不变量
+node tests/test_page_js.mjs     # 页面 JS 运行时（改内联 JS 后必跑）
 python3 -c "import ast;ast.parse(open('fetch.py').read())"   # 语法
 ruff check .                                                  # lint
 LINUXDO_ENABLED=0 python3 fetch.py -o /tmp/topics.jsonl       # 真跑一次抓取

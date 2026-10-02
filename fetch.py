@@ -303,7 +303,6 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
                     "title": clean_title,
                     "url": f"{BASE_LINUXSB}/topic/{topic_id}",
                     "created_at": created_at,
-                    "_ts_fallback": created_at,
                 })
             for t in topics:
                 t["source"] = name
@@ -354,7 +353,6 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
         # the detail page's real publish time (published_verified gates the
         # skip-cached-ids optimisation, so an unverified row is re-checked next run).
         true_time = published_map.get(t["id"])
-        t.pop("_ts_fallback", None)
         if true_time:
             t["created_at"] = true_time
             t["published_verified"] = True
@@ -569,7 +567,7 @@ def fetch_linuxdo_welfare() -> list:
 _ROW_FIELDS = ("title", "url", "source", "created_at")
 
 
-def _row_changed(prev: dict, t: dict, is_new_flag: bool) -> bool:
+def _row_changed(prev: dict, t: dict) -> bool:
     """True when a freshly fetched row differs from the stored one in anything
     the site shows.
 
@@ -584,11 +582,7 @@ def _row_changed(prev: dict, t: dict, is_new_flag: bool) -> bool:
         return True
     if int(t.get("score") or 0) != int(prev.get("score") or 0):
         return True
-    if bool(t.get("published_verified")) != bool(prev.get("published_verified")):
-        return True
-    # is_new flips to False on the run after first sighting: that moves the card
-    # from the 新帖 section to the 旧帖 section, so it IS a change.
-    return bool(prev.get("is_new")) != bool(is_new_flag)
+    return bool(t.get("published_verified")) != bool(prev.get("published_verified"))
 
 
 def main():
@@ -645,15 +639,6 @@ def main():
         if t.get("published_verified")
         and str(t.get("source", "")).startswith("linuxsb_")
     }
-
-    seen_ids_path = os.path.join(os.path.dirname(args.output) or ".", "seen_ids.txt")
-    seen_ids = set()
-    if os.path.exists(seen_ids_path):
-        try:
-            with open(seen_ids_path, "r", encoding="utf-8") as f:
-                seen_ids = {line.strip() for line in f if line.strip()}
-        except Exception:
-            pass
 
     linuxsb_topics = fetch_linuxsb(known_linuxsb_ids)
     baipiao_topics = fetch_baipiao()
@@ -734,7 +719,7 @@ def main():
         ts = _parse_sortable(t.get("created_at"))
         return ts if ts else 0
 
-    # (key, topic) pairs: the key is what seen_ids/is_new are tracked against,
+    # (key, topic) pairs: the key is the merge identity,
     # and it differs from the bare id only for a cross-site id collision.
     merged_items = list(merged.items())
     if len(merged_items) > args.limit:
@@ -764,11 +749,7 @@ def main():
     updated = 0
     for key, t in merged_items:
         prev = existing.get(key)
-        # `existing` (the previous store) is the source of truth: seen_ids.txt is
-        # a derived file, so if it goes missing every cached row would otherwise
-        # be announced as brand new again.
-        is_new_flag = key not in seen_ids and key not in existing
-        if prev is not None and not _row_changed(prev, t, is_new_flag):
+        if prev is not None and not _row_changed(prev, t):
             fetched_at = prev.get("fetched_at") or now_iso
         else:
             fetched_at = now_iso
@@ -783,18 +764,12 @@ def main():
             "fetched_at": fetched_at,
             "created_at": t.get("created_at"),
             "published_verified": bool(t.get("published_verified")),
-            "is_new": is_new_flag,
         })
 
     store_changed = _write_if_changed(
         args.output,
         "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in out),
     )
-
-    # Persist seen ids for next "new vs old" splitting
-    all_ids = {key for key, _ in merged_items}
-    merged_seen = seen_ids | all_ids
-    _write_if_changed(seen_ids_path, "".join(id_ + "\n" for id_ in sorted(merged_seen)))
 
     print(
         f"[done] {len(out)} topics in {args.output}: {updated} updated, "

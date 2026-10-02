@@ -64,8 +64,8 @@ def topic(tid, url, title, created='2026-10-01T10:00:00Z', verified=True, source
 def run(store_rows, sources, limit=200, raw_store=None, workdir=None):
     """Drive main() against a temp store with injected sources.
 
-    workdir reuses one directory across calls, so the store and seen_ids.txt
-    persist between runs - the incremental tests need exactly that.
+    workdir reuses one directory across calls, so the store persists between
+    runs - the incremental tests need exactly that.
     """
     d = workdir or tempfile.mkdtemp(prefix='guard-test-')
     out = os.path.join(d, 'topics.jsonl')
@@ -103,15 +103,9 @@ def run(store_rows, sources, limit=200, raw_store=None, workdir=None):
                     rows.append(json.loads(line))
                 except Exception:        # deliberately-corrupt fixtures
                     junk += 1
-    seen_path = os.path.join(d, 'seen_ids.txt')
-    seen = set()
-    if os.path.exists(seen_path):
-        with open(seen_path, encoding='utf-8') as f:
-            seen = set(f.read().split())
     res = {'code': code, 'rows': rows, 'junk': junk, 'errors': list(mod.FETCH_ERRORS),
            'log': buf.getvalue(), 'marker': os.path.exists(os.path.join(d, '.fetch_errors')),
            'litter': [f for f in os.listdir(d) if f.startswith('.tmp-')],
-           'seen_ids': seen,
            'before': before, 'after': open(out, 'rb').read() if os.path.exists(out) else None,
            'mtime_before': mtime_before,
            'mtime_after': os.path.getmtime(out) if os.path.exists(out) else None,
@@ -169,18 +163,15 @@ r = run(store, {'fetch_linuxsb': lambda *a, **k: [topic(9999, 'https://linux.sb/
 check(len(r['rows']) == 200 and '9999' in {x['id'] for x in r['rows']}, 'cap honoured, newest kept',
       len(r['rows']))
 
-print('\n== is_new comes from the store, not the derived seen_ids.txt ==')
-r9 = run([], {'fetch_linuxsb': lambda *a, **k: [topic(8000, 'https://linux.sb/topic/8000', '额度 n')]})
-check(r9['seen_ids'] == {'8000'}, 'seen_ids.txt was created from scratch', r9['seen_ids'])
-shutil.rmtree(r9['dir'], ignore_errors=True)
-
 print('\n== incremental store: only changed rows are rewritten ==')
 wd = tempfile.mkdtemp(prefix='guard-incr-')
 srcs = {'fetch_linuxsb': lambda *a_, **k: [topic(9001, 'https://linux.sb/topic/9001', '额度 A')]}
 r1 = run([], srcs, workdir=wd)
 check('1 updated' in r1['log'], 'run 1: the new post is written', r1['log'].strip().splitlines()[-1:])
+# "New" is a 24h window computed in the browser, so a post does not change state
+# on the run after it appears: one new post now costs exactly one commit.
 r2 = run(None, srcs, workdir=wd)
-check('1 updated' in r2['log'], 'run 2: the new->old flip counts as a change',
+check('0 updated' in r2['log'], 'run 2: a post that has not changed is not rewritten',
       r2['log'].strip().splitlines()[-1:])
 r3 = run(None, srcs, workdir=wd)
 check('0 updated' in r3['log'], 'run 3: identical input is a no-op', r3['log'].strip().splitlines()[-1:])
@@ -213,7 +204,7 @@ shutil.rmtree(d, ignore_errors=True)
 
 print('\n== every written row carries the full schema ==')
 r = run([], {'fetch_linuxsb': lambda *a, **k: [topic(7000, 'https://linux.sb/topic/7000', '额度 s')]})
-need = {'id', 'title', 'url', 'source', 'created_at', 'fetched_at', 'is_new',
+need = {'id', 'title', 'url', 'source', 'created_at', 'fetched_at',
         'tags', 'score', 'published_verified'}
 check(need <= set(r['rows'][0]), 'schema complete', need - set(r['rows'][0]))
 shutil.rmtree(r['dir'], ignore_errors=True)

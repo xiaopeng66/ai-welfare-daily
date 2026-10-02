@@ -213,7 +213,7 @@ Log 'step 3/3 commit + push'
 & $git config user.name 'linuxsb-daily-bot'
 & $git config user.email 'bot@users.noreply.github.com'
 
-# -A over the two data dirs: tolerates a missing data/seen_ids.txt instead of
+# -A over the two data dirs: tolerates a missing data/ file instead of
 # failing the whole run on git add.
 & $git add -A -- data docs
 if ($LASTEXITCODE -ne 0) { Log "FAIL git add exit=$LASTEXITCODE"; exit 1 }
@@ -233,9 +233,9 @@ if ($LASTEXITCODE -eq 0) {
             $rc = Invoke-Git push origin main
         }
         if ($rc -ne 0) {
-            # Both runners rewrite every data row, so this rebase conflicts as a
-            # rule rather than an exception. Keep this run's snapshot - it is a
-            # complete fetch - and merge onto origin instead of failing.
+            # Rows are only rewritten when they change now, so the two runners
+            # mostly touch disjoint lines and a rebase usually just works. If it
+            # does not, keep this run's snapshot - it is a complete fetch.
             Log 'rebase conflicted - aborting and merging onto origin'
             & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
             $rc = Invoke-Git pull --no-rebase -X ours origin main

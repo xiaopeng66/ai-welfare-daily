@@ -118,7 +118,7 @@ def main():
     html = (
         '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<meta name="description" content="聚合 linux.sb / baipiao.org / nodeloc.com / linux.do 的 AI 中转站、公益站、鸡蛋、兑换码、额度、体验金与抽奖福利帖，每日 08:00 与 20:00（UTC+8）自动更新，可按来源、分类、时间筛选。">'
+        '<meta name="description" content="聚合 linux.sb / baipiao.org / nodeloc.com / linux.do 的 AI 中转站、公益站、鸡蛋、兑换码、额度、体验金与抽奖福利帖，每日多次自动更新；「近 24 小时」区收录最近一天内发布的帖子，可按来源、分类、时间筛选。">'
         '<meta name="theme-color" content="#1e1e2e">'
         '<title>AI 福利日报 - 中转站/兑换码/公益站/额度/鸡蛋</title><style>'
         "*{box-sizing:border-box;margin:0;padding:0}"
@@ -175,7 +175,7 @@ def main():
         "}"
         "</style></head><body><div class=\"container\"><header>"
         "<h1>🎁 AI 福利日报</h1>"
-        "<p>聚合多站 AI 福利信息：中转站、公益站、鸡蛋、兑换码、额度、体验金、抽奖</p>"
+        "<p>聚合多站 AI 福利信息：中转站、公益站、鸡蛋、兑换码、额度、体验金、抽奖 · 「近 24 小时」区收录最近一天内发布的帖子</p>"
         "</header><div class=\"stats\">"
         '<span class="stat-badge">📊 共 ' + str(len(topics)) + ' 条</span>'
         '<span class="stat-badge">🕐 更新于 ' + esc(now) + '</span>'
@@ -200,9 +200,9 @@ def main():
         '<button class="filter-btn" data-filter="体验金">🎁 体验金</button>'
         '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button></div>'
         "</div><div id=\"cards\">"
-        '<div class="section-header new-section" id="header-new">🆕 本次更新后</div>'
+        '<div class="section-header new-section" id="header-new">🆕 近 24 小时</div>'
         '<div class="cards" id="cards-new"></div>'
-        '<div class="section-header old-section" id="header-old">📋 之前已有</div>'
+        '<div class="section-header old-section" id="header-old">📋 24 小时前</div>'
         '<div class="cards" id="cards-old"></div>'
         '<div id="cards-time" style="display:none"></div>'
         "</div><footer>"
@@ -215,6 +215,12 @@ def main():
         '<p style="margin-top:4px;">⚠️ 本站仅做信息聚合，不保证链接有效性和安全性，请自行甄别</p>'
         "</footer></div><script>"
         "const cards=" + cards_json + ";"
+        # "最近 24 小时" is decided in the browser, not baked into the data: the
+        # page stays a pure function of the store, a post ages out of the window
+        # without any commit, and the answer is right even on a page served from
+        # cache or left open for hours.
+        "const RECENT_MS=24*60*60*1000;"
+        "function isRecent(c){const t=Date.parse(c.created_at||c.fetched_at||'');return !isNaN(t)&&(Date.now()-t)<RECENT_MS;}"
         "const containerNew=document.getElementById('cards-new');"
         "const containerOld=document.getElementById('cards-old');"
         "const filters=document.querySelectorAll('.filter-btn');"
@@ -275,18 +281,18 @@ def main():
         "}else{"
         "filtered=[...filtered].sort((a,b)=>(b.score||0)-(a.score||0)||(Date.parse(b.fetched_at||0)-Date.parse(a.fetched_at||0)));"
         "containerTime.style.display='none';containerNew.style.display='';containerOld.style.display='';headerNew.style.display='';headerOld.style.display='';"
-        "const newCards=filtered.filter(c=>c.is_new);"
-        "const oldCards=filtered.filter(c=>!c.is_new);"
-        "if(!newCards.length){containerNew.innerHTML='<div class=\\\"empty\\\">该筛选下暂无新帖</div>';}"
+        "const newCards=filtered.filter(isRecent);"
+        "const oldCards=filtered.filter(c=>!isRecent(c));"
+        "if(!newCards.length){containerNew.innerHTML='<div class=\\\"empty\\\">该筛选下近 24 小时没有新帖</div>';}"
         "else{containerNew.innerHTML=newCards.map(renderCard).join('');}"
-        "if(!oldCards.length){containerOld.innerHTML='<div class=\\\"empty\\\">该筛选下暂无旧帖</div>';}"
+        "if(!oldCards.length){containerOld.innerHTML='<div class=\\\"empty\\\">该筛选下暂无更早的帖子</div>';}"
         "else{containerOld.innerHTML=oldCards.map(renderCard).join('');}"
         "if(!filtered.length){containerNew.innerHTML='<div class=\\\"empty\\\">该筛选下暂无内容</div>';containerOld.innerHTML='';}"
         "}"
         "}"
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=(s==null?'':s);return div.innerHTML;}"
         "function escapeAttr(s){return String(s==null?'':s).replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
-        "function formatTime(iso){if(!iso) return '未知时间';try{const d=new Date(iso);return d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}"
+        "function formatTime(iso){if(!iso) return '未知时间';try{const d=new Date(iso);return d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Shanghai'});}catch(e){return iso;}}"
         # Group headers must name the Beijing calendar date, not the UTC one:
         # created_at is UTC, so slicing the raw ISO string filed every post
         # published 16:00-24:00 UTC (00:00-08:00 CST) under the previous day and

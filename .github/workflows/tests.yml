@@ -33,3 +33,12 @@ jobs:
 
       - name: Guard tests - generated site
         run: python3 tests/test_site.py
+
+      # The "近 24 小时" split and the card clock live in the page's own JS, so a
+      # Python test cannot reach them. node is pinned rather than borrowed from
+      # the runner image so the version cannot drift under us.
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+
+      - name: Guard tests - page JavaScript
+        run: node tests/test_page_js.mjs
