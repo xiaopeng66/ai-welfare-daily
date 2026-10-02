@@ -1,0 +1,35 @@
+name: Tests
+
+# The suites are the only thing standing between a bad edit and a data-losing
+# scheduled run, so run them on every push (including the bot's own data commits
+# - those verify that the published page matches the published store) and on PRs.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      # Pinned to the same SHAs as the update job: a moving major tag lets an
+      # upstream force-push decide what runs here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # No pip install on purpose: both suites are stdlib-only and inject every
+      # source function, so there is nothing to download, no network to flake on
+      # and no dependency version that can drift into a red build.
+      - name: Guard tests - fetch pipeline
+        run: python3 tests/test_guards.py
+
+      - name: Guard tests - generated site
+        run: python3 tests/test_site.py

@@ -61,6 +61,12 @@ jobs:
           pip install "scrapling[fetchers]==0.4.8"
           scrapling install
 
+      # Pre-flight: the guard suite is hermetic (every source is injected) and
+      # covers the "do not lose data" paths. Fail closed here rather than let a
+      # run that would drop the store or overwrite rows actually do it.
+      - name: Guard tests (offline)
+        run: python3 tests/test_guards.py
+
       - name: Fetch topics from linux.sb
         run: |
           python3 fetch.py -o data/topics.jsonl
@@ -93,9 +99,10 @@ jobs:
             if git rebase origin/main && git push; then
               echo "push ok after rebase"
             else
-              # Both runners rewrite every data row, so a rebase here conflicts
-              # as a rule, not as an exception. Keep this run's snapshot: it is
-              # a complete fetch and the other side's rows are a subset of it.
+              # Rows are only rewritten when they change, so the two runners now
+              # touch mostly disjoint lines and a rebase usually just works. If
+              # it does not, keep this run's snapshot: it is a complete fetch and
+              # the other side's rows are a subset of it.
               git rebase --abort 2>/dev/null || true
               git pull --no-rebase -X ours origin main
               git push

@@ -82,7 +82,10 @@ python3 generate.py -i data/topics.jsonl -o docs/index.html
 fetch.py                         抓取 + 合并 + 落盘（所有网络重试与护栏都在这里）
 generate.py                      读 store，渲染 docs/index.html（含内联 CSS/JS）
 run-update.ps1                   Windows / Hermes cron 侧更新脚本
-.github/workflows/daily-update.yml   CI 主管道
+tests/test_guards.py             抓取护栏：注入各类故障，断言「不丢数据」
+tests/test_site.py               页面不变量：数据驱动的「更新于」、渲染幂等、转义
+.github/workflows/daily-update.yml   CI 主管道（先跑护栏，再抓取）
+.github/workflows/tests.yml          测试：push / PR 触发
 data/topics.jsonl                store：一行一个 JSON，合并后的历史
 data/seen_ids.txt                历史出现过的键，用于「新帖/旧帖」拆分
 docs/index.html                  生成的站点（GitHub Pages 直接服务这个目录）
@@ -97,15 +100,20 @@ docs/index.html                  生成的站点（GitHub Pages 直接服务这�
 - **`fetch.py` 的退出码有意义**：`0` 正常（可能带部分失败标记）、`2` 全源空且 store 非空、`3` store 损坏。脚本据此决定是否提交。
 - **「没有变化」是正常结果**：抓完发现没有新帖就什么都不写、不提交。两个 runner 都已处理这条路径
   （日志里的 `no changes to commit` / `store already up to date`），看到它不要当故障排查。
-- **改了 `generate.py` 的内联 JS 要重新生成页面**：仓库里的 `docs/index.html` 是产物，下次 CI 会覆盖，但本地看到的不一致会误导排查。
+- **改完先跑测试再推**：`python3 tests/test_guards.py && python3 tests/test_site.py`（26 个断言，纯标准库、不联网、2 秒内跑完）。
+  它们守的都是「失败了也不会报警」的逻辑 —— 静默丢源、跨站覆盖、假装有变化。`daily-update.yml` 在抓取前先跑护栏套件：宁可这一天不抓，也不让会毁 store 的运行真的写下去。
+- **页面现在是输入的纯函数**：`_write_if_changed()` 让没有新数据的那次运行连文件都不重写，日志会打 `(unchanged, left alone)`。要是哪天「更新于」又变回渲染时刻，`tests/test_site.py` 会红（它用一个 2020 年的 store 断言徽章必须显示 2020）。
+- **改了 `generate.py` 的内联 JS 要重新生成页面**：仓库里的 `docs/index.html` 是产物，下次 CI 会覆盖，但本地看到的不一致会误导排查。`tests/test_site.py` 最后一项会直接比对「committed 页面 vs committed store 重新渲染的结果」，不一致就红。
 
 ## 验证方式
 
 改动后按这个顺序验：
 
 ```bash
+python3 tests/test_guards.py    # 抓取护栏（不联网，注入所有源）
+python3 tests/test_site.py      # 页面不变量
 python3 -c "import ast;ast.parse(open('fetch.py').read())"   # 语法
-ruff check fetch.py generate.py                               # lint
+ruff check .                                                  # lint
 LINUXDO_ENABLED=0 python3 fetch.py -o /tmp/topics.jsonl       # 真跑一次抓取
 python3 generate.py -i /tmp/topics.jsonl -o /tmp/index.html   # 生成
 python3 - <<'EOF'                                             # 抽出内联 JS
@@ -115,7 +123,7 @@ EOF
 node --check /tmp/site.js                                     # JS 语法
 ```
 
-页面 JS 的真实行为（不只是语法）用一个 DOM shim 跑真实数据来验：把 `const cards = [...]` 换成构造好的 payload，用 `new Function` 执行整段脚本，断言渲染出的卡片数、日期分组、转义结果。字段残缺、XSS、时区边界这些用例都在这里覆盖。
+`tests/` 覆盖的是 Python 侧与产物不变量。页面 JS 的**运行时**行为（不只是语法）另用一个 DOM shim 跑真实数据来验：把 `const cards = [...]` 换成构造好的 payload，用 `new Function` 执行整段脚本，断言渲染出的卡片数、日期分组、转义结果。字段残缺、XSS、时区边界这些用例都在这里覆盖。
 
 ## 免责声明
 

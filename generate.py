@@ -42,6 +42,24 @@ def _atomic_write(path, text):
         raise
 
 
+def _write_if_changed(path, text):
+    """Write only when the content differs; return whether we wrote.
+
+    The page is a pure function of the store now, so on a run with no new posts
+    the rendered HTML is byte-identical to what is already on disk. Rewriting it
+    anyway just churns a 60 KB file (and its mtime) for nothing - the scheduled
+    job already has the store side of this handled in fetch.py.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            if f.read() == text:
+                return False
+    except (OSError, UnicodeDecodeError):
+        pass
+    _atomic_write(path, text)
+    return True
+
+
 def _parse_sortable(created_at):
     if not created_at:
         return 0
@@ -290,9 +308,15 @@ def main():
     )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    _atomic_write(args.output, html)
+    wrote = _write_if_changed(args.output, html)
 
-    print("[done] wrote {} cards to {}".format(len(topics), args.output), file=sys.stderr)
+    print(
+        "[done] {} cards -> {}{}".format(
+            len(topics), args.output,
+            "" if wrote else " (unchanged, left alone)",
+        ),
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
