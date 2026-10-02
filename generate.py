@@ -80,6 +80,8 @@ def main():
     html = (
         '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="description" content="聚合 linux.sb / baipiao.org / nodeloc.com / linux.do 的 AI 中转站、公益站、鸡蛋、兑换码、额度、体验金与抽奖福利帖，每日 08:00 与 20:00（UTC+8）自动更新，可按来源、分类、时间筛选。">'
+        '<meta name="theme-color" content="#1e1e2e">'
         '<title>AI 福利日报 - 中转站/兑换码/公益站/额度/鸡蛋</title><style>'
         "*{box-sizing:border-box;margin:0;padding:0}"
         "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC',sans-serif;"
@@ -190,7 +192,7 @@ def main():
         "else if(sourceFilter==='nodeloc'){if(!(c.source&&c.source.startsWith('nodeloc'))) return false;}"
         "else if(sourceFilter==='linuxdo'){if(!(c.source&&c.source.startsWith('linuxdo'))) return false;}"
         "}"
-        "if(categoryFilter!=='all'){if(!c.tags.includes(categoryFilter)) return false;}"
+        "if(categoryFilter!=='all'){if(!(c.tags||[]).includes(categoryFilter)) return false;}"
         "return true;});"
         "return filtered;}"
 
@@ -204,11 +206,15 @@ def main():
         "return s;}"
 
         "function renderCard(card){"
+        # Every field is coerced. render() maps over ALL cards in one
+        # expression, so a single row missing `tags` or `score` used to throw
+        # mid-render and leave both sections empty (a blank page) instead of
+        # one odd-looking card.
         "return '<a class=\"card\" href=\"'+escapeAttr(card.url)+'\" target=\"_blank\" rel=\"noopener\">'"
         "+'<div class=\"card-title\">'+escapeHtml(card.title)+'</div>'"
-        "+'<div class=\"card-meta\">'+card.tags.map(t=>'<span class=\"tag tag-'+escapeAttr(t)+'\">'+escapeHtml(t)+'</span>').join('')+'</div>'"
+        "+'<div class=\"card-meta\">'+(card.tags||[]).map(t=>'<span class=\"tag tag-'+escapeAttr(t)+'\">'+escapeHtml(t)+'</span>').join('')+'</div>'"
         "+'<div class=\"card-footer\"><span class=\"source\">'+escapeHtml(sourceLabel(card.source))+'</span>'"
-        "+'<span class=\"score\">匹配度 '+card.score+'</span>'"
+        "+'<span class=\"score\">匹配度 '+(card.score||0)+'</span>'"
         "+'<span class=\"post-time\">'+formatTime(card.created_at||card.fetched_at)+'</span></div></a>';}"
 
         "function render(){"
@@ -240,8 +246,8 @@ def main():
         "if(!filtered.length){containerNew.innerHTML='<div class=\\\"empty\\\">该筛选下暂无内容</div>';containerOld.innerHTML='';}"
         "}"
         "}"
-        "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
-        "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
+        "function escapeHtml(s){const div=document.createElement('div');div.textContent=(s==null?'':s);return div.innerHTML;}"
+        "function escapeAttr(s){return String(s==null?'':s).replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
         "function formatTime(iso){if(!iso) return '未知时间';try{const d=new Date(iso);return d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}"
         # Group headers must name the Beijing calendar date, not the UTC one:
         # created_at is UTC, so slicing the raw ISO string filed every post

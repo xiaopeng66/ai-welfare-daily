@@ -187,15 +187,50 @@ def parse_topics(html: str, parser_class) -> list:
     return parser.topics
 
 
+def _site_of(url: str | None) -> str:
+    """Registrable host of a topic URL, used to namespace topic ids.
+
+    Every site numbers its own posts from 1, so a bare numeric id is NOT unique
+    across sources: linux.sb is at ~24k while nodeloc is already past 100k, and
+    the two ranges are on a collision course. A cross-site clash used to drop a
+    row silently in deduplicate() or overwrite one site's row with the other's.
+    """
+    m = re.match(r"https?://([^/]+)", url or "")
+    host = (m.group(1) if m else "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def topic_key(topic: dict) -> str:
+    """Merge/dedupe/seen-ids key: site-qualified, stable, and equal to the bare
+    id for every row that has no cross-site twin (so stores written before this
+    change keep their existing keys)."""
+    return f"{_site_of(topic.get('url'))}#{topic.get('id')}"
+
+
 def deduplicate(topics: list) -> list:
     seen = set()
     out = []
     for t in topics:
-        key = t["id"]
+        key = topic_key(t)
         if key not in seen:
             seen.add(key)
             out.append(t)
     return out
+
+
+def note_empty_source(name: str, count: int) -> None:
+    """Flag a source that fetched fine but parsed to nothing.
+
+    That is markup/endpoint drift, not an empty site: without this the source
+    goes dark with the build staying green, and because the incremental merge
+    keeps cached rows, nothing else in the pipeline notices either. Only page 1
+    of a paginated listing is required to have items - a later page can simply
+    be past the end of the board.
+    """
+    if count:
+        return
+    print(f"[warn] {name}: 0 topics parsed - markup or endpoint changed?", file=sys.stderr)
+    FETCH_ERRORS.append(f"{name}: 0 topics parsed (markup/endpoint changed?)")
 
 
 def score_topic(topic: dict) -> dict:
@@ -256,6 +291,7 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
             for t in topics:
                 t["source"] = name
             print(f"[fetch] {name}: {len(topics)} topics", file=sys.stderr)
+            note_empty_source(name, len(topics))
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] {name} failed: {e}", file=sys.stderr)
@@ -334,12 +370,19 @@ def fetch_baipiao() -> list:
                         # baipiao's API createdAt IS the publish time.
                         "published_verified": True,
                     })
+                # An API that answers 200 with an empty/changed payload is drift,
+                # not an empty board: fall through to the HTML listing and let
+                # note_empty_source() flag it if that is empty too.
+                if not topics and page == 1:
+                    raise ValueError("api returned 0 items")
             except Exception:
                 html = fetch(html_url)
                 topics = parse_topics(html, BaipiaoHTMLParser)
                 for t in topics:
                     t["source"] = f"baipiao_p{page}"
             print(f"[fetch] baipiao page {page}: {len(topics)} topics", file=sys.stderr)
+            if page == 1:
+                note_empty_source("baipiao", len(topics))
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] baipiao page {page} failed: {e}", file=sys.stderr)
@@ -369,7 +412,11 @@ def fetch_nodeloc_welfare() -> list:
                     "source": f"nodeloc_welfare_p{page}",
                     "published_verified": True,
                 })
+            if not topics and page == 1:
+                raise ValueError("api returned 0 items")
             print(f"[fetch] nodeloc welfare page {page}: {len(topics)} topics", file=sys.stderr)
+            if page == 1:
+                note_empty_source("nodeloc welfare", len(topics))
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] nodeloc welfare page {page} failed: {e}", file=sys.stderr)
@@ -402,12 +449,16 @@ def fetch_nodeloc() -> list:
                         # nodeloc's API created_at IS the publish time.
                         "published_verified": True,
                     })
+                if not topics and page == 1:
+                    raise ValueError("api returned 0 items")
             except Exception:
                 html = fetch(html_url)
                 topics = parse_topics(html, NodeLocHTMLParser)
                 for t in topics:
                     t["source"] = f"nodeloc_p{page}"
             print(f"[fetch] nodeloc page {page}: {len(topics)} topics", file=sys.stderr)
+            if page == 1:
+                note_empty_source("nodeloc latest", len(topics))
             all_topics.extend(topics)
         except Exception as e:
             print(f"[warn] nodeloc page {page} failed: {e}", file=sys.stderr)
@@ -489,6 +540,8 @@ def fetch_linuxdo_welfare() -> list:
                 count += 1
 
             print(f"[fetch] linux.do welfare page {page_num}: {count} topics", file=sys.stderr)
+            if page_num == 1:
+                note_empty_source("linux.do welfare", count)
         except Exception as e:
             print(f"[warn] linux.do welfare page {page_num} failed: {e}", file=sys.stderr)
             FETCH_ERRORS.append(f"linux.do welfare page {page_num}: {e}")
@@ -612,14 +665,22 @@ def main():
     all_topics = [t for t in all_topics if is_relevant(t)]
     print(f"[filter] relevance filter: {before} -> {len(all_topics)} topics", file=sys.stderr)
 
-    # Merge fetched topics with existing: new data overrides old for same id
+    # Merge fetched topics with existing: new data overrides old for the same key
     merged = dict(existing)
     collisions = []
     for t in all_topics:
-        prev = merged.get(t["id"])
+        key = t["id"]
+        prev = merged.get(key)
         if prev is not None and prev.get("url") and t.get("url") and prev["url"] != t["url"]:
-            collisions.append((t["id"], prev.get("url"), t.get("url")))
-        merged[t["id"]] = t
+            collisions.append((key, prev.get("url"), t.get("url")))
+            if _site_of(prev["url"]) != _site_of(t["url"]):
+                # Two independent sites, one numeric id (they all number posts
+                # from 1). Keep BOTH rows: the newcomer goes in under a
+                # site-qualified key instead of overwriting the other site's
+                # post. Same-site URL changes (e.g. a renamed slug) still
+                # overwrite, which is the intended cache refresh.
+                key = topic_key(t)
+        merged[key] = t
     if collisions:
         for cid, old_url, new_url in collisions:
             print(f"[warn] id collision {cid}: {old_url} -> {new_url}", file=sys.stderr)
@@ -631,14 +692,16 @@ def main():
         ts = _parse_sortable(t.get("created_at"))
         return ts if ts else 0
 
-    merged_list = list(merged.values())
-    if len(merged_list) > args.limit:
-        merged_list.sort(key=age_key, reverse=True)  # newest first
-        dropped = merged_list[args.limit:]
-        merged_list = merged_list[: args.limit]
+    # (key, topic) pairs: the key is what seen_ids/is_new are tracked against,
+    # and it differs from the bare id only for a cross-site id collision.
+    merged_items = list(merged.items())
+    if len(merged_items) > args.limit:
+        merged_items.sort(key=lambda kv: age_key(kv[1]), reverse=True)  # newest first
+        dropped = merged_items[args.limit:]
+        merged_items = merged_items[: args.limit]
         print(
             f"[limit] trimmed {len(dropped)} oldest posts (cap {args.limit}); "
-            f"oldest dropped id={dropped[0].get('id')} at {dropped[0].get('created_at')}",
+            f"oldest dropped id={dropped[0][1].get('id')} at {dropped[0][1].get('created_at')}",
             file=sys.stderr,
         )
 
@@ -649,11 +712,11 @@ def main():
         id_num = -int(re.search(r"\d+", t["id"]).group(0)) if re.search(r"\d+", t["id"]) else 0
         return (score, created, id_num)
 
-    merged_list.sort(key=sort_key)
+    merged_items.sort(key=lambda kv: sort_key(kv[1]))
 
     # Normalize output
     out = []
-    for t in merged_list:
+    for key, t in merged_items:
         out.append({
             "id": t["id"],
             "title": t["title"],
@@ -664,7 +727,10 @@ def main():
             "fetched_at": datetime.now(timezone.utc).isoformat(),
             "created_at": t.get("created_at"),
             "published_verified": bool(t.get("published_verified")),
-            "is_new": t["id"] not in seen_ids,
+            # `existing` (the previous store) is the source of truth: seen_ids.txt
+            # is a derived file, so if it goes missing every cached row would
+            # otherwise be announced as brand new again.
+            "is_new": key not in seen_ids and key not in existing,
         })
 
     _atomic_write(
@@ -673,7 +739,7 @@ def main():
     )
 
     # Persist seen ids for next "new vs old" splitting
-    all_ids = {t["id"] for t in merged_list}
+    all_ids = {key for key, _ in merged_items}
     merged_seen = seen_ids | all_ids
     _atomic_write(seen_ids_path, "".join(id_ + "\n" for id_ in sorted(merged_seen)))
 
