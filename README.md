@@ -21,6 +21,10 @@
 
 三条管道可能并发，安全：runner 先 `pull --rebase --autostash` 再 push，并发由 rebase 吸收；CI 侧另有 `concurrency` 组串行化。
 
+**实测：CI 并不按 08:00/20:00 跑。** `0 0,12 * * *` 的 schedule 连续多日都落到 ~03:45–03:57Z 与 ~17:30–17:55Z，即北京时间 **约 11:50 与次日 01:30**，比计划晚 3h45m–5h30m（GitHub 调度队列积压）。所以站点实际每天刷新 4 次：08:00 / 20:00（Windows 任务，含 linux.do）+ 约 11:50 / 01:30（CI，无 linux.do，只重发缓存数据）。
+
+**本地（WSL/Linux）跑 linux.do 会失败**：`fetch()` 走 Clash 代理，但 `StealthyFetcher.fetch` 不带 `proxy=`，Chromium 直连；本机直连 linux.do 超时（Windows 侧靠系统代理/TUN 才通）。且显式加 `proxy=` 反而更糟——代理出口 IP 被 Cloudflare 判 403。WSL 里验证完整流程请用 `LINUXDO_ENABLED=0`。
+
 ## 本地运行
 
 ```bash

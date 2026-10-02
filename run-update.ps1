@@ -194,6 +194,17 @@ Log 'step 1/3 fetch'
 $rc = Run-Py -Label 'fetch' -PyArgs @('fetch.py', '-o', 'data/topics.jsonl')
 if ($rc -ne 0) { Log "FAIL fetch exit=$rc"; exit 1 }
 
+# fetch.py writes data\.fetch_errors when a source failed but the run is still
+# survivable (cached rows kept). CI turns that marker into a red build; nothing
+# on this box read it, so a source silently vanishing stayed invisible here.
+# That matters most for linux.do: it is only fetched from this residential IP,
+# so a linux.do failure never shows up in CI either. Log it.
+$fetchErr = Join-Path $repo 'data\.fetch_errors'
+if (Test-Path $fetchErr) {
+    Log 'WARN partial fetch - cached rows kept for the sources below:'
+    Get-Content -LiteralPath $fetchErr -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Log ('  ' + $_) }
+}
+
 Log 'step 2/3 generate'
 $rc = Run-Py -Label 'generate' -PyArgs @('generate.py', '-i', 'data/topics.jsonl', '-o', 'docs/index.html')
 if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }

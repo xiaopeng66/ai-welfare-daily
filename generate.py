@@ -222,7 +222,7 @@ def main():
         "const at=Date.parse(a.created_at||a.fetched_at||0);const bt=Date.parse(b.created_at||b.fetched_at||0);"
         "return bt-at;});"
         "const groups={};filtered.forEach(c=>{"
-        "const d=c.created_at||c.fetched_at||'';const key=d?d.slice(0,10):'未知日期';"
+        "const key=bjDateKey(c.created_at||c.fetched_at);"
         "if(!groups[key]) groups[key]=[];groups[key].push(c);});"
         "const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));"
         "containerNew.style.display='none';containerOld.style.display='none';headerNew.style.display='none';headerOld.style.display='none';"
@@ -243,6 +243,11 @@ def main():
         "function escapeHtml(s){const div=document.createElement('div');div.textContent=s;return div.innerHTML;}"
         "function escapeAttr(s){return s.replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}"
         "function formatTime(iso){if(!iso) return '未知时间';try{const d=new Date(iso);return d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}"
+        # Group headers must name the Beijing calendar date, not the UTC one:
+        # created_at is UTC, so slicing the raw ISO string filed every post
+        # published 16:00-24:00 UTC (00:00-08:00 CST) under the previous day and
+        # contradicted the time the card itself shows (measured 19/161 rows).
+        "function bjDateKey(iso){if(!iso) return '未知日期';const d=new Date(iso);if(isNaN(d.getTime())) return '未知日期';return new Date(d.getTime()+8*3600*1000).toISOString().slice(0,10);}"
         "filters.forEach(btn=>{btn.addEventListener('click',()=>{"
         "if(btn.dataset.sort){"
         "sortMode=btn.dataset.sort;"

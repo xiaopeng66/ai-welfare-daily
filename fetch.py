@@ -14,7 +14,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 
 import tempfile
@@ -113,54 +113,6 @@ CATEGORY_KEYWORDS = {
 RELEVANCE_KEYWORDS = [
     "中转站", "公益站", "鸡蛋", "兑换码", "额度", "体验金", "抽奖",
 ]
-
-
-class LinuxSBHTMLParser(HTMLParser):
-    """Extract /topic/N links and post times from linux.sb listing pages."""
-
-    def __init__(self):
-        super().__init__()
-        self.topics = []
-        self._current_href = None
-        self._in_topic_link = False
-        self._current_time = None
-
-    def handle_starttag(self, tag, attrs):
-        if tag == "a":
-            attrs_dict = dict(attrs)
-            href = attrs_dict.get("href", "")
-            if "/topic/" in href:
-                m = re.search(r"/topic/(\d+)", href)
-                if m:
-                    self._current_href = m.group(1)
-                    self._in_topic_link = True
-        elif tag == "span" and self._in_topic_link:
-            attrs_dict = dict(attrs)
-            if "data-performance-time" in attrs_dict:
-                self._current_time = attrs_dict["data-performance-time"]
-
-    def handle_data(self, data):
-        if self._in_topic_link and self._current_href:
-            title = data.strip()
-            if title and len(title) > 2:
-                self.topics.append({
-                    "id": self._current_href,
-                    "title": title,
-                    "url": f"{BASE_LINUXSB}/topic/{self._current_href}",
-                    "created_at": self._parse_unix(self._current_time),
-                })
-            self._in_topic_link = False
-            self._current_href = None
-            self._current_time = None
-
-    @staticmethod
-    def _parse_unix(ts):
-        if not ts:
-            return None
-        try:
-            return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
-        except Exception:
-            return None
 
 
 class BaipiaoHTMLParser(HTMLParser):
@@ -345,14 +297,14 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
     all_topics = [t for t in all_topics if t["id"] not in known_ids]
 
     for t in all_topics:
+        # created_at already holds the listing timestamp; overwrite it only with
+        # the detail page's real publish time (published_verified gates the
+        # skip-cached-ids optimisation, so an unverified row is re-checked next run).
         true_time = published_map.get(t["id"])
+        t.pop("_ts_fallback", None)
         if true_time:
             t["created_at"] = true_time
             t["published_verified"] = True
-        elif not t.get("created_at"):
-            t["created_at"] = t.pop("_ts_fallback", None)
-        else:
-            t.pop("_ts_fallback", None)
 
     return all_topics
 

@@ -48,9 +48,15 @@ jobs:
 
       # linux.do is Cloudflare-protected and is fetched through Scrapling's
       # StealthyFetcher. The core wheel alone is not enough: the [fetchers]
-      # extra brings playwright/patchright AND click, which the `scrapling`
-      # CLI needs. Without this the CI run is red on "scrapling not installed".
+      # extra brings playwright/patchright AND click, which the `scrapling` CLI
+      # needs. Without this the CI run is red on "scrapling not installed".
+      #
+      # Skipped while LINUXDO_ENABLED=0 (the default here): fetch.py skips that
+      # source entirely, so the install only bought a browser download and a
+      # fresh failure surface on every scheduled run. Flip the env var back to
+      # "1" and this step comes back automatically.
       - name: Install scraper deps (Cloudflare-protected sources)
+        if: env.LINUXDO_ENABLED != '0'
         run: |
           pip install "scrapling[fetchers]==0.4.8"
           scrapling install
