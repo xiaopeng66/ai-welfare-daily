@@ -13,6 +13,7 @@ Usage:
 Hermetic: parses strings, never touches the network.
 """
 import importlib.util
+import json
 import os
 import sys
 
@@ -131,6 +132,34 @@ check(mod.topic_key({'id': '42', 'url': 'https://linux.sb/topic/42'}) == 'linux.
       'a normal row is namespaced by host')
 check(mod.topic_key({'id': '42', 'url': 'https://www.linux.sb/topic/42'}) == 'linux.sb#42',
       'www. is not a separate site')
+
+
+print('\n== published_verified must mean "this is the publish time" ==')
+
+
+def with_mocked_fetch(payload, fn):
+    """Run a fetch_* function against a canned API payload."""
+    real = mod.fetch
+    mod.fetch = lambda *a, **k: json.dumps(payload)
+    try:
+        return fn()
+    finally:
+        mod.fetch = real
+
+
+topics_json = {'topic_list': {'topics': [
+    {'id': 77, 'title': '公益站 体验金', 'bumped_at': '2026-10-01T09:00:00.000Z'},
+    {'id': 78, 'title': '中转站 额度', 'created_at': '2026-10-01T09:00:00.000Z'},
+]}}
+rows = {r['id']: r for r in with_mocked_fetch(topics_json, mod.fetch_nodeloc)}
+check(rows.get('77', {}).get('created_at') == '2026-10-01T09:00:00.000Z',
+      'a topic without created_at still gets a usable timestamp',
+      rows.get('77', {}).get('created_at'))
+check(not rows.get('77', {}).get('published_verified'),
+      'but a reply time is not claimed as a verified publish time',
+      rows.get('77', {}).get('published_verified'))
+check(rows.get('78', {}).get('published_verified'),
+      'created_at is a verified publish time', rows.get('78', {}).get('published_verified'))
 
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')

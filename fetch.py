@@ -472,14 +472,18 @@ def fetch_nodeloc_welfare() -> list:
             for t in data.get("topic_list", {}).get("topics", []):
                 topic_id = t.get("id")
                 title = t.get("title", "")
-                created = t.get("created_at") or t.get("bumped_at") or t.get("last_posted_at")
+                # Only created_at is a publish time; bumped_at/last_posted_at are
+                # reply times, so a row dated by those must not claim a verified
+                # publish time (that flag drives the skip-cached-ids optimisation).
+                published = t.get("created_at")
+                created = published or t.get("bumped_at") or t.get("last_posted_at")
                 topics.append({
                     "id": str(topic_id),
                     "title": title,
                     "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
                     "created_at": created,
                     "source": f"nodeloc_welfare_p{page}",
-                    "published_verified": True,
+                    "published_verified": bool(published),
                 })
             if not topics and page == 1:
                 raise ValueError("api returned 0 items")
@@ -507,16 +511,18 @@ def fetch_nodeloc() -> list:
                 for t in data.get("topic_list", {}).get("topics", []):
                     topic_id = t.get("id")
                     title = t.get("title", "")
-                    # Prefer created_at; bumped_at/last_posted_at are reply times
-                    created = t.get("created_at") or t.get("bumped_at") or t.get("last_posted_at")
+                    # Prefer created_at; bumped_at/last_posted_at are reply times,
+                    # which are usable as a fallback timestamp but are not the
+                    # publish time.
+                    published = t.get("created_at")
+                    created = published or t.get("bumped_at") or t.get("last_posted_at")
                     topics.append({
                         "id": str(topic_id),
                         "title": title,
                         "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
                         "created_at": created,
                         "source": f"nodeloc_p{page}",
-                        # nodeloc's API created_at IS the publish time.
-                        "published_verified": True,
+                        "published_verified": bool(published),
                     })
                 if not topics and page == 1:
                     raise ValueError("api returned 0 items")
@@ -604,7 +610,10 @@ def fetch_linuxdo_welfare() -> list:
                     "url": f"{BASE_LINUXDO}/t/topic/{topic_id}",
                     "created_at": topic.get("created_at"),
                     "source": f"linuxdo_welfare_p{page_num}",
-                    "published_verified": True,
+                    # Discourse populates created_at for every topic; when it is
+                    # absent the row has no publish time at all, which is not a
+                    # verified one.
+                    "published_verified": bool(topic.get("created_at")),
                 })
                 count += 1
 
