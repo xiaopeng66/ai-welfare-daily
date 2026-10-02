@@ -61,11 +61,15 @@ jobs:
           pip install "scrapling[fetchers]==0.4.8"
           scrapling install
 
-      # Pre-flight: the guard suite is hermetic (every source is injected) and
-      # covers the "do not lose data" paths. Fail closed here rather than let a
-      # run that would drop the store or overwrite rows actually do it.
+      # Pre-flight: both suites are hermetic (no network, every source injected)
+      # and cover the "do not lose data" paths - including the parsers, whose
+      # fixtures encode the markup anomalies that silently dropped rows and
+      # mis-paired timestamps. Fail closed here rather than let a run that would
+      # drop the store, corrupt a row or garble the page actually write it.
       - name: Guard tests (offline)
-        run: python3 tests/test_guards.py
+        run: |
+          python3 tests/test_guards.py
+          python3 tests/test_parsers.py
 
       - name: Fetch topics from linux.sb
         run: |

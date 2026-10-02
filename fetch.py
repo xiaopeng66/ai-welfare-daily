@@ -98,22 +98,34 @@ def fetch(url: str, timeout: int = 20) -> str:
             return resp.read().decode("utf-8", errors="replace")
 
 
+def extract_published_time(html: str) -> str | None:
+    """Real publish time from a topic page's meta tags (pure, testable).
+
+    Either attribute order is legal HTML; requiring property-then-content made
+    the extraction silently return None on a reversed tag, and such a topic can
+    never earn a verified publish time, so its detail page is re-fetched on
+    every single run.
+    """
+    match = re.search(
+        r"<meta[^>]+property=[\"']article:published_time[\"'][^>]+content=[\"']([^\"']+)[\"']"
+        r"|<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']article:published_time[\"']",
+        html,
+    )
+    if not match:
+        return None
+    published = match.group(1) or match.group(2)
+    try:
+        return datetime.fromisoformat(published).astimezone(timezone.utc).isoformat()
+    except Exception:
+        return None
+
+
 def fetch_topic_published_time(topic_id: str) -> str | None:
     """Fetch a topic page and extract the true published time from meta tags."""
-    url = f"{BASE_LINUXSB}/topic/{topic_id}"
     try:
-        html = fetch(url, timeout=15)
-        match = re.search(
-            r'<meta[^>]+property="article:published_time"[^>]+content="([^"]+)"',
-            html,
-        )
-        if match:
-            published = match.group(1)
-            dt = datetime.fromisoformat(published)
-            return dt.astimezone(timezone.utc).isoformat()
+        return extract_published_time(fetch(f"{BASE_LINUXSB}/topic/{topic_id}", timeout=15))
     except Exception:
-        pass
-    return None
+        return None
 
 
 CATEGORY_KEYWORDS = {
@@ -158,7 +170,7 @@ class BaipiaoHTMLParser(HTMLParser):
                 self.topics.append({
                     "id": self._current_href,
                     "title": title,
-                    "url": f"{BASE_BAIPIAO}{self._current_href}",
+                    "url": f"{BASE_BAIPIAO}/bbs/d/{self._current_href}",
                     "created_at": None,
                 })
             self._in_link = False
@@ -204,6 +216,22 @@ def parse_topics(html: str, parser_class) -> list:
     return parser.topics
 
 
+def _lsb_title(anchor_inner: str) -> str:
+    """Title text of a linux.sb listing anchor.
+
+    The daily-hot-topics block nests the title and a reply count inside one
+    anchor ("免费订阅" + "近 24 小时 29 回复"), so the anchor's whole text is not
+    a title. Prefer a nested element whose class mentions "title"; ordinary
+    `.post-title` rows have no such child and fall through unchanged.
+    """
+    m = re.search(r'class="[^"]*title[^"]*"[^>]*>(.*?)<', anchor_inner, re.S)
+    if m:
+        text = re.sub(r"<[^>]+>", "", m.group(1)).strip()
+        if len(text) > 2:
+            return text
+    return re.sub(r"<[^>]+>", "", anchor_inner).strip()
+
+
 def _site_of(url: str | None) -> str:
     """Registrable host of a topic URL, used to namespace topic ids.
 
@@ -218,10 +246,15 @@ def _site_of(url: str | None) -> str:
 
 
 def topic_key(topic: dict) -> str:
-    """Merge/dedupe/seen-ids key: site-qualified, stable, and equal to the bare
-    id for every row that has no cross-site twin (so stores written before this
-    change keep their existing keys)."""
-    return f"{_site_of(topic.get('url'))}#{topic.get('id')}"
+    """Merge/dedupe key: host-qualified, and recomputable from a stored row.
+
+    It must stay a pure function of fields the store persists (url, source, id),
+    because the merge derives it again on every load. `source` is only a last
+    resort for a row whose url is missing or malformed - with an empty host, two
+    different sites' rows would share the key "#123" and dedupe would drop one
+    without a word."""
+    site = _site_of(topic.get("url")) or str(topic.get("source") or "").strip()
+    return f"{site or 'unknown'}#{topic.get('id')}"
 
 
 def deduplicate(topics: list) -> list:
@@ -264,6 +297,48 @@ def score_topic(topic: dict) -> dict:
     return topic
 
 
+def parse_linuxsb_listing(html: str) -> list:
+    """Rows of one linux.sb listing page. Pure: no network, so it is testable.
+
+    One regex per row instead of one regex for the whole page: with `.*?` and
+    re.S, a row that lost its <span data-performance-time> inherited the NEXT
+    row's timestamp and consumed that row's link, so a single markup anomaly
+    silently shifted times and dropped topics (measured: 8 rows per page).
+    Here a row's timestamp is only searched for up to the next row's link, so an
+    anomaly degrades to "no timestamp" instead of corrupting its neighbour.
+    """
+    anchor_re = re.compile(r'href=["\']/topic/(\d+)["\'][^>]*>(.*?)</a>', re.S)
+    time_re = re.compile(r'data-performance-time="(\d+)"')
+    topics = []
+    seen = set()
+    anchors = list(anchor_re.finditer(html))
+    for i, m in enumerate(anchors):
+        topic_id = m.group(1)
+        if topic_id in seen:
+            continue
+        seen.add(topic_id)
+        clean_title = _lsb_title(m.group(2))
+        if not clean_title or len(clean_title) <= 2:
+            continue
+        row_end = anchors[i + 1].start() if i + 1 < len(anchors) else len(html)
+        ts_match = time_re.search(html, m.end(), row_end)
+        created_at = None
+        try:
+            if ts_match:
+                created_at = datetime.fromtimestamp(
+                    int(ts_match.group(1)), tz=timezone.utc
+                ).isoformat()
+        except Exception:
+            pass
+        topics.append({
+            "id": topic_id,
+            "title": clean_title,
+            "url": f"{BASE_LINUXSB}/topic/{topic_id}",
+            "created_at": created_at,
+        })
+    return topics
+
+
 def fetch_linuxsb(known_ids: set | None = None) -> list:
     """Fetch linux.sb listings.
 
@@ -278,32 +353,11 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
         ("linuxsb_发卡", f"{BASE_LINUXSB}/index.php?sort=card"),
         ("linuxsb_首页", f"{BASE_LINUXSB}/"),
     ]
-    pattern = re.compile(r'href=["\'](/topic/(\d+))["\'][^>]*>(.*?)</a>.*?<span[^>]*data-performance-time="(\d+)"', re.S)
     all_topics = []
     for name, url in sources:
         try:
             html = fetch(url)
-            topics = []
-            seen = set()
-            for topic_id, num, title, ts in pattern.findall(html):
-                topic_id = topic_id.split("/")[-1]
-                if topic_id in seen:
-                    continue
-                seen.add(topic_id)
-                clean_title = re.sub(r"<[^>]+>", "", title).strip()
-                if not clean_title or len(clean_title) <= 2:
-                    continue
-                created_at = None
-                try:
-                    created_at = datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
-                except Exception:
-                    pass
-                topics.append({
-                    "id": topic_id,
-                    "title": clean_title,
-                    "url": f"{BASE_LINUXSB}/topic/{topic_id}",
-                    "created_at": created_at,
-                })
+            topics = parse_linuxsb_listing(html)
             for t in topics:
                 t["source"] = name
             print(f"[fetch] {name}: {len(topics)} topics", file=sys.stderr)
@@ -609,7 +663,7 @@ def main():
                 store_lines += 1
                 try:
                     t = json.loads(line)
-                    existing[t["id"]] = t
+                    existing[topic_key(t)] = t
                 except Exception:
                     store_bad += 1
         print(f"[merge] loaded {len(existing)} existing topics", file=sys.stderr)
@@ -692,32 +746,38 @@ def main():
     all_topics = [t for t in all_topics if is_relevant(t)]
     print(f"[filter] relevance filter: {before} -> {len(all_topics)} topics", file=sys.stderr)
 
-    # Merge fetched topics with existing: new data overrides old for the same key
+    # Merge fetched topics with existing: new data overrides old for the same
+    # key. Cross-site id collisions cannot happen here at all: the key carries
+    # the host, so linux.sb#12345 and nodeloc.com#12345 are simply two rows.
+    # (They used to be renamed to a qualified key at this point only, which the
+    # store could not persist: on the next run the row loaded under its bare id,
+    # looked brand new, and could be evicted as if the other site owned the id.)
     merged = dict(existing)
-    collisions = []
+    url_changes = []
     for t in all_topics:
-        key = t["id"]
+        key = topic_key(t)
         prev = merged.get(key)
-        if prev is not None and prev.get("url") and t.get("url") and prev["url"] != t["url"]:
-            collisions.append((key, prev.get("url"), t.get("url")))
-            if _site_of(prev["url"]) != _site_of(t["url"]):
-                # Two independent sites, one numeric id (they all number posts
-                # from 1). Keep BOTH rows: the newcomer goes in under a
-                # site-qualified key instead of overwriting the other site's
-                # post. Same-site URL changes (e.g. a renamed slug) still
-                # overwrite, which is the intended cache refresh.
-                key = topic_key(t)
+        if prev is not None:
+            if prev.get("url") and t.get("url") and prev["url"] != t["url"]:
+                url_changes.append((key, prev["url"], t["url"]))
+            # A source that stops emitting the publish time must not wipe one we
+            # already know: created_at drives display order and the age cap, so
+            # losing it drops the row to the front of the eviction queue.
+            if not t.get("created_at") and prev.get("created_at"):
+                t["created_at"] = prev["created_at"]
+                t["published_verified"] = prev.get("published_verified", False)
         merged[key] = t
-    if collisions:
-        for cid, old_url, new_url in collisions:
-            print(f"[warn] id collision {cid}: {old_url} -> {new_url}", file=sys.stderr)
+    for key, old_url, new_url in url_changes:
+        print(f"[warn] url changed for {key}: {old_url} -> {new_url}", file=sys.stderr)
     print(f"[merge] {len(existing)} existing + {len(all_topics)} fetched -> {len(merged)} total", file=sys.stderr)
 
-    # Cap total: drop the OLDEST posts first (rolling window). Missing
-    # created_at counts as oldest so the cap always holds.
+    # Cap total: drop the OLDEST posts first (rolling window). A row with no
+    # created_at falls back to fetched_at rather than to zero: zero means
+    # "infinitely old", which evicted the newest linux.do rows first while rows
+    # dated months ago survived. It also keeps the display order consistent with
+    # what the card prints, since the card uses the same fallback.
     def age_key(t):
-        ts = _parse_sortable(t.get("created_at"))
-        return ts if ts else 0
+        return _parse_sortable(t.get("created_at")) or _parse_sortable(t.get("fetched_at"))
 
     # (key, topic) pairs: the key is the merge identity,
     # and it differs from the bare id only for a cross-site id collision.
@@ -726,9 +786,11 @@ def main():
         merged_items.sort(key=lambda kv: age_key(kv[1]), reverse=True)  # newest first
         dropped = merged_items[args.limit:]
         merged_items = merged_items[: args.limit]
+        oldest = dropped[-1][1]  # the list is sorted newest-first
         print(
             f"[limit] trimmed {len(dropped)} oldest posts (cap {args.limit}); "
-            f"oldest dropped id={dropped[0][1].get('id')} at {dropped[0][1].get('created_at')}",
+            f"oldest dropped id={oldest.get('id')} "
+            f"at {oldest.get('created_at') or oldest.get('fetched_at')}",
             file=sys.stderr,
         )
 

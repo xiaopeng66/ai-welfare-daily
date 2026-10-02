@@ -88,18 +88,22 @@ function makeEl(id) {
   });
   return el;
 }
-const els = new Map();
-const document = {
-  getElementById: (id) => {
-    if (!els.has(id)) els.set(id, makeEl(id));
-    return els.get(id);
-  },
-  querySelectorAll: () => [],
-  createElement: () => makeEl('tmp'),
-};
+function build(payloadScript) {
+  const els = new Map();
+  const doc = {
+    getElementById: (id) => {
+      if (!els.has(id)) els.set(id, makeEl(id));
+      return els.get(id);
+    },
+    querySelectorAll: () => [],
+    createElement: () => makeEl('tmp'),
+  };
+  const api = new Function('document',
+    `${payloadScript};return {render,isRecent,formatTime,bjDateKey,getCards:()=>cards};`)(doc);
+  return { api, doc };
+}
 
-const api = new Function('document', `${script}
-  ;return {render,isRecent,formatTime,bjDateKey,getCards:()=>cards};`)(document);
+const { api, doc: document } = build(script);
 
 console.log('== the 24-hour window ==');
 check(api.isRecent({ created_at: iso(t - 1 * HOUR) }) === true, '1 hour old is recent');
@@ -129,20 +133,37 @@ check(newHtml.includes('近 24 小时') || html.includes('近 24 小时'),
 console.log('\n== only-recent payload shows the empty state ==');
 const onlyRecent = cards.filter((c) => c.id === '1');
 const script2 = inlineJs.replace(payload, JSON.stringify(onlyRecent));
-const els2 = new Map();
-const doc2 = {
-  getElementById: (id) => {
-    if (!els2.has(id)) els2.set(id, makeEl(id));
-    return els2.get(id);
-  },
-  querySelectorAll: () => [],
-  createElement: () => makeEl('tmp'),
-};
-const api2 = new Function('document', `${script2};return {render};`)(doc2);
-api2.render();
-check(doc2.getElementById('cards-old').innerHTML.includes('更早'),
+const built2 = build(script2);
+built2.api.render();
+check(built2.doc.getElementById('cards-old').innerHTML.includes('更早'),
   'an empty older section explains itself',
-  doc2.getElementById('cards-old').innerHTML);
+  built2.doc.getElementById('cards-old').innerHTML);
+
+console.log('\n== a malformed row cannot blank the page or inject markup ==');
+// tags as a string used to make render() throw mid-map, which left BOTH sections
+// empty; score was the one field interpolated without coercion.
+const nasty = [
+  { ...row('801', '标签不是数组', iso(t - 60 * 60 * 1000), iso(t - 60 * 60 * 1000)),
+    tags: '额度' },
+  { ...row('802', '标题带标签', iso(t - 60 * 60 * 1000), iso(t - 60 * 60 * 1000)),
+    title: '<script>alert(1)</script>', score: '"><img src=x onerror=alert(1)>' },
+];
+// build() evaluates the page script, which ends with render(), so the throw can
+// happen inside it - wrap the whole thing, not just the extra render().
+let threw = null;
+let html3 = '';
+try {
+  const built3 = build(inlineJs.replace(payload, JSON.stringify(nasty)));
+  built3.api.render();
+  html3 = built3.doc.getElementById('cards-new').innerHTML;
+} catch (e) { threw = e.message; }
+check(threw === null, 'render() survives a string tags field', threw);
+check(html3.includes('标签不是数组') && html3.includes('&lt;script&gt;alert(1)'),
+  'both rows still render (the second one escaped)', html3.slice(0, 140));
+check(!/<img|onerror=/.test(html3), 'score cannot smuggle an event handler in',
+  html3.match(/<img[^>]*>/)?.[0]);
+check(html3.includes('&lt;script&gt;') && !html3.includes('<script>alert'),
+  'a title with markup stays text');
 
 console.log('\n== the card clock is Beijing, like the date groups ==');
 // 20:00 UTC is 04:00 the next day in Beijing. A browser-local formatting would

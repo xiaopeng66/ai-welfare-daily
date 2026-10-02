@@ -31,7 +31,11 @@
 
 - **增量合并**：以「站点限定 id」`host#id` 为键合并，同键新数据覆盖旧值，历史全部保留。
   - 用站点限定键是因为各站 id 都从 1 开始自增：linux.sb 已到 ~2.4 万而 nodeloc 已过 10 万，两个区间迟早相遇。裸数字 id 做键时，跨站撞号会静默丢掉一条或覆盖另一站的帖子；现在撞号只是让新来者改用 `nodeloc.com#12345` 这种键，两条都留下。同站 URL 变更（改 slug）仍按原键覆盖。
-- **滚动上限 200 条**：超出时按发布时间淘汰最旧的；`created_at` 缺失视为最旧，优先淘汰。
+- **滚动上限 200 条**：超出时按发布时间淘汰最旧的；`created_at` 缺失的行按 `fetched_at` 计龄
+  （早先缺失被当成「无限旧」，结果把最新的 linux.do 帖先淘汰掉，而 2020 年的老帖反而留着）。
+- **合并键必须能从 store 里重新算出来**：键是 `host#id`，`host` 取自 url、url 缺失时退回 source。这一条是硬约束——
+  键只在内存里，store 存的是行的字段，所以任何「运行时才知道的键」（比如撞号时临时改成另一种写法）在下一轮就丢了，
+  那一行会被当成全新行、甚至被另一站同名 id 挤掉。跨站撞号因此是**结构性避免**的，不需要运行时补救。
 - **相关性过滤**：标题须含 `中转站 / 公益站 / 鸡蛋 / 兑换码 / 额度 / 体验金 / 抽奖` 之一。
 - **「近 24 小时」由浏览器判定**：卡片是否算「新」= 发布时间落在**读者本地时钟往前的 24 小时内**，不落进 store。
   - 为什么不写进数据：这条属性只取决于 (读页面那一刻, `created_at`)，写进 store 就意味着随时间老化都要重新提交一次；放在浏览器里则页面始终是 store 的纯函数，帖子到期自然滑出分区、零提交，而且页面被缓存或开了很久也仍然显示正确的窗口。
@@ -89,6 +93,7 @@ run-update.ps1                   Windows / Hermes cron 侧更新脚本
 tests/test_guards.py             抓取护栏：注入各类故障，断言「不丢数据」
 tests/test_site.py               页面不变量：数据驱动的「更新于」、渲染幂等、转义
 tests/test_page_js.mjs           页面 JS 运行时：近 24 小时分区、created_at 兜底、北京时间
+tests/test_parsers.py            解析层：4 个站的 HTML/JSON 解析与正则夹具
 .github/workflows/daily-update.yml   CI 主管道（先跑护栏，再抓取）
 .github/workflows/tests.yml          测试：push / PR 触发
 data/topics.jsonl                store：一行一个 JSON，合并后的历史
@@ -104,7 +109,14 @@ docs/index.html                  生成的站点（GitHub Pages 直接服务这�
 - **`fetch.py` 的退出码有意义**：`0` 正常（可能带部分失败标记）、`2` 全源空且 store 非空、`3` store 损坏。脚本据此决定是否提交。
 - **「没有变化」是正常结果**：抓完发现没有新帖就什么都不写、不提交。两个 runner 都已处理这条路径
   （日志里的 `no changes to commit` / `store already up to date`），看到它不要当故障排查。
-- **改完先跑测试再推**：`python3 tests/test_guards.py && python3 tests/test_site.py`（26 个断言，纯标准库、不联网、2 秒内跑完）。
+- **解析层是最脆的一环，夹具在 `tests/test_parsers.py`**：站点改一行 markup 就会静默解析错。两处真实踩过的坑——
+  linux.sb 列表页原来用「一个正则配整页」，`re.S` + `.*?` 让丢了 `<span>` 的行去偷下一行的时间戳、并吞掉那一行
+  （实测每页少 8 条）；baipiao 的 HTML 回退路径把 url 拼成 `https://baipiao.org777`，于是同一个帖子在 API 路径和
+  回退路径下变成两个 host 命名空间、永久重复。改解析务必让 `test_parsers.py` 陪着改。
+- **`created_at` 只会被更好地覆盖，不会被清空**：某个源这一轮没给出时间不允许把已存的抹掉（否则该行会掉到淘汰队列最前面）。
+- **改完先跑测试再推**：`python3 tests/test_guards.py && python3 tests/test_parsers.py && python3 tests/test_site.py && node tests/test_page_js.mjs`
+- **测试必须能咬人**：每次改动后把被守护的行为改回去跑一遍，确认测试真的红。本轮 9 处修复逐条做了变异验证（含上面 4 类），
+  全部至少让一项断言失败；没有这步，「测试通过」只说明测试没跑错。
   它们守的都是「失败了也不会报警」的逻辑 —— 静默丢源、跨站覆盖、假装有变化。`daily-update.yml` 在抓取前先跑护栏套件：宁可这一天不抓，也不让会毁 store 的运行真的写下去。
 - **页面现在是输入的纯函数**：`_write_if_changed()` 让没有新数据的那次运行连文件都不重写，日志会打 `(unchanged, left alone)`。要是哪天「更新于」又变回渲染时刻，`tests/test_site.py` 会红（它用一个 2020 年的 store 断言徽章必须显示 2020）。
 - **改了 `generate.py` 的内联 JS 要重新生成页面**：仓库里的 `docs/index.html` 是产物，下次 CI 会覆盖，但本地看到的不一致会误导排查。`tests/test_site.py` 最后一项会直接比对「committed 页面 vs committed store 重新渲染的结果」，不一致就红。
@@ -115,6 +127,7 @@ docs/index.html                  生成的站点（GitHub Pages 直接服务这�
 
 ```bash
 python3 tests/test_guards.py    # 抓取护栏（不联网，注入所有源）
+python3 tests/test_parsers.py   # 解析层夹具（不联网）
 python3 tests/test_site.py      # 页面不变量
 node tests/test_page_js.mjs     # 页面 JS 运行时（改内联 JS 后必跑）
 python3 -c "import ast;ast.parse(open('fetch.py').read())"   # 语法
@@ -128,7 +141,8 @@ EOF
 node --check /tmp/site.js                                     # JS 语法
 ```
 
-`tests/` 覆盖的是 Python 侧与产物不变量。页面 JS 的**运行时**行为（不只是语法）另用一个 DOM shim 跑真实数据来验：把 `const cards = [...]` 换成构造好的 payload，用 `new Function` 执行整段脚本，断言渲染出的卡片数、日期分组、转义结果。字段残缺、XSS、时区边界这些用例都在这里覆盖。
+`tests/` 现在有四个套件：`test_guards`（故障注入与增量语义）、`test_parsers`（解析夹具）、`test_site`（产物不变量）、
+`test_page_js`（页面 JS 运行时）。页面 JS 的**运行时**行为（不只是语法）另用一个 DOM shim 跑真实数据来验：把 `const cards = [...]` 换成构造好的 payload，用 `new Function` 执行整段脚本，断言渲染出的卡片数、日期分组、转义结果。字段残缺、XSS、时区边界这些用例都在这里覆盖。
 
 ## 免责声明
 

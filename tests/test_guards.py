@@ -56,9 +56,13 @@ def check(ok, msg, extra=None):
     print(('ok    ' if ok else 'FAIL  ') + msg + (detail if not ok else ''))
 
 
-def topic(tid, url, title, created='2026-10-01T10:00:00Z', verified=True, source=''):
-    return {'id': str(tid), 'title': title, 'url': url, 'created_at': created,
-            'published_verified': verified, 'source': source, 'tags': [], 'score': 0}
+def topic(tid, url, title, created='2026-10-01T10:00:00Z', verified=True, source='',
+          fetched=None):
+    t = {'id': str(tid), 'title': title, 'url': url, 'created_at': created,
+         'published_verified': verified, 'source': source, 'tags': [], 'score': 0}
+    if fetched:
+        t['fetched_at'] = fetched
+    return t
 
 
 def run(store_rows, sources, limit=200, raw_store=None, workdir=None):
@@ -208,6 +212,66 @@ need = {'id', 'title', 'url', 'source', 'created_at', 'fetched_at',
         'tags', 'score', 'published_verified'}
 check(need <= set(r['rows'][0]), 'schema complete', need - set(r['rows'][0]))
 shutil.rmtree(r['dir'], ignore_errors=True)
+
+print('\n== cross-site id collision: same numeric id, two different sites ==')
+# Regression: the store was keyed by the bare id, so these two rows loaded as ONE
+# (last line wins) and, on a run where only one site returned data, the other
+# site's row disappeared from the store. The key must carry the host, and it must
+# be recomputable from the stored row so that a second run is a no-op.
+LSB_URL = 'https://linux.sb/topic/12345'
+NODE_URL = 'https://nodeloc.com/t/topic/12345'
+stored = [topic(12345, LSB_URL, '鸡蛋 大放送', source='linuxsb_福利放送'),
+          topic(12345, NODE_URL, '公益站 体验金', source='nodeloc')]
+both = {
+    'fetch_linuxsb': lambda *a, **k: [topic(12345, LSB_URL, '鸡蛋 大放送',
+                                            source='linuxsb_福利放送')],
+    'fetch_nodeloc': lambda *a, **k: [topic(12345, NODE_URL, '公益站 体验金',
+                                            source='nodeloc')],
+}
+wd = tempfile.mkdtemp(prefix='guard-key-')
+r1 = run(stored, both, workdir=wd)
+check(len(r1['rows']) == 2, 'both sites keep their own row',
+      [r['url'] for r in r1['rows']])
+check('loaded 2 existing' in r1['log'], 'the store loads them as two rows',
+      [line for line in r1['log'].splitlines() if 'loaded' in line])
+r2 = run(None, both, workdir=wd)
+check(len(r2['rows']) == 2, 'still two rows on the next run', len(r2['rows']))
+check('0 updated' in r2['log'], 'and the next run reports no phantom change',
+      r2['log'].strip().splitlines()[-1:])
+check(r2['before'] == r2['after'], 'next run: store bytes unchanged')
+r3 = run(None, {'fetch_nodeloc': both['fetch_nodeloc']}, workdir=wd)
+check(len(r3['rows']) == 2, 'a run where linux.sb returned nothing keeps its row',
+      [r['url'] for r in r3['rows']])
+shutil.rmtree(wd, ignore_errors=True)
+
+print('\n== the age cap must not evict a dateless row before an ancient one ==')
+dateless = topic(9999, 'https://linux.do/t/9999', '额度 无发布时间', created=None,
+                 source='linuxdo_welfare', fetched='2026-10-02T06:00:00Z')
+ancient = topic(8888, 'https://linux.sb/topic/8888', '鸡蛋 上古帖',
+                created='2020-01-01T00:00:00Z', source='linuxsb_福利放送',
+                fetched='2026-10-02T06:00:00Z')
+r = run([dateless, ancient], {'fetch_linuxsb': lambda *a, **k: [ancient]}, limit=1)
+check(len(r['rows']) == 1, 'the cap holds', len(r['rows']))
+check(r['rows'] and r['rows'][0]['id'] == '9999',
+      'the 2020 row goes first; a dateless row ages by its fetch time',
+      [x['id'] for x in r['rows']])
+
+print('\n== a source that stops emitting created_at must not erase a known one ==')
+NURL = 'https://nodeloc.com/t/topic/7777'
+dated = topic(7777, NURL, '公益站 体验金 送额度', created='2026-09-01T00:00:00Z',
+              source='nodeloc')
+# As stored, the row already carries the tags/score the fetcher computes (taken
+# from the fetcher itself, so a keyword change cannot make this test lie), which
+# leaves the missing publish time as the only difference.
+_scored = mod.score_topic({'title': '公益站 体验金 送额度'})
+dated.update(tags=_scored['tags'], score=_scored['score'])
+undated = topic(7777, NURL, '公益站 体验金 送额度', created=None, source='nodeloc')
+r = run([dated], {'fetch_nodeloc': lambda *a, **k: [undated]})
+check(r['rows'] and r['rows'][0]['created_at'] == '2026-09-01T00:00:00Z',
+      'the stored publish time survives',
+      r['rows'][0]['created_at'] if r['rows'] else 'no row')
+check('0 updated' in r['log'], 'and the missing field is not a change either',
+      r['log'].strip().splitlines()[-1:])
 
 print()
 bad = results.count(False)

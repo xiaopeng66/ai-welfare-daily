@@ -256,9 +256,9 @@ def main():
         # one odd-looking card.
         "return '<a class=\"card\" href=\"'+escapeAttr(card.url)+'\" target=\"_blank\" rel=\"noopener\">'"
         "+'<div class=\"card-title\">'+escapeHtml(card.title)+'</div>'"
-        "+'<div class=\"card-meta\">'+(card.tags||[]).map(t=>'<span class=\"tag tag-'+escapeAttr(t)+'\">'+escapeHtml(t)+'</span>').join('')+'</div>'"
+        "+'<div class=\"card-meta\">'+(Array.isArray(card.tags)?card.tags:[]).map(t=>'<span class=\"tag tag-'+escapeAttr(t)+'\">'+escapeHtml(t)+'</span>').join('')+'</div>'"
         "+'<div class=\"card-footer\"><span class=\"source\">'+escapeHtml(sourceLabel(card.source))+'</span>'"
-        "+'<span class=\"score\">匹配度 '+(card.score||0)+'</span>'"
+        "+'<span class=\"score\">匹配度 '+(Number(card.score)||0)+'</span>'"
         "+'<span class=\"post-time\">'+formatTime(card.created_at||card.fetched_at)+'</span></div></a>';}"
 
         "function render(){"
