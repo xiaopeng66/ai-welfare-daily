@@ -238,7 +238,9 @@ if ($LASTEXITCODE -eq 0) {
             # does not, keep this run's snapshot - it is a complete fetch.
             Log 'rebase conflicted - aborting and merging onto origin'
             & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
-            $rc = Invoke-Git pull --no-rebase -X ours origin main
+            # --autostash: a dirty tracked file outside data/docs must not make
+            # this fallback refuse - that would drop this run's entire fetch.
+            $rc = Invoke-Git pull --no-rebase --autostash -X ours origin main
             if ($rc -eq 0) {
                 $rc = Invoke-Git push origin main
             }

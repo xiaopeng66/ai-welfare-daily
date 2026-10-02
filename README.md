@@ -25,6 +25,16 @@
 
 三条管道可能并发：runner 侧 `git pull --rebase --autostash` 后再 push，冲突由 rebase 吸收；CI 侧另有 `concurrency` 组串行化。
 
+冲突兜底的实际行为（两个 runner 一致）：
+
+1. push 被拒 → `git pull --rebase --autostash`。两边各自新增同一行时 git 视为同一改动、直接合并，多数情况到此为止。
+2. rebase 真冲突 → `git rebase --abort` → `git pull --no-rebase --autostash -X ours`。
+   `--autostash` 不能省：工作区里有 `data`/`docs` 之外的脏改动、而 upstream 恰好也动了那个文件时，没有它这条 pull 会直接拒绝
+   （`Your local changes ... would be overwritten by merge`，exit 2）→ 脚本走到 `FAIL git push` → **本轮抓取被丢弃**。实测过：加上后 exit 0、push 成功。
+   （rebase 那条路径同样带 `--autostash`，否则脏工作区会让 rebase 连启动都拒。）
+3. `-X ours` 的含义是**保留本轮快照**（本轮是全量抓取）。副作用：两边都改过的**同一行**，对方那版被替换 —— 若该帖仍在榜上，下一轮抓取会把它带回来；只有「对方改过、且此后掉出榜」的行才会真丢。这是有意的取舍，不是 bug。
+4. 若 autostash 无法干净弹出，本地那个文件会留冲突标记，但本轮数据已经 push 成功。
+
 > **实测：CI 不会准点跑。** `0 0,12 * * *` 的 schedule 连续多日落在 ~03:45–03:57Z 与 ~17:30–17:55Z，即北京时间**约 11:50 与次日 01:30**，比计划晚 3h45m–5h30m（GitHub 调度队列积压）。所以站点实际每天刷新 4 次：08:00 / 20:00（Windows 任务，含 linux.do）+ 约 11:50 / 01:30（CI，仅重发缓存数据）。
 
 ## 抓取与合并策略

@@ -61,15 +61,24 @@ jobs:
           pip install "scrapling[fetchers]==0.4.8"
           scrapling install
 
-      # Pre-flight: both suites are hermetic (no network, every source injected)
-      # and cover the "do not lose data" paths - including the parsers, whose
-      # fixtures encode the markup anomalies that silently dropped rows and
-      # mis-paired timestamps. Fail closed here rather than let a run that would
-      # drop the store, corrupt a row or garble the page actually write it.
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: '22'
+
+      # Pre-flight: all four suites are hermetic (no network, every source
+      # injected) and cover the "do not lose data | do not garble the page"
+      # paths - including the parsers, whose fixtures encode the markup
+      # anomalies that silently dropped rows and mis-paired timestamps, and the
+      # page-JS suite, which this job is the last line of defence for: tests.yml
+      # only runs after the push, so without it a garbled page is already live.
+      # Fail closed here rather than let such a run write anything.
       - name: Guard tests (offline)
         run: |
           python3 tests/test_guards.py
           python3 tests/test_parsers.py
+          python3 tests/test_site.py
+          node tests/test_page_js.mjs
 
       - name: Fetch topics from linux.sb
         run: |
@@ -83,9 +92,13 @@ jobs:
         run: |
           git config --global user.name "linuxsb-daily-bot"
           git config --global user.email "bot@users.noreply.github.com"
-          # Stage the whole tree, not just data/docs: any tracked file left
-          # unstaged makes the rebase below refuse to run ("You have unstaged
-          # changes") and then leaves an autostash that cannot be reapplied.
+          # Stage the whole tree here, unlike run-update.ps1 which stages only
+          # data docs. The asymmetry is deliberate: this checkout is ephemeral
+          # and holds nothing but this job's output, so `-A` guarantees the tree
+          # is clean for the rebase below (an unstaged tracked file makes it
+          # refuse, and then the autostash cannot be reapplied). On the user's
+          # machine the tree can hold unrelated edits, so the PS1 stages only
+          # what the run itself produced.
           git add -A
           git status --short
           if git diff --cached --quiet; then
@@ -108,7 +121,10 @@ jobs:
               # it does not, keep this run's snapshot: it is a complete fetch and
               # the other side's rows are a subset of it.
               git rebase --abort 2>/dev/null || true
-              git pull --no-rebase -X ours origin main
+              # --autostash: without it a dirty tracked file anywhere in the tree
+              # makes this fallback refuse, and then the run's whole fetch is
+              # dropped at the "FAIL git push" below.
+              git pull --no-rebase --autostash -X ours origin main
               git push
               echo "push ok after merge (kept this run's data)"
             fi
