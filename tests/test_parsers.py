@@ -15,6 +15,7 @@ Hermetic: parses strings, never touches the network.
 import importlib.util
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -160,6 +161,59 @@ check(not rows.get('77', {}).get('published_verified'),
       rows.get('77', {}).get('published_verified'))
 check(rows.get('78', {}).get('published_verified'),
       'created_at is a verified publish time', rows.get('78', {}).get('published_verified'))
+
+
+print('\n== vibex (心流AI社区) welfare board ==')
+vibex_json = {'topic_list': {'topics': [
+    {'id': 5, 'title': '关于“iFlow 补给站”类别', 'pinned': True,
+     'created_at': '2025-08-23T02:00:00.000Z'},
+    {'id': 6773, 'title': '免费公益站 GPT+Claude Code 每日登录送25刀',
+     'created_at': '2026-10-01T07:10:00.000Z'},
+    {'id': 6770, 'title': '领鸡蛋 DeepSeek官方客户端',
+     'bumped_at': '2026-10-02T03:00:00.000Z'},
+]}}
+
+
+def with_paged_fetch(pages, fn):
+    """Mock fetch so each page argument gets its own payload.
+
+    The single-payload mock above is fine for a one-page function, but vibex
+    walks pages 1-3: handing every page the same body makes the last page's row
+    overwrite the first one's source, which looks like a source-naming bug when
+    it is really the fixture not modelling pagination.
+    """
+    real = mod.fetch
+
+    def fake(url, *a, **k):
+        m = re.search(r'page=(\d+)', url)
+        page = int(m.group(1)) if m else 1
+        return json.dumps(pages.get(page, {'topic_list': {'topics': []}}))
+
+    mod.fetch = fake
+    try:
+        return fn()
+    finally:
+        mod.fetch = real
+
+
+vrows = {r['id']: r for r in with_paged_fetch({1: vibex_json}, mod.fetch_vibex_welfare)}
+check('5' not in vrows, 'the pinned board description is not a welfare post', sorted(vrows))
+check(vrows.get('6773', {}).get('url') == 'https://vibex.iflow.cn/t/topic/6773',
+      'url built from BASE_VIBEX', vrows.get('6773', {}).get('url'))
+check(vrows.get('6773', {}).get('source') == 'vibex_welfare_p1',
+      'source is namespaced per page', vrows.get('6773', {}).get('source'))
+check(vrows.get('6773', {}).get('published_verified'),
+      'created_at is a verified publish time', vrows.get('6773', {}).get('published_verified'))
+check(vrows.get('6770', {}).get('created_at') == '2026-10-02T03:00:00.000Z'
+      and not vrows.get('6770', {}).get('published_verified'),
+      'a bumped_at fallback is usable but not claimed as verified',
+      (vrows.get('6770', {}).get('created_at'), vrows.get('6770', {}).get('published_verified')))
+check(set(r['source'] for r in with_paged_fetch(
+          {1: {'topic_list': {'topics': [{'id': 1, 'title': 'a', 'created_at': '2026-01-01T00:00:00.000Z'}]}},
+           2: {'topic_list': {'topics': [{'id': 2, 'title': 'b', 'created_at': '2026-01-02T00:00:00.000Z'}]}},
+           3: {'topic_list': {'topics': [{'id': 3, 'title': 'c', 'created_at': '2026-01-03T00:00:00.000Z'}]}},
+          }, mod.fetch_vibex_welfare)) == {'vibex_welfare_p1', 'vibex_welfare_p2', 'vibex_welfare_p3'},
+      'each page keeps its own source label')
 
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')

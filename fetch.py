@@ -6,6 +6,7 @@ Sources:
   - linux.sb: /forum/2, /forum/8, /index.php?sort=lucky, /index.php?sort=card, /
   - baipiao.org: /bbs/api/discussions
   - nodeloc.com: /latest.json, /c/welfare/12.json
+  - vibex.iflow.cn: /c/4.json (心流AI社区 补给站)
   - linux.do: /c/welfare/36 (via Scrapling StealthyFetcher, Cloudflare protected)
 """
 import argparse
@@ -24,6 +25,7 @@ BASE_LINUXSB = "https://linux.sb"
 BASE_BAIPIAO = "https://baipiao.org"
 BASE_NODELOC = "https://www.nodeloc.com"
 BASE_LINUXDO = "https://linux.do"
+BASE_VIBEX = "https://vibex.iflow.cn"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; linuxsb-daily/1.0; +https://github.com/xiaopeng66/linuxsb-daily)",
@@ -627,6 +629,56 @@ def fetch_linuxdo_welfare() -> list:
 
     return all_topics
 
+
+def fetch_vibex_welfare() -> list:
+    """Fetch vibex.iflow.cn (心流AI社区) 补给站 - a Discourse board for AI 福利分享.
+
+    Discourse JSON like nodeloc/linux.do, so this is the same three-field parse.
+    Board is /c/4 ("iFlow 补给站"), verified 2026-10-04: 30 topics/page, plain
+    urllib reaches it in ~0.7s with no proxy and no Cloudflare challenge, which
+    matters because the GitHub runner has no proxy and sits on a datacenter IP.
+
+    Deliberately only /c/4: the sibling boards are technical chatter, and
+    measured against this project's own relevance keywords they yield ~0 hits
+    (/c/12 AI探索舰 0/30, /c/14 AI摸鱼船 1/30) versus /c/4's 14/90.
+    """
+    all_topics = []
+    for page_num in range(1, 4):
+        api_url = f"{BASE_VIBEX}/c/4.json?order=created&page={page_num}"
+        try:
+            data = json.loads(fetch(api_url))
+            topics = []
+            for t in data.get("topic_list", {}).get("topics", []):
+                topic_id = t.get("id")
+                title = (t.get("title") or "").strip()
+                # Discourse pins the board description as the first topic
+                # ("关于...类别", years old) - it is not a welfare post.
+                if not topic_id or not title or t.get("pinned"):
+                    continue
+                # created_at is the publish time; bumped_at/last_posted_at are
+                # reply times and must not be presented as a verified one.
+                published = t.get("created_at")
+                created = published or t.get("bumped_at") or t.get("last_posted_at")
+                topics.append({
+                    "id": str(topic_id),
+                    "title": title,
+                    "url": f"{BASE_VIBEX}/t/topic/{topic_id}",
+                    "created_at": created,
+                    "source": f"vibex_welfare_p{page_num}",
+                    "published_verified": bool(published),
+                })
+            if not topics and page_num == 1:
+                raise ValueError("api returned 0 items")
+            print(f"[fetch] vibex welfare page {page_num}: {len(topics)} topics", file=sys.stderr)
+            if page_num == 1:
+                note_empty_source("vibex welfare", len(topics))
+            all_topics.extend(topics)
+        except Exception as e:
+            print(f"[warn] vibex welfare page {page_num} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"vibex welfare page {page_num}: {e}")
+            break
+    return all_topics
+
 _ROW_FIELDS = ("title", "url", "source", "created_at")
 
 
@@ -708,7 +760,8 @@ def main():
     nodeloc_topics = fetch_nodeloc()
     nodeloc_welfare_topics = fetch_nodeloc_welfare()
     linuxdo_topics = fetch_linuxdo_welfare()
-    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics + linuxdo_topics
+    vibex_topics = fetch_vibex_welfare()
+    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics + linuxdo_topics + vibex_topics
 
     # Partial failures are survivable now that we merge incrementally: cached
     # rows for the failed source stay in the store. Warn loudly (the workflow

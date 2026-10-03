@@ -1,6 +1,6 @@
 # LinuxSB 每日福利站
 
-聚合 **linux.sb**、**baipiao.org**、**nodeloc.com**、**linux.do** 四站的 AI 中转站 / 公益站 / 抽奖类福利帖，每天自动抓取、去重、打分，生成一个纯静态页面发布到 GitHub Pages —— 无后端、无数据库、无人工。
+聚合 **linux.sb**、**baipiao.org**、**nodeloc.com**、**vibex.iflow.cn**、**linux.do** 五站的 AI 中转站 / 公益站 / 抽奖类福利帖，每天自动抓取、去重、打分，生成一个纯静态页面发布到 GitHub Pages —— 无后端、无数据库、无人工。
 
 **在线访问：** https://xiaopeng66.github.io/linuxsb-daily/
 
@@ -14,6 +14,7 @@
 | baipiao.org | `/bbs/api/discussions`（JSON），失败回退 HTML 列表 | API `attributes.createdAt` | 回退路径的 DOM 时间不可信，标记为未验证 |
 | nodeloc.com | `/latest.json`（最新）、`/c/welfare/12.json`（抽奖福利） | Discourse `created_at` | `created_at` 即发布时间，无需详情页 |
 | linux.do | `/c/welfare/36.json`（福利羊毛） | Discourse `created_at` | Cloudflare 防护，走 Scrapling `StealthyFetcher` |
+| vibex.iflow.cn | `/c/4.json`（iFlow 补给站） | Discourse `created_at` | 心流AI社区。**只取 /c/4**：兄弟板块是技术闲聊，按本站关键词实测 0–1/30 命中 |
 
 ## 更新管道（三条，互为兜底）
 
@@ -71,7 +72,7 @@
 
 - 两种分区 + 一种视图：**近 24 小时** / **24 小时前**（默认按匹配度排序）、**按时间分组**（每个日期一个 `📅 YYYY-MM-DD` 区块）
   - 「近 24 小时」用浏览器时钟实时算，不是抓取时冻结的标记（`tests/test_page_js.mjs` 守着这条）
-- 两个筛选维度：来源（linux.sb / baipiao.org / nodeloc.com / nodeloc 福利 / linux.do）、分类（按标题关键词）
+- 两个筛选维度：来源（linux.sb / baipiao.org / nodeloc.com / nodeloc 福利 / vibex.iflow.cn / linux.do）、分类（按标题关键词）
 - 排序：匹配度 / 时间；卡片显示来源、匹配度、发布时间
 - 顶部「更新于」取自 store 里最新的 `fetched_at`（= 数据最后一次真正变化的时间），而不是渲染时刻：
   页面因此是输入的纯函数，没有新数据时两次渲染的文件逐字节相同
@@ -113,6 +114,7 @@ docs/index.html                  生成的站点（GitHub Pages 直接服务这�
 ## 维护须知（踩过的坑）
 
 - **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，只会让每天两次的定时构建变红。
+- **vibex.iflow.cn 对 CI 是安全的**：它是普通 Discourse，直连（无代理）约 0.7s、无 Cloudflare 挑战，是本项目里**唯一能同时被 CI 和 Windows 任务抓到的非 linux.sb 源**。选它做新源而不是 NodeSeek / sb.sb 就是因为后两者代理下 200、直连 404（CI 拿不到）。加新源前先按这个标准验一遍：`httpx.get(url)` 不给 proxy，能 200 才算可用。
 - **`page.body`，不是 `page.html_content`**：后者会把 JSON 包进 `<html><body>`，`json.loads` 直接炸。JSON 端点 + `page.body` 是 1.2s/页，比浏览器渲染 HTML（90s+）快两个数量级。
 - **不要给 `StealthyFetcher.fetch` 加 `proxy=`**：见上，会让 Cloudflare 判 403。
 - **别改 `.gitattributes` 的换行规则**：`run-update.ps1` 必须是 CRLF，Windows 计划任务才会正常执行。
