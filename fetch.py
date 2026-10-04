@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-linuxsb-daily fetcher
+ai-welfare-daily fetcher
 Scrapes multiple sites for AI 中转站福利 posts and emits a JSON lines file.
 Sources:
   - linux.sb: /forum/2, /forum/8, /index.php?sort=lucky, /index.php?sort=card, /
@@ -29,7 +29,7 @@ BASE_LINUXDO = "https://linux.do"
 BASE_VIBEX = "https://vibex.iflow.cn"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; linuxsb-daily/1.0; +https://github.com/xiaopeng66/linuxsb-daily)",
+    "User-Agent": "Mozilla/5.0 (compatible; ai-welfare-daily/1.0; +https://github.com/xiaopeng66/ai-welfare-daily)",
     "Accept": "text/html,application/xhtml+xml",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }

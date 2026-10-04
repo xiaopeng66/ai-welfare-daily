@@ -2,7 +2,7 @@
 
 聚合五个中文论坛的 **AI 中转站 / 公益站 / 额度福利**帖，每小时自动抓取、去重、打标，生成一个纯静态页面发布到 GitHub Pages —— 无后端、无数据库、无人工。
 
-**在线访问：** https://xiaopeng66.github.io/linuxsb-daily/
+**在线访问：** https://xiaopeng66.github.io/ai-welfare-daily/
 
 [![daily-update](../../actions/workflows/daily-update.yml/badge.svg)](../../actions/workflows/daily-update.yml)
 
@@ -28,7 +28,7 @@
 
 ## 使用方式
 
-打开 https://xiaopeng66.github.io/linuxsb-daily/ 即可，**没有登录、没有 API、没有配置**，页面自助筛选。
+打开 https://xiaopeng66.github.io/ai-welfare-daily/ 即可，**没有登录、没有 API、没有配置**，页面自助筛选。
 
 ## 本地运行
 
