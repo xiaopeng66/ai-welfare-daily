@@ -1,8 +1,13 @@
+# -MaxAgeMinutes: freshness gate for the FALLBACK trigger (see the gate below).
+# Must stay the first statement in the file -- PowerShell requires param() before
+# any other executable statement.
+param([int]$MaxAgeMinutes = 0)
+
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Continue'
 
 # Hide the console window. The scheduled task launches powershell.exe with a
-# visible console at 08:00 and 20:00 unless -WindowStyle Hidden is on it (the
+# visible console on every hourly trigger unless -WindowStyle Hidden is on it (the
 # task XML and the Hermes cron wrapper both pass that flag now); this block is
 # the second layer, so a manual run or a task registered without the flag is
 # invisible too.
@@ -99,8 +104,29 @@ function Run-Py {
 
 Set-Location $repo
 
+# Freshness gate, opt-in via -MaxAgeMinutes. The Hermes cron fallback passes 50:
+# it fires 30 min after the Windows task, so when the task just ran there is
+# nothing to do -- and when the task's trigger was DROPPED (LogonType=
+# InteractiveToken drops it outright and rolls to the next hour instead of
+# catching up), the marker is stale and this run proceeds. Without the gate the
+# two triggers fetch the same five forums every hour for nothing.
+#
+# Runs BEFORE the reaper and the mutex: skipping should be as cheap as possible,
+# and a wedged run never writes the marker, so it cannot make us skip.
+if ($MaxAgeMinutes -gt 0) {
+    $marker = Join-Path $repo 'data\.last_run'
+    if (Test-Path $marker) {
+        $age = [math]::Round(((Get-Date) - (Get-Item -LiteralPath $marker).LastWriteTime).TotalMinutes, 1)
+        if ($age -lt $MaxAgeMinutes) {
+            Write-Host "a run finished $age min ago (< $MaxAgeMinutes) - skipping"
+            Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: a run finished ' + $age + ' min ago (< ' + $MaxAgeMinutes + ' min)' ) -Encoding UTF8
+            exit 0
+        }
+    }
+}
+
 # Reap a run that wedged. Scheduled task and Hermes cron both fire at
-# 08:00/20:00, and a wedged run holds the resources the next one needs.
+# on the same hour, and a wedged run holds the resources the next one needs.
 $self = $PID
 foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'")) {
     if ($proc.ProcessId -ne $self -and $proc.CommandLine -match 'run-update\.ps1' -and
@@ -158,7 +184,7 @@ if (Test-Path (Join-Path $gitDir 'MERGE_HEAD')) {
 }
 
 # Sync BEFORE fetching. GitHub Actions runs the same job on the same wall-clock
-# schedule (0 0,12 * * * UTC == 08:00/20:00 CST), so starting from a stale tip
+# schedule (see the cron in daily-update.yml), so starting from a stale tip
 # makes the push below non-fast-forward and loses this run's data.
 #
 # A tracked file left dirty outside data/docs is committed by nothing here and
@@ -249,5 +275,9 @@ if ($LASTEXITCODE -eq 0) {
     }
     Log 'push ok'
 }
+# Freshness marker for the gate at the top: only a run that reached the end
+# (fetch + generate + commit/push settled) writes it. A run that died mid-fetch
+# leaves it stale ON PURPOSE, so the fallback trigger gets to retry.
+Set-Content -LiteralPath (Join-Path $repo 'data\.last_run') -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding UTF8
 Log '=== update end ==='
 exit 0

@@ -14,6 +14,7 @@ network and the real store is never opened.
 """
 import contextlib
 import importlib.util
+import urllib.error
 import io
 import json
 import os
@@ -38,7 +39,7 @@ def _store_titles():
     """Titles in the real store — only used to audit coverage, never mutated."""
     try:
         with open(STORE_PATH, encoding='utf-8') as f:
-            return [json.loads(l)['title'] for l in f if l.strip()]
+            return [json.loads(line)['title'] for line in f if line.strip()]
     except OSError:
         return []
 
@@ -306,7 +307,7 @@ check({x['id'] for x in r['rows']} == {'4002', '4003'},
       'a stored post marked (已完) is dropped, its live neighbour is not',
       [x['id'] for x in r['rows']])
 check('purge' in r['log'], 'the ended-post removal is logged',
-      [l for l in r['log'].splitlines() if 'purge' in l])
+      [line for line in r['log'].splitlines() if 'purge' in line])
 
 print('\n== a post the source deleted is removed ==')
 gone = topic(6001, 'https://linux.sb/topic/6001', '公益站 C 免费额度', source='linuxsb_福利放送')
@@ -319,7 +320,7 @@ check({x['id'] for x in r['rows']} == {'6002', '6003'},
       'only the off-list row whose URL answers 404 is removed',
       [x['id'] for x in r['rows']])
 check('confirmed deleted' in r['log'], 'the probe result is logged',
-      [l for l in r['log'].splitlines() if 'probe' in l])
+      [line for line in r['log'].splitlines() if 'probe' in line])
 
 print('\n== a source that failed this run never loses rows to the probe ==')
 # 源站这一轮没看成时，「不在列表里」只说明我们没看到，不说明帖子没了。
@@ -332,10 +333,9 @@ check({x['id'] for x in r['rows']} == {'7001', '7002'},
       'a source with no data this run keeps its rows even against a lying probe',
       [x['id'] for x in r['rows']])
 check('checked 0 of' in r['log'], 'and the probe never even looked at that source',
-      [l for l in r['log'].splitlines() if 'probe' in l])
+      [line for line in r['log'].splitlines() if 'probe' in line])
 
 print('\n== probe_deleted only believes an explicit 404/410 ==')
-import urllib.error
 
 
 def _http(code):
@@ -375,7 +375,7 @@ check({x['id'] for x in r['rows']} == {'5002', '5003'},
       'a stored row the gate now rejects is removed, its neighbour is not',
       [x['id'] for x in r['rows']])
 check('no longer pass the gate' in r['log'], 'and the gate purge is logged',
-      [l for l in r['log'].splitlines() if 'purge' in l])
+      [line for line in r['log'].splitlines() if 'purge' in line])
 
 print('\n== a gate regression must not wipe the store ==')
 # 30% 保险（外加 20 行下限）：一次删掉大半库说明闸门写错了，而不是噪音多。
@@ -386,7 +386,7 @@ r = run(big, {'fetch_linuxsb': lambda *a, **k: [topic(7000, 'https://linux.sb/to
                                                      '公益站 new', source='linuxsb_福利放送')]})
 check(len(r['rows']) == 26, '40% failing the gate leaves the store untouched', len(r['rows']))
 check('REFUSED' in r['log'], 'and the refusal is logged loudly',
-      [l for l in r['log'].splitlines() if 'purge' in l])
+      [line for line in r['log'].splitlines() if 'purge' in line])
 check(any('gate purge refused' in e for e in r['errors']), 'and it is reported to CI',
       r['errors'])
 # 反向：同样 25 行、只有 20% 不过闸门 → 该删的照删（保险不能把正常清理也挡住）。
@@ -414,7 +414,7 @@ check('优惠渠道' in byid['5501']['tags'],
 check(byid['5501']['score'] == len(byid['5501']['tags']),
       'score follows the recomputed tags', byid['5501']['score'])
 check('re-tagged' in r['log'], 'and the re-tag pass is logged',
-      [l for l in r['log'].splitlines() if 'tags' in l])
+      [line for line in r['log'].splitlines() if 'tags' in line])
 
 print('\n== a category word must name the OBJECT, not a generic action ==')
 # 「额度」曾靠裸「送」给 18 条不含额度/刀的帖打标；「兑换码」曾靠裸 `code` 命中
