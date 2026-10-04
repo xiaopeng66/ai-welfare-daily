@@ -415,6 +415,44 @@ check(mod.DEFAULT_LIMIT >= 300,
       'DEFAULT_LIMIT stays large enough to keep every source in the window',
       f'DEFAULT_LIMIT={mod.DEFAULT_LIMIT}')
 
+# ⑭ 分类词表的两处修正（用户 2026-10-05 报「错打/漏打」后逐条归因查出）。
+# ① 同一个词同时出现在两个分类 → 同一标题必然双标；「免费使用」曾在 公益站 与 免费放粮。
+_dupes = [k for k in set(sum(mod.CATEGORY_KEYWORDS.values(), []))
+          if sum(1 for v in mod.CATEGORY_KEYWORDS.values() if k in v) > 1]
+check(not _dupes, 'no keyword is shared by two categories (shared means always double-tagged)', _dupes)
+# ② 闸门 OFFER 里有「返现」，分类里没有对应写法 → 能过闸却拿不到标签。
+for title in ['007不降智astra，充值双倍还有签到福利',
+              'LongCat邀请新用户实名，各得1000万Tokens！拼团返现，最高返50%！',
+              '【NovaAPI】盖楼留 ID 领 $5 体验金，充值最高享 20% 返赠！']:
+    check('优惠渠道' in mod.score_topic({'title': title})['tags'],
+          'a rebate/double-credit post is tagged 优惠渠道', title)
+# ③ 无标签帖是「漏打」：剩下的都是词表里一个词都不含的写法，只能按形状认。
+# 注意 `【第四波】国庆福利 100元 …` 只有裸金额（无发放动词），裸 `N元` 已故意不认
+# （它是标价与额度的分不清写法），该帖正确归位到 免费放粮 而非 额度。
+for title, want in [('注册送70，签到20多，可用opus5，4.8', '额度'),
+                    ('GLM-5.3 已上线可获得 2000万Tokens', '额度'),
+                    ('【第四波】国庆福利 100元 纯血DeepSeek V4.1 Flash', '免费放粮'),
+                    ('可以用deepseek就很nice! 基元律动注册送68元Token', '额度'),
+                    ('Fox AI国庆福利来了', '免费放粮'),
+                    ('智链AI-双节福利', '免费放粮')]:
+    check(want in mod.score_topic({'title': title})['tags'],
+          'a post with only a shape/泛词 signal still gets tagged', title)
+# 但金额形状不能把「价格帖」当额度：`3个2元` 是售价，不是发放。
+check('免费放粮' not in mod.score_topic({'title': '3个2元鸡蛋'})['tags']
+      or '鸡蛋' in mod.score_topic({'title': '3个2元鸡蛋'})['tags'],
+      'a price like 3个2元 does not become 免费放粮')
+
+# ⑮ 闸门漏收：这两条靠「裸 `发`/`免费` + `deepseek`」混过了 AND 判定，
+# 实际一条是成本分析、一条是提问，都不发额度。加否决词后必须被挡。
+for title in ['【阳仔测评】在项目开发中DeepSeek V4 Flash的token成本和落地成本',
+              '求教SenseNova免费deepseek的429规则是什么']:
+    check(not mod.is_relevant_title(title), 'an analysis/question post is rejected by the gate', title)
+# 但不能误杀自带强特征词的真货（「方法/教程/怎么」出现在标题里也只是描述领取方式）。
+for title in ['10亿token鸡蛋块领，Muse轻松注册另一种方法',
+              '（内附教程）muse.ai的鸡蛋也是抢到了，嘻',
+              'zcode又发臭鸡蛋了，但是怎么领取不了']:
+    check(mod.is_relevant_title(title), 'a real freebie mentioning 方法/教程 still passes the gate', title)
+
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
 sys.exit(0 if passed == len(results) else 1)

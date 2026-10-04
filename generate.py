@@ -98,10 +98,15 @@ SOURCE_LABELS = {
     'vibex': 'vibex.iflow.cn',  # 有卡片却长期没有筛选按钮：按钮是写死的，加源时漏了
 }
 # 分类按钮的固定顺序 + 图标。表在这，顺序也在这，加分类只改一处。
-CATEGORY_ORDER = ['中转站', '公益站', '鸡蛋', '兑换码', '额度', '体验金', '优惠渠道', '抽奖']
+# 顺序：渠道类型 → 发放机制 → 到手的东西 → 其余。免费放粮 与 额度/体验金 同组。
+CATEGORY_ORDER = ['中转站', '公益站', '鸡蛋', '兑换码', '额度', '体验金', '免费放粮', '抽奖', '优惠渠道']
+# 每个分类都必须在这张表里出现 —— 漏掉只会让按钮少一个图标，不报错，
+# 所以 免费放粮 加进 CATEGORY_KEYWORDS 时漏了这里，用户看到的就是「没图标」。
+# tests/test_site.py 现在断言「能出现的分类都有图标」，堵住这一类。
 CATEGORY_ICONS = {
     '中转站': '🔄', '公益站': '💝', '鸡蛋': '🥚', '兑换码': '🎫',
     '额度': '💰', '体验金': '🎁', '抽奖': '🎲', '优惠渠道': '🏷️',
+    '免费放粮': '🍚',
 }
 
 
@@ -201,6 +206,10 @@ def main():
         ".tag-中转站{background:#60a5fa33;color:#93c5fd}.tag-公益站{background:#4ade8033;color:#86efac}.tag-鸡蛋{background:#ffb34733;color:#ffd080}"
         ".tag-兑换码{background:#ff6b9d33;color:#ff9dbf}.tag-额度{background:#c084fc33;color:#d8b4fe}.tag-体验金{background:#f472b633;color:#f9a8d4}"
         ".tag-抽奖{background:#34d39933;color:#6ee7b7}"
+        # 这两个分类加进 CATEGORY_KEYWORDS 时漏了这里：.tag-<分类> 的规则不存在，
+        # 标签就渲染成裸文字（无底色、无内边距观感），和其他标签不一致。
+        # 配色取同一套调色板的另两个色相，保持「同一种视觉语言」。
+        ".tag-优惠渠道{background:#fbbf2433;color:#fcd34d}.tag-免费放粮{background:#22d3ee33;color:#67e8f9}"
         ".source{font-size:.72rem;color:#9090a0;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.05)}"
         ".score{font-size:.72rem;color:#808090;margin-left:4px}"
         ".post-time{font-size:.72rem;color:#a0a0a0;margin-left:auto;padding:2px 6px;border-radius:6px}"

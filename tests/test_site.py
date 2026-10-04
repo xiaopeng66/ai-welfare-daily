@@ -11,6 +11,7 @@ Usage: python3 tests/test_site.py
 import hashlib
 import json
 import os
+import importlib.util
 import re
 import shutil
 import subprocess
@@ -115,6 +116,30 @@ else:
     check(False, 'store and page are present in the repo')
 
 shutil.rmtree(d, ignore_errors=True)
+
+print('\n== every category has an icon and a tag style ==')
+# 报告过的两个 bug 形状相同：一个新分类进了 CATEGORY_KEYWORDS，却没进展示层的
+# CATEGORY_ICONS / .tag-<分类> CSS。症状轻微（按钮少个图标、标签变成裸文字）所以
+# 不会报错，但用户一眼就看得出来。断言盯着「只要分类词表里有它，展示层就必须有」。
+
+_s2 = importlib.util.spec_from_file_location('gen_mod', os.path.join(ROOT, 'generate.py'))
+_g = importlib.util.module_from_spec(_s2)
+_s2.loader.exec_module(_g)
+_f2 = importlib.util.spec_from_file_location('fetch_mod', os.path.join(ROOT, 'fetch.py'))
+_f = importlib.util.module_from_spec(_f2)
+_f2.loader.exec_module(_f)
+# fetch.py 是分类的权威来源（打标用的是它），generate.py 只负责展示。
+for cat in _f.CATEGORY_KEYWORDS:
+    check(cat in _g.CATEGORY_ICONS, 'a category in the map has an icon (else its button is bare)', cat)
+    check(cat in _g.CATEGORY_ORDER, 'and it is in the display order (else it sorts to the end)', cat)
+# .tag-<分类> 是卡片的底色规则；没有它标签就渲染成无边框裸文字。
+_site_html = open(os.path.join(ROOT, 'docs', 'index.html'), encoding='utf-8').read()
+for cat in _f.CATEGORY_KEYWORDS:
+    check(f'.tag-{cat}' in _site_html, 'and it has a tag colour rule (else the tag has no background)', cat)
+# 顺序本身：用户要求 抽奖 排在 优惠渠道 之前。
+check(_g.CATEGORY_ORDER.index('抽奖') < _g.CATEGORY_ORDER.index('优惠渠道'),
+      '抽奖 sorts before 优惠渠道 (swapped on user request)',
+      _g.CATEGORY_ORDER)
 
 print('\n== filter buttons are derived from the data, not hardcoded ==')
 # 写死过两个报告出来的 bug：新源（vibex）有卡片没按钮、新分类（优惠渠道）有 6 张卡

@@ -125,12 +125,18 @@ if ($MaxAgeMinutes -gt 0) {
     }
 }
 
-# Reap a run that wedged. Scheduled task and Hermes cron both fire at
-# on the same hour, and a wedged run holds the resources the next one needs.
+# Reap a run that wedged. Both triggers can fire close together, and a wedged
+# run holds the resources the next one needs.
+#
+# Threshold 30 min, NOT 10: a normal run measures 144-548s (9.1 min worst case,
+# from update.log), so the old 10-minute cutoff left under a minute of headroom
+# and a slow-but-healthy run could be killed mid-fetch by the next trigger.
+# 30 min is ~3x the worst observed run and still well below the 60 min cadence,
+# so a truly wedged run is always reaped before it can block the next hour.
 $self = $PID
 foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'")) {
     if ($proc.ProcessId -ne $self -and $proc.CommandLine -match 'run-update\.ps1' -and
-        $proc.CreationDate -lt (Get-Date).AddMinutes(-10)) {
+        $proc.CreationDate -lt (Get-Date).AddMinutes(-30)) {
         Write-Host ('reaping wedged run PID ' + $proc.ProcessId)
         & taskkill /T /F /PID $proc.ProcessId 2>&1 | Out-Null
     }
