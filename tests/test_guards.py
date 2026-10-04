@@ -40,6 +40,9 @@ def _no_network(*a, **k):
 
 setattr(mod, 'fetch', _no_network)
 
+# run() swaps mod.probe_deleted for an injected fake, so keep the real one to test.
+_real_probe_deleted = mod.probe_deleted
+
 
 def source_names():
     """Every source function, discovered by name so a newly added source cannot
@@ -65,12 +68,19 @@ def topic(tid, url, title, created='2026-10-01T10:00:00Z', verified=True, source
     return t
 
 
-def run(store_rows, sources, limit=200, raw_store=None, workdir=None):
+def run(store_rows, sources, limit=200, raw_store=None, workdir=None,
+        probe=0, probe_fn=None):
     """Drive main() against a temp store with injected sources.
 
     workdir reuses one directory across calls, so the store persists between
     runs - the incremental tests need exactly that.
+
+    probe defaults to 0 (删除探测关闭): mod.fetch is stubbed to raise, so a stray
+    real request must fail loudly instead of being swallowed by probe_deleted's
+    catch-all. Tests that exercise the probe inject probe_fn.
     """
+    setattr(mod, 'probe_deleted',
+            probe_fn if probe_fn is not None else (lambda url, timeout=8: False))
     d = workdir or tempfile.mkdtemp(prefix='guard-test-')
     out = os.path.join(d, 'topics.jsonl')
     if raw_store is not None:
@@ -86,7 +96,7 @@ def run(store_rows, sources, limit=200, raw_store=None, workdir=None):
         setattr(mod, name, sources.get(name, lambda *a, **k: []))
     mod.FETCH_ERRORS.clear()
     old_argv = sys.argv
-    sys.argv = ['fetch.py', '-o', out, '--limit', str(limit)]
+    sys.argv = ['fetch.py', '-o', out, '--limit', str(limit), '--probe-missing', str(probe)]
     buf = io.StringIO()
     code = 0
     try:
@@ -272,6 +282,74 @@ check(r['rows'] and r['rows'][0]['created_at'] == '2026-09-01T00:00:00Z',
       r['rows'][0]['created_at'] if r['rows'] else 'no row')
 check('0 updated' in r['log'], 'and the missing field is not a change either',
       r['log'].strip().splitlines()[-1:])
+
+print('\n== ended posts are removed on the next update ==')
+# 用户 2026-10-04 决定：已结束就剔除，结束/删除的帖子下次更新时删掉。
+ended = topic(4001, 'https://linux.sb/topic/4001', '【10-1】欢庆国庆，爽蹬$1000刀(已完)',
+              source='linuxsb_福利放送')
+alive = topic(4002, 'https://linux.sb/topic/4002', '公益站 B 免费领额度', source='linuxsb_福利放送')
+r = run([ended, alive],
+        {'fetch_linuxsb': lambda *a, **k: [topic(4003, 'https://linux.sb/topic/4003',
+                                                '公益站 new 送额度', source='linuxsb_福利放送')]})
+check({x['id'] for x in r['rows']} == {'4002', '4003'},
+      'a stored post marked (已完) is dropped, its live neighbour is not',
+      [x['id'] for x in r['rows']])
+check('purge' in r['log'], 'the ended-post removal is logged',
+      [l for l in r['log'].splitlines() if 'purge' in l])
+
+print('\n== a post the source deleted is removed ==')
+gone = topic(6001, 'https://linux.sb/topic/6001', '公益站 C 免费额度', source='linuxsb_福利放送')
+kept = topic(6002, 'https://linux.sb/topic/6002', '公益站 D 免费额度', source='linuxsb_福利放送')
+r = run([gone, kept],
+        {'fetch_linuxsb': lambda *a, **k: [topic(6003, 'https://linux.sb/topic/6003',
+                                                '公益站 E 送额度', source='linuxsb_福利放送')]},
+        probe=15, probe_fn=lambda url, timeout=8: url.endswith('/6001'))
+check({x['id'] for x in r['rows']} == {'6002', '6003'},
+      'only the off-list row whose URL answers 404 is removed',
+      [x['id'] for x in r['rows']])
+check('confirmed deleted' in r['log'], 'the probe result is logged',
+      [l for l in r['log'].splitlines() if 'probe' in l])
+
+print('\n== a source that failed this run never loses rows to the probe ==')
+# 源站这一轮没看成时，「不在列表里」只说明我们没看到，不说明帖子没了。
+# 这里让探针一律撒谎说「已删除」，linux.sb 的行也必须活下来。
+r = run([topic(7001, 'https://linux.sb/topic/7001', '公益站 F 免费额度', source='linuxsb_福利放送')],
+        {'fetch_nodeloc': lambda *a, **k: [topic(7002, 'https://nodeloc.com/t/topic/7002',
+                                                '公益站 G 送额度', source='nodeloc')]},
+        probe=15, probe_fn=lambda url, timeout=8: True)
+check({x['id'] for x in r['rows']} == {'7001', '7002'},
+      'a source with no data this run keeps its rows even against a lying probe',
+      [x['id'] for x in r['rows']])
+check('checked 0 of' in r['log'], 'and the probe never even looked at that source',
+      [l for l in r['log'].splitlines() if 'probe' in l])
+
+print('\n== probe_deleted only believes an explicit 404/410 ==')
+import urllib.error
+
+
+def _http(code):
+    def f(url, timeout=None, **k):
+        raise urllib.error.HTTPError(url, code, 'injected', {}, None)
+    return f
+
+
+mod.probe_deleted = _real_probe_deleted     # run() leaves an injected fake behind
+for code, expected in ((404, True), (410, True), (403, False), (429, False),
+                       (500, False), (503, False)):
+    mod.fetch = _http(code)
+    check(mod.probe_deleted('https://linux.sb/topic/1') is expected,
+          f'HTTP {code} -> deleted={expected} '
+          f'(a WAF block or an outage must never delete a row)')
+
+
+def _timeout(url, timeout=None, **k):
+    raise TimeoutError('injected')
+
+
+mod.fetch = _timeout
+check(mod.probe_deleted('https://linux.sb/topic/1') is False, 'a timeout is not a deletion')
+mod.fetch = _no_network      # 恢复守卫：之后任何真请求照旧炸出来
+check(mod.probe_deleted('') is False, 'an empty url is never a deletion')
 
 print()
 bad = results.count(False)

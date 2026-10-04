@@ -239,7 +239,7 @@ for title in ['🥚【露娜半公益中转站】🥚 都是免费登！',
               '【Zynk 公益】国庆第二波福利，GPT 6.1 Sol 蹬 $1000',
               '🆕 无限deepseek 持续公益 已送【2.5】亿',
               '国庆福利 纯grok heavy号池',
-              '[已开奖]token 多到溢出拿來燒水,滞销!今天開門放糧！']:
+              'token 多到溢出拿來燒水,滞销!今天開門放糧！']:
     check(relevant(title), 'a self-sufficient title passes the relevance gate', title)
 
 check('公益站' in mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'],
@@ -283,7 +283,7 @@ for title in ['大毛大毛！！支付宝 微信境外支付参加活动利润�
 
 # ⑥ CJK-adjacent model names: r"\bgpt\b" does NOT match 「月gpt」 because Python
 #    treats 月 as a word char, so the gate uses ASCII lookarounds instead.
-check(relevant('【抽奖】吐血福利免费送4个月gpt plus会员抽奖'),
+check(relevant('【抽奖】吐血福利免费送4个月gpt额度抽奖'),
       'a model name glued to Chinese still matches (ASCII lookaround)',
       '月gpt')
 check(relevant('GPT6免费瞪？！') and relevant('GLM-5.3 已上线可获得 2000万Tokens'),
@@ -308,7 +308,62 @@ for title in ['抽奖，9HTTP代理IP送点动态住宅代理',
               '[已开奖]抽20台香港nat小鸡 国际精品BGP|大带宽|原生IP全解锁']:
     check(not relevant(title), 'single-char 抽 does not let non-AI lotteries back in', title)
 
-# ⑨ cap 300 是行为契约的一部分：闸门放宽后每轮入库量翻倍，回到 200 会立刻
+# ⑨ 标的物维度：收的东西不是 AI 用量 → 剔除。这是「送点积分」「抽个 TG 号」
+#    「白嫖一台小鸡」过去能混进来的根因 —— 此前判定只问「出现了什么词」，
+#    从不过问送的是什么，于是「送 10 刀额度」和「送点论坛积分」结构上完全等价。
+#    下面 12 条全是实测从 store 里剔掉的噪音。
+for title in ['今天风太大，不能出去玩了给饼饼送点积分玩玩',
+              '积分抽奖中奖概率大幅降低了？',
+              '发点积分，各位国庆节快乐呀',
+              '俩UR都有了，接下来是继续抽奖还是囤积分啊',
+              '这一周有其他事情要做，可能不发帖的，发点积分吧',
+              '创作者通过，发点积分',
+              '抽两个富可敌国称号+800积分百连抽一次！',
+              '院长的公益节点在何处能找到呢',
+              '宝可梦机场之十月庆典免费兑换码之猜猜我是谁',
+              '白嫖Stripe500$信用额度',
+              '【免费 NAT 小鸡 + 家宽出口】一台白嫖 VPS 挂纯净住宅 IP：ChatGPT 不降智',
+              '【OK24shop】steam充值卡100泰铢兑换成功！现在有效']:
+    check(not relevant(title), 'a non-AI giveaway target fails the gate', title)
+# 「积分」被移出领域词，正是这批闲聊过闸的原因（它在论坛语境里指的是论坛积分）。
+check('积分' not in mod.DOMAIN_KEYWORDS,
+      '积分 is not an AI domain term (forum points are not relay credit)')
+
+# ⑩ 会员类：ChatGPT Plus / Gemini 会员是账号商品，默认否决；但站点自己的充值优惠
+#    （价格词 + AI 词同现）属于目标内容，必须放行。用户 2026-10-04 决定：会员类放行。
+for title in ['Google AI Pro 又送一年会员 这是我在推特看到的，',
+              '不但可以领到大额余额，还可以用余额体验SVIP',
+              '【抽奖】吐血福利免费送4个月gpt plus会员抽奖']:
+    check(not relevant(title), 'a membership giveaway without a price deal is not a relay post', title)
+check(relevant('【明天结束】CUN.AI 首充 $66 拿 Claude / GPT Max 约 3.3 折，会员返利还叠加！'),
+      'a station price deal survives the membership veto')
+
+# ⑪ 已结束的帖子不留：福利已开奖/领完/失效，留着就是死信息（实测积了 24 条）。
+#    用户 2026-10-04 决定「已结束就剔除，下次更新时删掉」。
+for title in ['[已开奖]token 多到溢出拿來燒水,滞销!今天開門放糧！',
+              '[已开奖]自建中转站抽奖',
+              '【10-1】欢度国庆①，爽蹬$1000刀(已完)',
+              '【福利已无】快来蹬基元律动 10/7到期',
+              '【已失效等恢复】白嫖Claude！',
+              '赠送ralayfor公益站注册码一枚（已赠送）']:
+    check(not relevant(title), 'an ended post is rejected even when the topic is on point', title)
+
+# ⑫ 本轮补的词：薅 / 邀请 / 返现 / 不花钱，以及「模型名直接粘字母」的写法
+#    （`deepseekv4flash` / `DeepSeekharness` 用 _prefix_bounded 才命中）。
+for title in ['个人一直在薅的羊毛（Claude、GPT、DeepSeek都有），分享给兄弟们',
+              '分享一个能薅ds api 羊毛的网址',
+              'LongCat邀请新用户实名，各得1000万Tokens！拼团返现，最高返50%！',
+              '【猛蹬】claude顶级模型不花钱！',
+              '白嫖福利，富哥请吃deepseekv4flash',
+              '登录 DeepSeekharness 桌面版，领 6 元赠金']:
+    check(relevant(title), 'the words added this round admit their own real posts', title)
+
+# ⑬ 新增分类「优惠渠道」：低价/优惠的中转渠道单独成类（用户 2026-10-04 要求）。
+check('优惠渠道' in mod.score_topic({'title': '0.04超低倍率GPT 5.6，注册就送1刀'})['tags'],
+      'a low-price relay post is tagged 优惠渠道',
+      mod.score_topic({'title': '0.04超低倍率GPT 5.6，注册就送1刀'})['tags'])
+
+# ⑭ cap 300 是行为契约的一部分：闸门放宽后每轮入库量翻倍，回到 200 会立刻
 #    把窗口从 65 天压到 11 天并让 vibex 整源归零（2026-10-04 实测）。
 check(mod.DEFAULT_LIMIT >= 300,
       'DEFAULT_LIMIT stays large enough to keep every source in the window',

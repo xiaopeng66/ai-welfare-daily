@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 
 import tempfile
+import urllib.error
 import urllib.request
 
 BASE_LINUXSB = "https://linux.sb"
@@ -130,6 +131,58 @@ def fetch_topic_published_time(topic_id: str) -> str | None:
         return None
 
 
+# source 字段前缀 → 抓取报错信息里的源标识，用来判断「这一轮到底看没看到这个源」。
+_HOST_MARKERS = {
+    "linuxsb": "linux.sb",
+    "baipiao": "baipiao",
+    "nodeloc": "nodeloc",
+    "linuxdo": "linux.do",
+    "vibex": "vibex",
+}
+
+
+def host_of(source: str) -> str | None:
+    """把一行的 source 归到源（linuxsb_福利放送 → linuxsb）。"""
+    for prefix in _HOST_MARKERS:
+        if str(source).startswith(prefix):
+            return prefix
+    return None
+
+
+def unhealthy_hosts(fetched: list) -> set:
+    """这一轮没看成的源：一个 topic 都没解析出来，或报了抓取错。
+
+    这些源名下的行绝不因为「已不在列表里」被删 —— 那时缺席只说明我们没看到，
+    不说明帖子没了。粒度刻意取粗（某源有一个板块失败就算整源不健康）：
+    删错不可恢复，少删一次只是多留一轮。
+    """
+    seen = {host_of(t.get("source", "")) for t in fetched} - {None}
+    bad = {p for p in _HOST_MARKERS if p not in seen}
+    for err in FETCH_ERRORS:
+        for prefix, marker in _HOST_MARKERS.items():
+            if marker in err:
+                bad.add(prefix)
+    return bad
+
+
+def probe_deleted(url: str, timeout: int = 8) -> bool:
+    """True 仅当该 URL 回 404/410 —— 一个明确的「源站已删除」。
+
+    其它一切结果（200、WAF 的 403、5xx、超时、DNS 失败）都返回 False。这个不对称
+    是刻意的：删错不可恢复（行一离开 store，就再没有哪一轮会去重抓它），
+    而多留一轮毫无代价。
+    """
+    if not url:
+        return False
+    try:
+        fetch(url, timeout=timeout)
+        return False
+    except urllib.error.HTTPError as e:
+        return e.code in (404, 410)
+    except Exception:
+        return False
+
+
 CATEGORY_KEYWORDS = {
     "中转站": ["中转站"],
     "公益站": ["公益站", "公益", "免费使用", "零门槛", "免费"],
@@ -138,6 +191,8 @@ CATEGORY_KEYWORDS = {
     "额度": ["额度", "刀", "credit", "送"],
     "体验金": ["体验金", "积分"],
     "抽奖": ["抽奖", "盲盒", "中奖", "欧皇"],
+    # 用户要求新增（2026-10-04）：专门收集低价/优惠的中转渠道。
+    "优惠渠道": ["折扣", "折", "特价", "低价", "优惠", "首充", "充值", "返利", "倍率"],
 }
 
 # ---------------------------------------------------------------------------
@@ -184,16 +239,31 @@ def _bounded(token: str) -> str:
     return rf"(?<!{_ASCII}){token}(?![a-z])"
 
 
+def _prefix_bounded(token: str) -> str:
+    """只卡左边界的长名字：右侧允许直接粘版本号/后缀。
+
+    `deepseekv4flash` / `DeepSeekharness` 这类写法里模型名后面紧跟字母，
+    `_bounded` 的 `(?![a-z])` 会把它们整条挡掉（实测漏 3 条真货）。只对足够长、
+    不可能是别的英文单词片段的名字放开；短词（ai/ds/glm/gpt…）保持严格边界。
+    """
+    return rf"(?<!{_ASCII}){token}"
+
+
 DOMAIN_KEYWORDS = [
     _bounded("api"), _bounded("key"), _bounded("cdk"), _bounded("ai"),
     _bounded("llm"), _bounded("ds"),
     "中转", "额度", "token", "模型", "倍率", "分组", "邀请码",
-    "积分", "余额", "充值", "赠送", "赠金", "签到",
-    _bounded("gpt"), _bounded("claude"), _bounded("deepseek"), _bounded("glm"),
-    _bounded("gemini"), _bounded("grok"), _bounded("qwen"), _bounded("kimi"),
-    _bounded("codex"), _bounded("openai"), _bounded("cursor"), _bounded("astra"),
+    # 「积分」刻意不在这里：它在中文论坛绝大多数指论坛自己的积分体系
+    # （`发点积分` / `囤积分` / `积分抽奖中奖概率降低了？`），当成 AI 领域词会让
+    # 整类闲聊通过 AND 判定。实测移出后 store 掉 7 条，其中 6 条正是这类闲聊，
+    # 唯一代价是 `【RelayFor】突发积分`（纯站名帖，属于站名白名单该管的范围）。
+    "余额", "充值", "赠送", "赠金", "签到",
+    _bounded("gpt"), _bounded("glm"), _bounded("grok"), _bounded("qwen"),
+    _bounded("kimi"), _bounded("codex"), _bounded("cursor"), _bounded("astra"),
     _bounded("sonnet"), _bounded("opus"), _bounded("kiro"), _bounded("nvidia"),
-    _bounded("nemotron"), _bounded("longcat"),
+    _prefix_bounded("claude"), _prefix_bounded("deepseek"), _prefix_bounded("gemini"),
+    _prefix_bounded("openai"), _prefix_bounded("nemotron"), _prefix_bounded("longcat"),
+    _prefix_bounded("antigravity"),
     "刀", "蹬", "白嫖", "美刀", "美元",
     "国模",  # 「新站开业，国模免费用」——国产模型的黑话，不含「模型」二字
 ]
@@ -208,7 +278,7 @@ DOMAIN_KEYWORDS = [
 OFFER_KEYWORDS = [
     "免费", "送", "赠", "白嫖", "抽奖", "抽", "兑换", "邀请", "注册", "领取", "领",
     "福利", "试用", "优惠", "折", "限时", "羊毛", "红包", "纳新", "撸", "抢",
-    "新用户", "获得", "发", "蹬",
+    "新用户", "获得", "发", "蹬", "薅", "邀请", "返现", "低价", "特价", "首充", "不花钱",
     # 下面两个来自 linux.do 的黑话（`额度快刷新了, GLM5.3搞起来`、`享用￥1000api额度`）：
     # linux.do 在本机取不到（要家宽），所以只能在四源语料上验噪音 —— 实测净增 0 条噪音。
     # 置信度低于上面那批，改闸门时优先怀疑这两个。
@@ -224,26 +294,81 @@ _NOT_FREEBIE_KEYWORDS = [
     "太少了", "用不起", "下降了", "涨价",
 ]
 
+# B-4. 标的物维度：出现这些词说明「发出去的东西不是 AI 用量」。
+#
+#     这是本轮补上的第三个维度。此前判定只问「出现了什么词」，从不过问送的是什么，
+#     于是「送点积分」「抽个 TG 号」「白嫖一台香港小鸡」与「送 10 刀额度」在结构上
+#     完全等价，全部照收。词表取自 nodeloc / NodeSeek 的服务器黑话（小鸡=vps、
+#     杜甫/毒妇=独服、玉米=域名）与实测混进来的噪音族。
+#
+#     刻意不收录的两个词：
+#       「账号」—— 太宽，会误杀「进群找管理员把账号发到群里改倍率」这类真福利；
+#       「富可敌国」—— linux.do 的用户等级徽章，几乎每条推广帖都带，
+#                      实测会误杀「【富可敌国】…尔信中转站codex-0.12x｜抽奖+充值返赠」。
+_NONAI_TARGET_KEYWORDS = [
+    # 服务器/主机
+    "小鸡", "母鸡", "杜甫", "毒妇", "独服", "服务器", "云服务器", "挂机宝", "家宽",
+    "探针", "大盘鸡", "节点", "机场", "宽带", _bounded("vps"), _bounded("nat"),
+    # 域名 / 存储
+    "域名", "玉米", "备案", "虚拟主机", "图床", "网盘", "云盘",
+    # 非 AI 的数字商品 / 账号 / 卡
+    "tg号", "电报号", "美区号", "苹果id", "抢苹果", _bounded("steam"),
+    "礼品卡", "充值卡", "代金券", "虚拟卡", "信用卡", "流量卡", "电话卡",
+    _bounded("stripe"), _bounded("esim"),
+    # 消费电子 / 论坛内部头衔体系
+    "指纹浏览器", "称号", "等级", "元老", "鸡腿", "活跃度",
+]
+
+# B-5. 已结束的帖子：福利已开奖/领完/失效，留着就是死信息。
+#     实测库里积了 24 条（`[已开奖]…`、`爽蹬$1000刀(已完)`、`…（已无）`）。
+#     判定是纯函数，所以闸门和「下一轮删除」用的是同一张表。
+_STALE_KEYWORDS = [
+    "已开奖", "已流抽", "已结束", "已赠送", "已领完", "已失效", "已完", "已无",
+]
+
+# 会员类：ChatGPT Plus / Gemini 会员是账号商品，不是中转额度 → 默认否决。
+# 但「首充 $66 拿 Claude…3.3 折，会员返利还叠加」是站点的充值优惠，属于目标内容，
+# 所以只有同时出现价格词和 AI 词才放行（用户 2026-10-04 决定：会员类放行）。
+_MEMBERSHIP_RE = re.compile(r"会员|svip|年费|月费", re.I)
+_PRICE_RE = re.compile(r"折|首充|充值|返利|优惠|特价|低价|倍率|羊毛", re.I)
+
 _DOMAIN_RE = re.compile("|".join(DOMAIN_KEYWORDS), re.I)
 _OFFER_RE = re.compile("|".join(OFFER_KEYWORDS), re.I)
 _NOT_FREEBIE_RE = re.compile("|".join(_NOT_FREEBIE_KEYWORDS), re.I)
+_NONAI_TARGET_RE = re.compile("|".join(_NONAI_TARGET_KEYWORDS), re.I)
+_STALE_RE = re.compile("|".join(_STALE_KEYWORDS), re.I)
 
 
 def is_relevant_title(title: str) -> bool:
     """True if a title belongs on the site: an AI-API freebie / 中转站 welfare post.
 
-    Tier A: a self-sufficient term (中转站/公益/鸡蛋/号池/放粮/兑换码) alone is enough —
-        the word *is* the freebie.
-    Tier B: otherwise both an AI/额度 domain term AND a giveaway signal must appear,
-        and the title must not read as a tutorial or a complaint.
+    判定顺序（先否决，再收）：
+
+      0. 已结束（[已开奖]/已完/已无…）—— 死信息，不区分内容一律丢。
+      1. 非 AI 标的（服务器/域名/卡/论坛头衔）—— 收进来的东西不是 AI 用量，
+         与中转无关。这一层此前完全缺失，是「送点积分」「抽个 TG 号」
+         「白嫖一台香港小鸡」能混进来的根因。
+      2. 自足词（中转站/公益/鸡蛋/号池/放粮/兑换码）—— 词本身就是福利，命中即收。
+         它排在语境否决之前：否则「10亿token鸡蛋块领，Muse轻松注册另一种方法」
+         这种带「方法」二字的真货会被误杀。
+      3. 会员类默认否决（ChatGPT Plus / Gemini 会员是账号商品，不是中转额度），
+         只有同时出现价格词和 AI 词才放行。
+      4. 教程/抱怨意图（经验/教程/太少了…）—— 在教怎么用或在抱怨，不是在放额度。
+      5. 否则要求 AI 领域词 AND 发放信号同时命中。
 
     Pure function: no network, no globals mutated — so the gate stays testable offline.
     """
     if not title:
         return False
     low = title.lower()
+    if _STALE_RE.search(low):
+        return False
+    if _NONAI_TARGET_RE.search(low):
+        return False
     if any(kw in low for kw in SELF_SUFFICIENT_KEYWORDS):
         return True
+    if _MEMBERSHIP_RE.search(low) and not (_PRICE_RE.search(low) and _DOMAIN_RE.search(low)):
+        return False
     if _NOT_FREEBIE_RE.search(low):
         return False
     return bool(_DOMAIN_RE.search(low)) and bool(_OFFER_RE.search(low))
@@ -823,6 +948,13 @@ def main():
     # 五个源都有代表。改这个值时请连带看 README 的「cap 与窗口跨度」一节，
     # 并跑 tests/test_parsers.py 里的 DEFAULT_LIMIT 断言。
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    ap.add_argument(
+        "--probe-missing",
+        type=int,
+        default=15,
+        help="每轮最多探测多少条「已不在源列表里」的帖子；只有回 404/410 才判为已删除并移除，"
+        "其余结果一律保留。0 = 关闭探测",
+    )
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
@@ -922,8 +1054,13 @@ def main():
     def is_relevant(t: dict) -> bool:
         return is_relevant_title(t.get("title", ""))
 
-    before = len(all_topics)
-    all_topics = [t for t in all_topics if is_relevant(t)]
+    # 删除判定要用「闸门过滤前」的抓取集合：一条帖可能只因闸门收紧而不再入选，
+    # 那不等于源站删了它 —— 拿过滤后的集合比对，会把闸门的账算到源站头上。
+    fetched_pre = all_topics
+    fetched_keys = {topic_key(t) for t in fetched_pre}
+
+    before = len(fetched_pre)
+    all_topics = [t for t in fetched_pre if is_relevant(t)]
     print(f"[filter] relevance filter: {before} -> {len(all_topics)} topics", file=sys.stderr)
 
     # Merge fetched topics with existing: new data overrides old for the same
@@ -949,6 +1086,62 @@ def main():
         merged[key] = t
     for key, old_url, new_url in url_changes:
         print(f"[warn] url changed for {key}: {old_url} -> {new_url}", file=sys.stderr)
+
+    # 已结束 / 已在源站消失的帖子不留到下一轮（用户 2026-10-04 决定）。
+    #   (a) 标题带结束标记 —— 纯函数判定、不花请求，每轮都能清（实测积了 24 条）；
+    #   (b) 源站这一轮看成了、这行却已不在列表里，且探到 404/410。
+    # 源站失败的轮次绝不走 (b)：那时「不在列表里」只说明我们没看到，不说明帖子没了。
+    stale_keys = [
+        k for k, t in merged.items() if _STALE_RE.search((t.get("title") or "").lower())
+    ]
+    for k in stale_keys:
+        merged.pop(k, None)
+    if stale_keys:
+        print(
+            f"[purge] {len(stale_keys)} ended post(s) removed "
+            "([已开奖] / 已完 / 已无 ...)",
+            file=sys.stderr,
+        )
+
+    if args.probe_missing > 0:
+        bad_hosts = unhealthy_hosts(fetched_pre)
+        candidates = [
+            (k, t)
+            for k, t in merged.items()
+            if k not in fetched_keys
+            and t.get("url")
+            and host_of(t.get("source", "")) not in bad_hosts
+        ]
+        # 候选按「最新在前」排序，然后按小时轮转取一段固定窗口。
+        # 不能只取前 N 条：那样永远只有最前面那几条被查，排在后面的候选一辈子
+        # 探不到 —— 而沉底老帖恰恰是会被源站删掉的那类（它们本来就快被 cap 淘汰）。
+        # 用「UTC 小时数 × 窗口大小 mod 候选数」当起点，不落任何状态文件，
+        # 每轮换一批，约 len(candidates)/N 小时后整库扫完一遍。
+        candidates.sort(
+            key=lambda kv: _parse_sortable(kv[1].get("created_at"))
+            or _parse_sortable(kv[1].get("fetched_at")),
+            reverse=True,
+        )
+        step = args.probe_missing
+        n = len(candidates)
+        start = 0
+        window = []
+        if n:
+            start = (int(datetime.now(timezone.utc).timestamp() // 3600) * step) % n
+            window = [candidates[(start + i) % n] for i in range(min(step, n))]
+        gone_keys = []
+        for k, t in window:
+            if probe_deleted(t["url"]):
+                gone_keys.append(k)
+        for k in gone_keys:
+            merged.pop(k, None)
+        print(
+            f"[probe] checked {len(window)} of {n} off-list post(s) from sources seen "
+            f"this run (window starts at #{start}); {len(gone_keys)} confirmed deleted "
+            f"(404/410)",
+            file=sys.stderr,
+        )
+
     print(f"[merge] {len(existing)} existing + {len(all_topics)} fetched -> {len(merged)} total", file=sys.stderr)
 
     # Cap total: drop the OLDEST posts first (rolling window). A row with no
