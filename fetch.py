@@ -140,9 +140,14 @@ CATEGORY_KEYWORDS = {
     "抽奖": ["抽奖", "盲盒", "中奖", "欧皇"],
 }
 
-# Strong relevance keywords; title must contain at least one
+# Strong relevance keywords; title must contain at least one.
+# "公益" is here as well as in CATEGORY_KEYWORDS["公益站"]: the gate runs before
+# tagging, so a bare "公益" title (半公益中转站 / 公益生图站 / Zynk 公益) used to be
+# dropped before it could be tagged 公益站. Measured 2026-10-04: rescues 6 unique
+# titles across the live sources, and does not let unrelated hits through (unlike
+# "免费", which stays category-only because it matches 支付宝境外支付薅羊毛 and friends).
 RELEVANCE_KEYWORDS = [
-    "中转站", "公益站", "鸡蛋", "兑换码", "额度", "体验金", "抽奖",
+    "中转站", "公益站", "公益", "鸡蛋", "兑换码", "额度", "体验金", "抽奖",
 ]
 
 

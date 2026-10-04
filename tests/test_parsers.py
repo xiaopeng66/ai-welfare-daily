@@ -215,6 +215,39 @@ check(set(r['source'] for r in with_paged_fetch(
           }, mod.fetch_vibex_welfare)) == {'vibex_welfare_p1', 'vibex_welfare_p2', 'vibex_welfare_p3'},
       'each page keeps its own source label')
 
+
+# --------------------------------------------------------------------------
+# Relevance gate and 公益站 tagging.
+#
+# Why: the gate runs BEFORE score_topic, so "公益" must be in RELEVANCE_KEYWORDS
+# for a bare-公益 title to survive long enough to be tagged 公益站. When it was
+# missing, titles like "【Zynk 公益】…" and "（公益生图站）发一些兑换码" were dropped
+# even though CATEGORY_KEYWORDS already knew how to tag them.
+# --------------------------------------------------------------------------
+def relevant(title):
+    return any(kw.lower() in title.lower() for kw in mod.RELEVANCE_KEYWORDS)
+
+
+for title in ['🥚【露娜半公益中转站】🥚 都是免费登！',
+              '（公益生图站）发一些兑换码',
+              'Zynk公益复活! 进来兑换额度',
+              '【Zynk 公益】国庆第二波福利，GPT 6.1 Sol 蹬 $1000',
+              '🆕 无限deepseek 持续公益 已送【2.5】亿']:
+    check(relevant(title), 'a bare-公益 title passes the relevance gate', title)
+
+check('公益站' in mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'],
+      'a bare-公益 title is tagged into the 公益站 category',
+      mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'])
+
+# The gate must stay narrow: adding "公益" is not an invitation to let the
+# non-AI 羊毛 posts through, which is exactly why "免费" stays category-only.
+for title in ['大毛大毛！！支付宝 微信境外支付参加活动利润最低40+ 速撸',
+              'VMISS 薅羊无保姆级教程：支付宝「境外支付笔笔减」',
+              '微信支付宝境外支付有礼',
+              '分享免费苹果共享ID网站',
+              '天翼云手机2天卡，可无限续杯～']:
+    check(not relevant(title), 'an unrelated 羊毛 post still fails the gate', title)
+
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
 sys.exit(0 if passed == len(results) else 1)
