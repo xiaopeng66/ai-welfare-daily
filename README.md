@@ -20,9 +20,19 @@
 
 | 管道 | 入口 | 特点 |
 |------|------|------|
-| **GitHub Actions**（主） | `.github/workflows/daily-update.yml` | 不依赖本机开机。**默认跳过 linux.do**（数据中心 IP 被拒 429） |
-| **Windows 计划任务** | `\linuxsb-daily-08` / `-20` → `run-update.ps1` | 住宅 IP，**包含 linux.do**；LogonType=Interactive 有丢触发的坑 |
-| **Hermes cron** | `~/.hermes/scripts/linuxsb-daily-update.sh` → `cmd.exe` → `run-update.ps1` | 开机但无登录会话时接替计划任务 |
+| **Windows 计划任务**（主） | `\linuxsb-daily-08` → `run-update.ps1` | 住宅 IP，**包含 linux.do**；每 3 小时一次。LogonType=Interactive 有丢触发的坑 |
+| **Hermes cron** | `~/.hermes/scripts/linuxsb-daily-update.sh` → `cmd.exe` → `run-update.ps1` | 开机但无登录会话时接替计划任务，同样每 3 小时 |
+| **GitHub Actions**（兜底） | `.github/workflows/daily-update.yml` | 每天 1 次。不依赖本机开机，但**默认跳过 linux.do**（数据中心 IP 被拒 429） |
+
+**节奏**：主抓取每 3 小时（北京时间 08/11/14/17/20/23/02/05 点），落在 Windows 任务与 Hermes cron 上——
+两者共用 `run-update.ps1`，靠脚本内的 mutex 串行化，同一时刻只会有一个在跑。
+CI 保留每天一次纯兜底：**这台 Windows 机器长期离线时仍有新数据**，代价是不含 linux.do。
+（改频率前 CI 是每 12 小时，那等于每轮都重发一遍 Windows 侧刚抓过的四源结果，属于纯重复。）
+
+**每 3 小时不会触发 GitHub 风控**，但要注意两条边界：
+- GitHub 的 schedule 最小间隔是 5 分钟，且官方明说高负载时会延迟、"每小时整点"最堵；所以 CI 那条刻意放在 `17 3 * * *`（03:17 UTC）而不用整点。
+- 真正的限额在对面的站点，不在 GitHub：linux.do 已在 Cloudflare 后且对数据中心 IP 返 429（这就是 CI 里 `LINUXDO_ENABLED=0` 的原因）。每 3 小时的 8 次/天仍是低频，但它是唯一一个**真被限过**的源；若日后它开始返 429，先降 Windows 侧的频率，不要去动 CI。
+- 仓库是 PUBLIC：Actions 额度无限、不计费，8 次/天远低于任何配额。
 
 三条管道可能并发：runner 侧 `git pull --rebase --autostash` 后再 push，冲突由 rebase 吸收；CI 侧另有 `concurrency` 组串行化。
 
@@ -36,7 +46,9 @@
 3. `-X ours` 的含义是**保留本轮快照**（本轮是全量抓取）。副作用：两边都改过的**同一行**，对方那版被替换 —— 若该帖仍在榜上，下一轮抓取会把它带回来；只有「对方改过、且此后掉出榜」的行才会真丢。这是有意的取舍，不是 bug。
 4. 若 autostash 无法干净弹出，本地那个文件会留冲突标记，但本轮数据已经 push 成功。
 
-> **实测：CI 不会准点跑。** `0 0,12 * * *` 的 schedule 连续多日落在 ~03:45–03:57Z 与 ~17:30–17:55Z，即北京时间**约 11:50 与次日 01:30**，比计划晚 3h45m–5h30m（GitHub 调度队列积压）。所以站点实际每天刷新 4 次：08:00 / 20:00（Windows 任务，含 linux.do）+ 约 11:50 / 01:30（CI，仅重发缓存数据）。
+> **实测：CI 不会准点跑。** 早先的 `0 0,12 * * *` 连续多日落在 ~03:45–03:57Z 与 ~17:30–17:55Z，
+> 比计划晚 3h45m–5h30m（GitHub 调度队列积压）。这就是现在把主节奏挪到 Windows 侧、CI 只留兜底的原因——
+> 用"每 3 小时"来换时效性时，不能建立在一个会漂移几小时的调度器上。
 
 ## 抓取与合并策略
 
@@ -115,7 +127,10 @@ docs/index.html                  生成的站点（GitHub Pages 直接服务这�
 
 ## 维护须知（踩过的坑）
 
-- **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，只会让每天两次的定时构建变红。
+- **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，会让那条兜底构建变红。
+- **改抓取频率要同时改三处**，漏一处就会出现两套节奏打架：workflow 的 `cron:`、Windows 计划任务的 `RepetitionInterval`、Hermes cron 的 `schedule`。
+  Windows 任务的重建脚本在 `E:\AI\Hermes\scripts\temp\register-linuxsb-tasks.ps1`；改完**必须用 `Export-ScheduledTask` 看 XML 确认**
+  `<Repetition><Interval>` —— `Get-ScheduledTask` 显示的 `duration=` 是空的，光看它分不清"永久重复"还是"只跑一次"。
 - **vibex.iflow.cn 对 CI 是安全的**：它是普通 Discourse，直连（无代理）约 0.7s、无 Cloudflare 挑战，是本项目里**唯一能同时被 CI 和 Windows 任务抓到的非 linux.sb 源**。选它做新源而不是 NodeSeek / sb.sb 就是因为后两者代理下 200、直连 404（CI 拿不到）。加新源前先按这个标准验一遍：`httpx.get(url)` 不给 proxy，能 200 才算可用。
 - **`page.body`，不是 `page.html_content`**：后者会把 JSON 包进 `<html><body>`，`json.loads` 直接炸。JSON 端点 + `page.body` 是 1.2s/页，比浏览器渲染 HTML（90s+）快两个数量级。
 - **不要给 `StealthyFetcher.fetch` 加 `proxy=`**：见上，会让 Cloudflare 判 403。

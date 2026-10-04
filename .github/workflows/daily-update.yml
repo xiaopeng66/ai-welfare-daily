@@ -2,13 +2,20 @@ name: Daily Welfare Update
 
 on:
   schedule:
-    # 北京时间 08:00 和 20:00
-    - cron: '0 0,12 * * *'
+    # 兜底用，不再是主节奏：linux.do 在 CI 里被关掉了（数据中心 IP 会被 429），
+    # 所以这条路径抓到的是与 Windows 侧相同的四源结果，真正带 linux.do 的完整
+    # 抓取只能在家宽上跑（Windows 任务 + Hermes cron，每 3 小时一次）。
+    # 保留每天一次是为了让仓库在 Windows 机器长期离线时仍有新数据。
+    #
+    # 刻意选 01:00 UTC（北京 09:00）以外的位置：GitHub 官方说明 schedule 在高负载时
+    # 会被延迟，且"每小时整点"是最堵的时段；实测这条 cron 曾连续多日延迟 3h45m~5h30m。
+    - cron: '17 3 * * *'
   workflow_dispatch:  # 允许手动触发
 
-# The Windows scheduled task (\linuxsb-daily-08 / -20) runs the same job at the
-# same wall-clock time; serialize GH runs and let the pull --rebase below absorb
-# the interleaving instead of racing for the branch.
+# The Windows scheduled task (\linuxsb-daily-08, now every 3h via a repetition
+# trigger) and the Hermes cron job run the same pipeline on a residential IP.
+# They all share one `concurrency` group so interleaving is absorbed by the
+# pull --rebase below instead of racing for the branch.
 concurrency:
   group: daily-welfare-update
   cancel-in-progress: false
