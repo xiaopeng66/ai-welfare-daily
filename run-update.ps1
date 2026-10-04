@@ -278,6 +278,9 @@ if ($LASTEXITCODE -eq 0) {
 # Freshness marker for the gate at the top: only a run that reached the end
 # (fetch + generate + commit/push settled) writes it. A run that died mid-fetch
 # leaves it stale ON PURPOSE, so the fallback trigger gets to retry.
-Set-Content -LiteralPath (Join-Path $repo 'data\.last_run') -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding UTF8
+# -Encoding ascii, NOT utf8: PowerShell 5.1 writes a UTF-8 BOM with utf8, which the
+# next thing that parses this file will trip over. The value is a plain
+# timestamp, so ascii is exact.
+Set-Content -LiteralPath (Join-Path $repo 'data\.last_run') -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding ascii
 Log '=== update end ==='
 exit 0
