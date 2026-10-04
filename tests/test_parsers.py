@@ -453,6 +453,13 @@ for title in ['10亿token鸡蛋块领，Muse轻松注册另一种方法',
               'zcode又发臭鸡蛋了，但是怎么领取不了']:
     check(mod.is_relevant_title(title), 'a real freebie mentioning 方法/教程 still passes the gate', title)
 
+# ⑯ 免费放粮 的「福利」形状不校验 AI 相关性，安全性来自「评分只在过闸门之后跑」。
+# 把这层耦合写下来：非 AI 的「福利」帖必须过不了闸门，否则会拿到免费放粮标签。
+check(not mod.is_relevant_title('XX论坛福利大放送'),
+      'a non-AI 福利 post is stopped by the gate (免费放粮 的「福利」形状依赖这个前提)')
+check(not mod.is_relevant_title('双十一福利'),
+      'a shopping 福利 post is stopped by the gate')
+
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
 sys.exit(0 if passed == len(results) else 1)
