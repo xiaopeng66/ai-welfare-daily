@@ -90,6 +90,54 @@ def _data_updated(topics, store_path, bj):
     return datetime.fromtimestamp(newest, bj).strftime("%Y-%m-%d %H:%M")
 
 
+SOURCE_LABELS = {
+    'linuxsb': 'linux.sb',
+    'baipiao': 'baipiao.org',
+    'nodeloc': 'nodeloc.com',
+    'linuxdo': 'linux.do',
+    'vibex': 'vibex.iflow.cn',  # 有卡片却长期没有筛选按钮：按钮是写死的，加源时漏了
+}
+# 分类按钮的固定顺序 + 图标。表在这，顺序也在这，加分类只改一处。
+CATEGORY_ORDER = ['中转站', '公益站', '鸡蛋', '兑换码', '额度', '体验金', '优惠渠道', '抽奖']
+CATEGORY_ICONS = {
+    '中转站': '🔄', '公益站': '💝', '鸡蛋': '🥚', '兑换码': '🎫',
+    '额度': '💰', '体验金': '🎁', '抽奖': '🎲', '优惠渠道': '🏷️',
+}
+
+
+def build_filters(topics):
+    """筛选按钮从数据里生成，不写死。
+
+    写死曾同时造成两个报告出来的 bug：新加的源（vibex）有卡片却没有来源按钮，
+    新加的分类（优惠渠道）有 6 张卡却没有分类按钮 —— 都是「数据变了、模板没变」。
+    顺序取固定表，表外的新值（新源、新分类）排在后面，不静默丢弃。
+    """
+    srcs, cats = set(), set()
+    for t in topics:
+        raw = str(t.get('source') or '')
+        # 表里没有的源也要露出来：认不出来就退回原值（`somebrand_new_board`），
+        # 而不是静默丢掉 —— 静默丢正是 vibex 有卡片没按钮的那个 bug 的成因。
+        srcs.add(next((p for p in SOURCE_LABELS if raw.startswith(p)), raw) if raw else raw)
+        for tag in (t.get('tags') or []):
+            cats.add(tag)
+    srcs.discard('')
+    src_order = [s for s in SOURCE_LABELS if s in srcs] + sorted(srcs - set(SOURCE_LABELS))
+    cat_order = [c for c in CATEGORY_ORDER if c in cats] + sorted(cats - set(CATEGORY_ORDER))
+    out = ['<div class="filter-row" data-group="source"><span class="filter-label">来源：</span>'
+           '<button class="filter-btn active" data-filter="all">全部</button>']
+    for s in src_order:
+        out.append(f'<button class="filter-btn" data-filter="{esc(s)}">'
+                   f'{esc(SOURCE_LABELS.get(s, s))}</button>')
+    out.append('</div><div class="filter-row" data-group="category">'
+               '<span class="filter-label">分类：</span>'
+               '<button class="filter-btn active" data-filter="all">全部</button>')
+    for c in cat_order:
+        out.append(f'<button class="filter-btn" data-filter="{esc(c)}">'
+                   f'{CATEGORY_ICONS.get(c, "")} {esc(c)}</button>'.lstrip())
+    out.append('</div>')
+    return ''.join(out), src_order
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", "-i", default="data/topics.jsonl")
@@ -98,6 +146,7 @@ def main():
     args = ap.parse_args()
 
     topics = load_topics(args.input)
+    filters_html, sources_present = build_filters(topics)
     bj = timezone(timedelta(hours=8))
     # "更新于" = when the DATA last changed, not when we happened to render.
     now = _data_updated(topics, args.input, bj)
@@ -181,24 +230,10 @@ def main():
         '<span class="stat-badge">🕐 更新于 ' + esc(now) + '</span>'
         '<span class="stat-badge">📡 多源聚合</span>'
         "</div><div class=\"filters\" id=\"filters\">"
-        '<div class=\"filter-row\" data-group=\"sort\"><span class=\"filter-label\">排序：</span>'
-        '<button class=\"filter-btn active\" data-sort=\"relevance\">按匹配度</button>'
-        '<button class=\"filter-btn\" data-sort=\"time\">按时间</button></div>'
-        '<div class=\"filter-row\" data-group=\"source\"><span class=\"filter-label\">来源：</span>'
-        '<button class=\"filter-btn active\" data-filter=\"all\">全部</button>'
-        '<button class=\"filter-btn\" data-filter=\"linuxsb\">linux.sb</button>'
-        '<button class=\"filter-btn\" data-filter=\"baipiao\">baipiao.org</button>'
-        '<button class=\"filter-btn\" data-filter=\"nodeloc\">nodeloc.com</button>'
-        '<button class=\"filter-btn\" data-filter=\"linuxdo\">linux.do</button></div>'
-        '<div class="filter-row" data-group="category"><span class="filter-label">分类：</span>'
-        '<button class="filter-btn active" data-filter="all">全部</button>'
-        '<button class="filter-btn" data-filter="中转站">🔄 中转站</button>'
-        '<button class="filter-btn" data-filter="公益站">💝 公益站</button>'
-        '<button class="filter-btn" data-filter="鸡蛋">🥚 鸡蛋</button>'
-        '<button class="filter-btn" data-filter="兑换码">🎫 兑换码</button>'
-        '<button class="filter-btn" data-filter="额度">💰 额度</button>'
-        '<button class="filter-btn" data-filter="体验金">🎁 体验金</button>'
-        '<button class="filter-btn" data-filter="抽奖">🎲 抽奖</button></div>'
+        '<div class="filter-row" data-group="sort"><span class="filter-label">排序：</span>'
+        '<button class="filter-btn active" data-sort="relevance">按匹配度</button>'
+        '<button class="filter-btn" data-sort="time">按时间</button></div>'
+        + filters_html +
         "</div><div id=\"cards\">"
         '<div class="section-header new-section" id="header-new">🆕 近 24 小时</div>'
         '<div class="cards" id="cards-new"></div>'
@@ -209,7 +244,8 @@ def main():
         '<p>数据来源于 <a href="https://linux.sb" target="_blank">linux.sb</a> / '
         '<a href="https://baipiao.org/bbs" target="_blank">baipiao.org</a> / '
         '<a href="https://www.nodeloc.com/latest" target="_blank">nodeloc.com</a> / '
-        '<a href="https://linux.do/c/welfare/36" target="_blank">linux.do</a> · 由 '
+        '<a href="https://linux.do/c/welfare/36" target="_blank">linux.do</a> / '
+        '<a href="https://vibex.iflow.cn" target="_blank">vibex.iflow.cn</a> · 由 '
         '<a href="https://github.com/' + esc(args.repo) + '" target="_blank">'
         + esc(args.repo) + "</a> 自动更新</p>"
         '<p style="margin-top:4px;">⚠️ 本站仅做信息聚合，不保证链接有效性和安全性，请自行甄别</p>'
@@ -230,12 +266,7 @@ def main():
 
         "function getFiltered(){"
         "const filtered=cards.filter(c=>{"
-        "if(sourceFilter!=='all'){"
-        "if(sourceFilter==='linuxsb'){if(!(c.source&&c.source.startsWith('linuxsb'))) return false;}"
-        "else if(sourceFilter==='baipiao'){if(!(c.source&&c.source.startsWith('baipiao'))) return false;}"
-        "else if(sourceFilter==='nodeloc'){if(!(c.source&&c.source.startsWith('nodeloc'))) return false;}"
-        "else if(sourceFilter==='linuxdo'){if(!(c.source&&c.source.startsWith('linuxdo'))) return false;}"
-        "}"
+        "if(sourceFilter!=='all'){if(!(c.source&&c.source.indexOf(sourceFilter)===0)) return false;}"
         "if(categoryFilter!=='all'){if(!(c.tags||[]).includes(categoryFilter)) return false;}"
         "return true;});"
         "return filtered;}"
@@ -247,6 +278,7 @@ def main():
         "if(s.indexOf('nodeloc_welfare')===0) return 'nodeloc 福利';"
         "if(s.indexOf('nodeloc')===0) return 'nodeloc.com';"
         "if(s.indexOf('linuxdo')===0) return 'linux.do';"
+        "if(s.indexOf('vibex')===0) return 'vibex.iflow.cn';"
         "return s;}"
 
         "function renderCard(card){"

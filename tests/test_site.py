@@ -116,6 +116,38 @@ else:
 
 shutil.rmtree(d, ignore_errors=True)
 
+print('\n== filter buttons are derived from the data, not hardcoded ==')
+# 写死过两个报告出来的 bug：新源（vibex）有卡片没按钮、新分类（优惠渠道）有 6 张卡
+# 没按钮。断言必须盯着「数据里有 → 页面里就有」这条不变量，而不是背下某个按钮名。
+d2 = tempfile.mkdtemp(prefix='site-filters-')
+store2, out2 = os.path.join(d2, 'topics.jsonl'), os.path.join(d2, 'index.html')
+rows2 = [row(1, '额度 A', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', source='linuxsb_p1'),
+         row(2, '额度 B', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z',
+             source='vibex_welfare_p1', tags=['优惠渠道'], score=1),
+         row(3, '额度 C', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z',
+             source='somebrand_new_board', tags=['免费放粮'], score=1)]
+build(rows2, out2, store2)
+h2 = open(out2, encoding='utf-8').read()
+src_btns = re.findall(r'data-group="source".*?</div>', h2, re.S)
+cat_btns = re.findall(r'data-group="category".*?</div>', h2, re.S)
+bar = (src_btns[0] if src_btns else '') + (cat_btns[0] if cat_btns else '')
+for want, why in [('vibex', 'a source that is present gets a source button'),
+                  ('优惠渠道', 'a category that is present gets a category button'),
+                  ('免费放粮', 'a newly added category needs no template edit'),
+                  ('somebrand_new_board', 'an unknown source still gets a button (no silent drop)')]:
+    check(want in bar, why, want)
+# 反向：库里没有的源不该凭空长出按钮。
+check('baipiao' not in bar, 'a source with no rows gets no button')
+check('data-filter="all"' in bar, 'the 全部 buttons survive')
+# JS 侧的过滤必须认任意源前缀，不能只认写死的那几个 —— 否则按钮出现了却点不动。
+check("c.source.indexOf(sourceFilter)===0" in h2,
+      'the source filter matches any prefix, not a hardcoded list')
+check("if(s.indexOf('vibex')===0) return 'vibex.iflow.cn';" in h2,
+      'sourceLabel knows vibex (its cards read "vibex_welfare_p1" otherwise)')
+for gone in ["sourceFilter==='linuxsb'", "sourceFilter==='nodeloc'"]:
+    check(gone not in h2, 'the per-source if-chain is gone', gone)
+shutil.rmtree(d2, ignore_errors=True)
+
 print()
 bad = results.count(False)
 print(f'{len(results) - bad}/{len(results)} checks passed' + ('' if not bad else f' -- {bad} FAILURE(S)'))

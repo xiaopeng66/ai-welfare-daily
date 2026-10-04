@@ -309,8 +309,27 @@ for title in ['橘-API  token滞销，帮帮我们！！！ 事已至此先抽�
               '【第3波】欢度国庆，爽蹬$1000刀🔥🔥🔥',
               '【猛蹬】claude顶级模型不花钱！',
               '新站开业，国模免费用',
-              '【无了】国庆节快乐 GPT6系列 速蹬']:
+              '【第4波】国庆节快乐 GPT6系列 速蹬']:
     check(relevant(title), 'shop-talk (抽/蹬/国模) still passes the gate', title)
+# 但源站自己标了「无了」的就不是活福利了（同一批标题里的兄弟帖，已发完）。
+check(not relevant('【无了】国庆节快乐 GPT6系列 速蹬'),
+      'the same title marked 无了 is dropped as finished')
+
+# ⑬「发」不能裸用：它会命中 开发 / 发现 / 发布。但删掉它又丢真货（`又发1亿token`、
+#    `发鸡蛋啦`、`发点999刀CDK` 共 8 条），所以只挡明确的非发放搭配。
+#    `发现1不错GPT中转` 没有任何其它发放信号 —— 修复前它全靠「发」混进来，现在该被挡。
+check(not relevant('报! 发现1不错GPT,Grok中转'),
+      'a title whose only giveaway-ish word is 发现 must not pass')
+# 而 `发现一免费 DeepSeek` 是靠「免费」成立的（真有人发了个免费的），照收。
+check(relevant('发现一免费 DeepSeek v4 flash'),
+      'a 发现 title that really is a freebie still passes (on 免费)')
+for title in ['deepseek发鸡蛋啦，登录dsh客户端就有',
+              '【RelayFor】发点999刀CDK',
+              '[臭鸡蛋]zcode 9 月 30 又发 1 亿 token']:
+    check(relevant(title), 'but a real 发放 still passes', title)
+# 「低价」是独立的发放信号：这条帖不靠「发」也成立。
+check(relevant('发布会前最后一份低价20x。只有老号才有的额度'),
+      'a low-price post passes on 低价 regardless of 发')
 
 # ⑧ 但放开单字「抽」后，非 AI 的抽奖必须仍然被挡（AND 判定兜住）。
 for title in ['抽奖，9HTTP代理IP送点动态住宅代理',

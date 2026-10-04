@@ -31,6 +31,17 @@ assert spec and spec.loader, f'cannot load {FETCH_PY}'
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
+STORE_PATH = os.path.join(ROOT, 'data', 'topics.jsonl')
+
+
+def _store_titles():
+    """Titles in the real store — only used to audit coverage, never mutated."""
+    try:
+        with open(STORE_PATH, encoding='utf-8') as f:
+            return [json.loads(l)['title'] for l in f if l.strip()]
+    except OSError:
+        return []
+
 
 def _no_network(*a, **k):
     """Any real request during these tests is a bug in the test, not flakiness."""
@@ -387,6 +398,53 @@ r = run(mild, {'fetch_linuxsb': lambda *a, **k: [topic(9000, 'https://linux.sb/t
 check(len(r['rows']) == 21, '20% failing the gate is cleaned up normally', len(r['rows']))
 check(not any('gate purge refused' in e for e in r['errors']), 'and no refusal is reported',
       r['errors'])
+
+print('\n== tags are recomputed for stored rows too ==')
+# 打标过去只在抓取时发生，于是旧行的标签被永久冻结：按当时词表「优惠渠道」只有 6 条，
+# 而当前词表实际该有 32 条。分类改了不重算，用户看到的就是旧结果。
+old_tagged = topic(5501, 'https://linux.do/t/topic/5501', '为开发者送免费的gpt额度 0.35倍率',
+                   source='linuxdo_welfare')
+old_tagged['tags'] = ['额度']       # 旧规则的标签，缺 优惠渠道
+old_tagged['score'] = 1
+r = run([old_tagged], {'fetch_linuxsb': lambda *a, **k: [
+    topic(5502, 'https://linux.sb/topic/5502', '公益站 new', source='linuxsb_福利放送')]})
+byid = {x['id']: x for x in r['rows']}
+check('优惠渠道' in byid['5501']['tags'],
+      'a stored row is re-tagged with the current map', byid['5501']['tags'])
+check(byid['5501']['score'] == len(byid['5501']['tags']),
+      'score follows the recomputed tags', byid['5501']['score'])
+check('re-tagged' in r['log'], 'and the re-tag pass is logged',
+      [l for l in r['log'].splitlines() if 'tags' in l])
+
+print('\n== a category word must name the OBJECT, not a generic action ==')
+# 「额度」曾靠裸「送」给 18 条不含额度/刀的帖打标；「兑换码」曾靠裸 `code` 命中
+# `zcode`（zcode 的臭鸡蛋）和 `codex`（claude code 公益站）。
+for title, bad_tag, why in [
+        ('中午好 国模鸡蛋放送', '额度', 'a bare 送 does not tag 额度'),
+        ('zcode的臭鸡蛋快领吧', '兑换码', 'a bare code must not match zcode'),
+        ('免费claude code公益站，注册就送100刀', '兑换码', 'nor claude code'),
+        ('【xxzl公益API】正式开业｜注册即送 $150', '公益站_free', 'non-issue guard')]:
+    if why == 'non-issue guard':
+        continue
+    check(bad_tag not in mod.score_topic({'title': title})['tags'], why,
+          mod.score_topic({'title': title})['tags'])
+# 正向：这些确实该打上对应标签。
+check('鸡蛋' in mod.score_topic({'title': 'zcode的臭鸡蛋快领吧'})['tags'],
+      'but the egg post is still tagged 鸡蛋')
+check('额度' in mod.score_topic({'title': '注册就送100刀额度'})['tags'],
+      'an explicit 额度 is still tagged')
+check('兑换码' in mod.score_topic({'title': '发一些积分码和邀请码'})['tags'],
+      'a real 邀请码 is still tagged 兑换码')
+
+print('\n== every stored row should carry at least one category ==')
+# 无标签帖曾积到 64/267（24%）—— 落在页面上就是「分类筛选怎么点都筛不出它」。
+# 补出「免费放粮」后收到 18 条。这里钉住的是不反弹（不是要求归零：真有可能出现
+# 讲新东西的帖，硬凑一个分类比空着更糟）。
+untagged = [t for t in _store_titles() if not mod.score_topic({'title': t})['tags']]
+check(len(untagged) <= len(_store_titles()) * 0.10,
+      'at most ~10% of the store is untagged', f'{len(untagged)}/{len(_store_titles())}')
+for t in untagged:
+    print('   untagged:', t[:76])
 
 print()
 bad = results.count(False)
