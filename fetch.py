@@ -140,14 +140,115 @@ CATEGORY_KEYWORDS = {
     "抽奖": ["抽奖", "盲盒", "中奖", "欧皇"],
 }
 
-# Strong relevance keywords; title must contain at least one.
-# "公益" is here as well as in CATEGORY_KEYWORDS["公益站"]: the gate runs before
-# tagging, so a bare "公益" title (半公益中转站 / 公益生图站 / Zynk 公益) used to be
-# dropped before it could be tagged 公益站. Measured 2026-10-04: rescues 6 unique
-# titles across the live sources, and does not let unrelated hits through (unlike
-# "免费", which stays category-only because it matches 支付宝境外支付薅羊毛 and friends).
-RELEVANCE_KEYWORDS = [
-    "中转站", "公益站", "公益", "鸡蛋", "兑换码", "额度", "体验金", "抽奖",
+# ---------------------------------------------------------------------------
+# 相关性闸门：两级规则
+#
+# 为什么不是一张词表：原来的单层闸门（8 个词，命中即收）有两个反向缺陷，
+# 在 2026-10-04 的全量语料（607 抓取 / 509 唯一标题）上量过：
+#
+#   ① 漏真货 194 条。闸门只认「中转站/公益/鸡蛋/兑换码/额度/体验金/抽奖」，
+#      而这类站的发帖黑话是「注册送 1 刀」「0.0001 倍率」「爽蹬 $1000 刀」
+#      「放粮」「号池」「token 滞销」——一个闸门词都不含，整条被丢。这些不是
+#      边缘情况，是主力内容：榜单上最热的免费额度帖恰好都不含那 8 个词。
+#   ② 收噪音 24 条，全部来自「抽奖」。VPS/小鸡/esim/TG号/域名/会员/代理IP 的
+#      抽奖帖也含「抽奖」，精度只有 38%（39 条里 15 条与 AI 有关）。
+#
+# 所以拆成两个必居其一的入口：
+#   A. 自足词 SELF_SUFFICIENT —— 词本身即「AI 福利站 / 放额度行为」，单独成立。
+#   B. AI 领域词 AND 福利行为信号 —— 「这条帖在讲 AI 额度」且「它在送/放开」。
+# 单说领域（"Claude 注册防封经验"）不算福利；单说送（"抽 3 台香港小鸡"）不算 AI。
+#
+# 验收（同一份语料）：保留 119 → 183，剔除的 34 条经逐条人工核对全部与 AI API
+# 无关（VPS/esim/TG号/域名/会员/称号/挂机宝），且残留的 4 条是「额度给的太少了」
+# 这类抱怨帖，不是福利投放 —— 剔除正确。
+# ---------------------------------------------------------------------------
+
+# A. 自足词：命中即收，无需再看别的。
+#    注意「额度」故意不在这里：它只说明这条帖在讲额度，不说明在送额度 ——
+#    「额度给的太少了」「go的额度也下降了」是抱怨帖，必须走 B 的 AND 判定。
+SELF_SUFFICIENT_KEYWORDS = [
+    "中转站", "公益", "鸡蛋", "体验金", "号池", "放粮", "放糧", "兑换码",
+]
+
+# B-1. AI / 额度领域词。用 ASCII 前后瞻而不是 \b：Python 里中文也算 \w，
+# 所以 r"\bgpt\b" 匹配不到「月gpt」（"月" 与 "g" 之间没有边界）——
+# 实测这会漏掉 "【抽奖】吐血福利免费送4个月gpt plus会员" 这类标题。
+_ASCII = r"[a-z0-9]"
+
+
+def _bounded(token: str) -> str:
+    """ASCII 边界版的关键词：左不许字母数字、右不许字母。
+
+    右侧刻意只挡字母（不挡数字），这样 "GPT6" / "ds4.1" 这类型号名仍然命中。
+    """
+    return rf"(?<!{_ASCII}){token}(?![a-z])"
+
+
+DOMAIN_KEYWORDS = [
+    _bounded("api"), _bounded("key"), _bounded("cdk"), _bounded("ai"),
+    _bounded("llm"), _bounded("ds"),
+    "中转", "额度", "token", "模型", "倍率", "分组", "邀请码",
+    "积分", "余额", "充值", "赠送", "赠金", "签到",
+    _bounded("gpt"), _bounded("claude"), _bounded("deepseek"), _bounded("glm"),
+    _bounded("gemini"), _bounded("grok"), _bounded("qwen"), _bounded("kimi"),
+    _bounded("codex"), _bounded("openai"), _bounded("cursor"), _bounded("astra"),
+    _bounded("sonnet"), _bounded("opus"), _bounded("kiro"), _bounded("nvidia"),
+    _bounded("nemotron"), _bounded("longcat"),
+    "刀", "蹬", "白嫖", "美刀", "美元",
+    "国模",  # 「新站开业，国模免费用」——国产模型的黑话，不含「模型」二字
+]
+
+# B-2. 福利行为信号：这条帖在「送 / 放开 / 打折」某个东西。
+#    「注册」留在这里是必要的（去掉会丢 5 条真货：注册送10刀 / github注册15刀…），
+#    它的教程噪音由下面的 HOWTO 模式挡掉。
+#
+#    「抽」「蹬」是实测补进来的：只用「抽奖」做子串会漏掉「先抽个奖叭」「抽50个10¥余额」
+#    （中间隔了字），放开成单字「抽」后净增 3 条、0 噪音；「蹬」在黑话里=免费用额度，
+#    补进来净增 8 条真货（「爽蹬$1000刀」「【猛蹬】claude顶级模型不花钱」），0 噪音。
+OFFER_KEYWORDS = [
+    "免费", "送", "赠", "白嫖", "抽奖", "抽", "兑换", "邀请", "注册", "领取", "领",
+    "福利", "试用", "优惠", "折", "限时", "羊毛", "红包", "纳新", "撸", "抢",
+    "新用户", "获得", "发", "蹬",
+]
+
+# B-3. 教程 / 抱怨意图：出现即否决。
+#    这些帖同时含领域词和福利词（"注册防封经验"、"额度也下降了"），但它们是
+#    在教怎么用 / 在抱怨，不是在放额度。实测这 4 条正是仅靠 AND 判定无法区分
+#    的那批，逐条核对后确认都不该上站。
+_NOT_FREEBIE_KEYWORDS = [
+    "经验", "教程", "方法", "攻略", "指南", "怎么", "如何", "防封",
+    "太少了", "用不起", "下降了", "涨价",
+]
+
+_DOMAIN_RE = re.compile("|".join(DOMAIN_KEYWORDS), re.I)
+_OFFER_RE = re.compile("|".join(OFFER_KEYWORDS), re.I)
+_NOT_FREEBIE_RE = re.compile("|".join(_NOT_FREEBIE_KEYWORDS), re.I)
+
+
+def is_relevant_title(title: str) -> bool:
+    """True if a title belongs on the site: an AI-API freebie / 中转站 welfare post.
+
+    Tier A: a self-sufficient term (中转站/公益/鸡蛋/号池/放粮/兑换码) alone is enough —
+        the word *is* the freebie.
+    Tier B: otherwise both an AI/额度 domain term AND a giveaway signal must appear,
+        and the title must not read as a tutorial or a complaint.
+
+    Pure function: no network, no globals mutated — so the gate stays testable offline.
+    """
+    if not title:
+        return False
+    low = title.lower()
+    if any(kw in low for kw in SELF_SUFFICIENT_KEYWORDS):
+        return True
+    if _NOT_FREEBIE_RE.search(low):
+        return False
+    return bool(_DOMAIN_RE.search(low)) and bool(_OFFER_RE.search(low))
+
+
+# 旧名字保留做兼容（含测试引用）。它现在只是词表并集，不再是判定依据 ——
+# 判定请用 is_relevant_title()。
+RELEVANCE_KEYWORDS = SELF_SUFFICIENT_KEYWORDS + [
+    "额度", "邀请码", "抽奖", "token", "倍率", "积分", "注册", "免费",
 ]
 
 
@@ -378,8 +479,7 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
     # Fetch detail pages only for topics we will actually keep: skip ids already
     # stored, and skip titles the relevance filter would drop anyway.
     def _relevant(t):
-        title = t.get("title", "").lower()
-        return any(kw.lower() in title for kw in RELEVANCE_KEYWORDS)
+        return is_relevant_title(t.get("title", ""))
 
     need_detail = [
         t["id"] for t in all_topics
@@ -705,10 +805,20 @@ def _row_changed(prev: dict, t: dict) -> bool:
     return bool(t.get("published_verified")) != bool(prev.get("published_verified"))
 
 
+# 滚动窗口的条数上限。见 --limit 处的说明：闸门放宽后入库量翻倍，200 会让
+# 内容偏旧的源被整体挤出（实测 vibex 归零），因此固定在 300。
+DEFAULT_LIMIT = 300
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fetch welfare topics from multiple sources")
     ap.add_argument("--output", "-o", default="data/topics.jsonl")
-    ap.add_argument("--limit", type=int, default=200)
+    # cap 300 而不是 200：闸门放宽后每轮入库量翻倍（75 → 152），固定 200 会被
+    # 新内容瞬间填满，滚动窗口从 49 天塌到 11 天，内容偏旧的一整个源（vibex，
+    # 最新帖 2026-09-08）被 cap 全部挤出、静默归零。300 把窗口还原到 65 天，
+    # 五个源都有代表。改这个值时请连带看 README 的「cap 与窗口跨度」一节，
+    # 并跑 tests/test_parsers.py 里的 DEFAULT_LIMIT 断言。
+    ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
@@ -806,8 +916,7 @@ def main():
 
     # Keep only welfare-relevant topics based on title keywords
     def is_relevant(t: dict) -> bool:
-        title = t.get("title", "").lower()
-        return any(kw.lower() in title for kw in RELEVANCE_KEYWORDS)
+        return is_relevant_title(t.get("title", ""))
 
     before = len(all_topics)
     all_topics = [t for t in all_topics if is_relevant(t)]

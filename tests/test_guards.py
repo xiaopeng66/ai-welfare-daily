@@ -125,9 +125,9 @@ check(len(names) >= 5, f'every source function is overridden by the harness: {",
       names)
 
 print('\n== partial failure keeps cached rows, and is reported ==')
-store = [topic(1001, 'https://linux.sb/topic/1001', '额度 A'),
-         topic(1002, 'https://linux.sb/topic/1002', '额度 B')]
-r = run(store, {'fetch_linuxsb': lambda *a, **k: [topic(2001, 'https://linux.sb/topic/2001', '额度 new')],
+store = [topic(1001, 'https://linux.sb/topic/1001', '公益站 A'),
+         topic(1002, 'https://linux.sb/topic/1002', '公益站 B')]
+r = run(store, {'fetch_linuxsb': lambda *a, **k: [topic(2001, 'https://linux.sb/topic/2001', '公益站 new')],
                 'fetch_nodeloc': lambda *a, **k: (mod.FETCH_ERRORS.append('injected'), [])[1]})
 check(r['code'] == 0, 'partial failure still exits 0 (data is committed first)', r['code'])
 check({x['id'] for x in r['rows']} == {'1001', '1002', '2001'}, 'cached rows kept beside the new one',
@@ -136,7 +136,7 @@ check(r['marker'], 'partial failure leaves the marker file for CI')
 check(r['litter'] == [], 'atomic write leaves no .tmp-* behind', r['litter'])
 
 print('\n== total blackout refuses to write ==')
-store = [topic(i, f'https://linux.sb/topic/{i}', '额度 x') for i in range(1, 6)]
+store = [topic(i, f'https://linux.sb/topic/{i}', '公益站 x') for i in range(1, 6)]
 r = run(store, {})
 check(r['code'] == 2, 'blackout exits 2', r['code'])
 check(r['before'] == r['after'], 'store byte-identical after a blackout')
@@ -145,31 +145,31 @@ print('\n== a damaged store is never treated as empty ==')
 r = run(None, {}, raw_store='{"broken\n{"also broken\n')
 check(r['code'] == 3, 'all lines unparseable exits 3', r['code'])
 check(r['before'] == r['after'], 'store byte-identical after refusing')
-good = json.dumps(topic(1, 'https://linux.sb/topic/1', '额度 1'), ensure_ascii=False)
-r = run(None, {'fetch_linuxsb': lambda *a, **k: [topic(2, 'https://linux.sb/topic/2', '额度 2')]},
+good = json.dumps(topic(1, 'https://linux.sb/topic/1', '公益站 1'), ensure_ascii=False)
+r = run(None, {'fetch_linuxsb': lambda *a, **k: [topic(2, 'https://linux.sb/topic/2', '公益站 2')]},
         raw_store=good + '\n{"broken json\n')
 check(r['code'] == 0 and len(r['rows']) == 2 and any('unparseable' in e for e in r['errors']),
       'partially damaged store: good rows kept, damage reported', r['errors'])
 
 print('\n== cross-site id collision keeps BOTH posts ==')
-lsb = topic(12345, 'https://linux.sb/topic/12345', '额度 lsb', source='linuxsb_p1')
-nod = topic(12345, 'https://nodeloc.com/t/topic/12345', '额度 nodeloc', source='nodeloc_p1')
+lsb = topic(12345, 'https://linux.sb/topic/12345', '公益站 lsb', source='linuxsb_p1')
+nod = topic(12345, 'https://nodeloc.com/t/topic/12345', '公益站 nodeloc', source='nodeloc_p1')
 r = run([lsb], {'fetch_nodeloc': lambda *a, **k: [nod]})
 check(len(r['rows']) == 2 and sorted(x['url'] for x in r['rows']) == sorted([lsb['url'], nod['url']]),
       'both rows survived the clash', [x['id'] for x in r['rows']])
 check(len({mod.topic_key(x) for x in r['rows']}) == 2, 'the two rows use distinct keys')
 
 print('\n== the cap drops the OLDEST rows ==')
-store = [topic(1000 + i, f'https://linux.sb/topic/{1000+i}', f'额度 {i}',
+store = [topic(1000 + i, f'https://linux.sb/topic/{1000+i}', f'公益站 {i}',
                created=f'2026-09-{i % 28 + 1:02d}T10:00:00Z') for i in range(250)]
-r = run(store, {'fetch_linuxsb': lambda *a, **k: [topic(9999, 'https://linux.sb/topic/9999', '额度 n')]},
+r = run(store, {'fetch_linuxsb': lambda *a, **k: [topic(9999, 'https://linux.sb/topic/9999', '公益站 n')]},
         limit=200)
 check(len(r['rows']) == 200 and '9999' in {x['id'] for x in r['rows']}, 'cap honoured, newest kept',
       len(r['rows']))
 
 print('\n== incremental store: only changed rows are rewritten ==')
 wd = tempfile.mkdtemp(prefix='guard-incr-')
-srcs = {'fetch_linuxsb': lambda *a_, **k: [topic(9001, 'https://linux.sb/topic/9001', '额度 A')]}
+srcs = {'fetch_linuxsb': lambda *a_, **k: [topic(9001, 'https://linux.sb/topic/9001', '公益站 A')]}
 r1 = run([], srcs, workdir=wd)
 check('1 updated' in r1['log'], 'run 1: the new post is written', r1['log'].strip().splitlines()[-1:])
 # "New" is a 24h window computed in the browser, so a post does not change state
@@ -184,13 +184,13 @@ check(r3['mtime_after'] == r3['mtime_before'], 'run 3: the file is not even touc
 # Positive control: "0 updated" is also what a broken comparison prints, so prove
 # the detector reacts to a real change before trusting the no-op run above.
 rows = [json.loads(line) for line in open(r3['path'], encoding='utf-8') if line.strip()]
-rows[0]['title'] = '额度 PERTURBED'
+rows[0]['title'] = '公益站 PERTURBED'
 with open(r3['path'], 'w', encoding='utf-8') as f:
     f.write(''.join(json.dumps(x, ensure_ascii=False) + '\n' for x in rows))
 r4 = run(None, srcs, workdir=wd)
 check('1 updated' in r4['log'], 'a perturbed row is detected and bumped',
       r4['log'].strip().splitlines()[-1:])
-check(r4['rows'][0]['title'] == '额度 A', 'the perturbation was repaired', r4['rows'][0]['title'])
+check(r4['rows'][0]['title'] == '公益站 A', 'the perturbation was repaired', r4['rows'][0]['title'])
 r5 = run(None, srcs, workdir=wd)
 check(r5['before'] == r5['after'], 'settles back to a byte-identical no-op')
 shutil.rmtree(wd, ignore_errors=True)
@@ -207,7 +207,7 @@ check(mod._write_if_changed(p, 'abd') is True and open(p, encoding='utf-8').read
 shutil.rmtree(d, ignore_errors=True)
 
 print('\n== every written row carries the full schema ==')
-r = run([], {'fetch_linuxsb': lambda *a, **k: [topic(7000, 'https://linux.sb/topic/7000', '额度 s')]})
+r = run([], {'fetch_linuxsb': lambda *a, **k: [topic(7000, 'https://linux.sb/topic/7000', '公益站 s')]})
 need = {'id', 'title', 'url', 'source', 'created_at', 'fetched_at',
         'tags', 'score', 'published_verified'}
 check(need <= set(r['rows'][0]), 'schema complete', need - set(r['rows'][0]))
@@ -245,7 +245,7 @@ check(len(r3['rows']) == 2, 'a run where linux.sb returned nothing keeps its row
 shutil.rmtree(wd, ignore_errors=True)
 
 print('\n== the age cap must not evict a dateless row before an ancient one ==')
-dateless = topic(9999, 'https://linux.do/t/9999', '额度 无发布时间', created=None,
+dateless = topic(9999, 'https://linux.do/t/9999', '公益站 无发布时间', created=None,
                  source='linuxdo_welfare', fetched='2026-10-02T06:00:00Z')
 ancient = topic(8888, 'https://linux.sb/topic/8888', '鸡蛋 上古帖',
                 created='2020-01-01T00:00:00Z', source='linuxsb_福利放送',

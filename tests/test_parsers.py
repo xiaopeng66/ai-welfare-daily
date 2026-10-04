@@ -217,36 +217,102 @@ check(set(r['source'] for r in with_paged_fetch(
 
 
 # --------------------------------------------------------------------------
-# Relevance gate and 公益站 tagging.
+# Relevance gate (two-tier) and 公益站 tagging.
 #
-# Why: the gate runs BEFORE score_topic, so "公益" must be in RELEVANCE_KEYWORDS
-# for a bare-公益 title to survive long enough to be tagged 公益站. When it was
-# missing, titles like "【Zynk 公益】…" and "（公益生图站）发一些兑换码" were dropped
-# even though CATEGORY_KEYWORDS already knew how to tag them.
+# Why the gate is two-tier instead of one keyword list: measured on the full
+# 2026-10-04 corpus (607 fetched / 509 unique titles) the single-layer gate had
+# two opposite defects -- it dropped 194 AI-额度 posts (「注册送1刀」「0.0001倍率」
+# 「放粮」「号池」) because the shop talk contains none of the 8 gate words, and it
+# kept 24 non-AI ones, ALL from 「抽奖」 (VPS/esim/TG号/域名/会员 lotteries).
+# Both directions are pinned below, so a future "simplify the filter" edit that
+# reintroduces either one fails here instead of quietly on the live site.
 # --------------------------------------------------------------------------
 def relevant(title):
-    return any(kw.lower() in title.lower() for kw in mod.RELEVANCE_KEYWORDS)
+    return mod.is_relevant_title(title)
 
 
+# ① Self-sufficient terms: enough on their own (they *are* an AI welfare site
+#    or an explicit quota giveaway), so they must survive without any other hit.
 for title in ['🥚【露娜半公益中转站】🥚 都是免费登！',
               '（公益生图站）发一些兑换码',
               'Zynk公益复活! 进来兑换额度',
               '【Zynk 公益】国庆第二波福利，GPT 6.1 Sol 蹬 $1000',
-              '🆕 无限deepseek 持续公益 已送【2.5】亿']:
-    check(relevant(title), 'a bare-公益 title passes the relevance gate', title)
+              '🆕 无限deepseek 持续公益 已送【2.5】亿',
+              '国庆福利 纯grok heavy号池',
+              '[已开奖]token 多到溢出拿來燒水,滞销!今天開門放糧！']:
+    check(relevant(title), 'a self-sufficient title passes the relevance gate', title)
 
 check('公益站' in mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'],
       'a bare-公益 title is tagged into the 公益站 category',
       mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'])
 
-# The gate must stay narrow: adding "公益" is not an invitation to let the
-# non-AI 羊毛 posts through, which is exactly why "免费" stays category-only.
+# ② Domain ∧ Offer: the actual 中转站 shop talk, which the old gate missed
+#    because it names no gate word -- it says 「注册送N刀」/「倍率」/「签到」.
+for title in ['0.0001倍率 注册送一刀 还可以签到',
+              '0.5倍率的claude max！注册送1刀！回复id再送5刀',
+              '0.04超低倍率GPT 5.6，注册就送1刀，还能每日签到',
+              '领10刀0.4xgpt谷歌登录',
+              '织云站点 限时开放注册 赠送200刀 可签到',
+              'LongCat邀请新用户实名，各得1000万Tokens！拼团返现']:
+    check(relevant(title), 'domain AND offer talk passes the relevance gate', title)
+
+# ③ A domain term ALONE is not a freebie ("Claude 注册防封经验" is a how-to).
+for title in ['Claude 注册防封经验：这些细节真的容易翻车',
+              '快用不起了，ds涨价后，go的额度也下降了']:
+    check(not relevant(title), 'a domain term without a giveaway still fails', title)
+
+# ④ An offer ALONE is not AI (this is the 「抽奖」 noise that used to leak).
+for title in ['【抽奖】十一快乐月付香港小鸡一台',
+              '[已开奖]抽20台香港nat小鸡 国际精品BGP|大带宽|原生IP全解锁',
+              '[已开奖]「抽奖」一张中港澳1G流量esim，钞我🥵',
+              '[已开奖]【抽奖】临期域名一枚（sss.kim）',
+              '[已开奖]【抽奖】哔哩哔哩大会员月卡',
+              '[已开奖]抽奖tg号 直接30分钟开奖',
+              '抽奖，9HTTP代理IP送点动态住宅代理',
+              '[已开奖]Gridly Mac 下的轻巧的窗口管理软件抽奖啦',
+              '感谢饼友打赏，抽奖送称号（已经全部发放完成）']:
+    check(not relevant(title), 'a non-AI lottery fails the relevance gate', title)
+
+# ⑤ The old noise floor must stay rejected (免费 is not a domain term on its own).
 for title in ['大毛大毛！！支付宝 微信境外支付参加活动利润最低40+ 速撸',
               'VMISS 薅羊无保姆级教程：支付宝「境外支付笔笔减」',
               '微信支付宝境外支付有礼',
               '分享免费苹果共享ID网站',
               '天翼云手机2天卡，可无限续杯～']:
     check(not relevant(title), 'an unrelated 羊毛 post still fails the gate', title)
+
+# ⑥ CJK-adjacent model names: r"\bgpt\b" does NOT match 「月gpt」 because Python
+#    treats 月 as a word char, so the gate uses ASCII lookarounds instead.
+check(relevant('【抽奖】吐血福利免费送4个月gpt plus会员抽奖'),
+      'a model name glued to Chinese still matches (ASCII lookaround)',
+      '月gpt')
+check(relevant('GPT6免费瞪？！') and relevant('GLM-5.3 已上线可获得 2000万Tokens'),
+      'model names with a version suffix still match (GPT6 / GLM-5.3)')
+# 但「型号词 + 无福利信号」不算：这是发帖人在描述自己用的模型，不是在放额度。
+check(not relevant('0.01x DeepSeek 不降智不掺水'),
+      'a model name alone (no giveaway signal) does not pass', '0.01x DeepSeek')
+
+# ⑦ 黑话字：只写「抽奖」会漏掉「先抽个奖叭」「抽50个10¥余额」（中间隔了字），
+#    所以 offer 信号收单字「抽」；「蹬」= 免费用额度，「国模」= 国产模型。
+#    这三个词是实测补的：全量语料上净增 11 条真货、0 条噪音。
+for title in ['橘-API  token滞销，帮帮我们！！！ 事已至此先抽个奖叭  第一名依旧140刀！',
+              '【抽50个10¥余额】Air Router中转-价格稳定智商兼顾：plus0.1x',
+              '【第3波】欢度国庆，爽蹬$1000刀🔥🔥🔥',
+              '【猛蹬】claude顶级模型不花钱！',
+              '新站开业，国模免费用',
+              '【无了】国庆节快乐 GPT6系列 速蹬']:
+    check(relevant(title), 'shop-talk (抽/蹬/国模) still passes the gate', title)
+
+# ⑧ 但放开单字「抽」后，非 AI 的抽奖必须仍然被挡（AND 判定兜住）。
+for title in ['抽奖，9HTTP代理IP送点动态住宅代理',
+              '[已开奖]抽20台香港nat小鸡 国际精品BGP|大带宽|原生IP全解锁']:
+    check(not relevant(title), 'single-char 抽 does not let non-AI lotteries back in', title)
+
+# ⑨ cap 300 是行为契约的一部分：闸门放宽后每轮入库量翻倍，回到 200 会立刻
+#    把窗口从 65 天压到 11 天并让 vibex 整源归零（2026-10-04 实测）。
+check(mod.DEFAULT_LIMIT >= 300,
+      'DEFAULT_LIMIT stays large enough to keep every source in the window',
+      f'DEFAULT_LIMIT={mod.DEFAULT_LIMIT}')
 
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
