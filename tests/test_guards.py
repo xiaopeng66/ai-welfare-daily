@@ -351,6 +351,43 @@ check(mod.probe_deleted('https://linux.sb/topic/1') is False, 'a timeout is not 
 mod.fetch = _no_network      # 恢复守卫：之后任何真请求照旧炸出来
 check(mod.probe_deleted('') is False, 'an empty url is never a deletion')
 
+print('\n== a stored row that no longer passes the gate is dropped ==')
+# 闸门只判新抓到的行会漏掉一整类：用旧规则放进来的噪音没有任何一轮会重判它，
+# 于是会一直留到被 cap 淘汰（实测 store 里积了 28 条，正是用户抱怨的那批）。
+noise = topic(5001, 'https://linux.do/t/topic/5001', '发点积分，各位国庆节快乐呀',
+              source='linuxdo_welfare')
+fine = topic(5002, 'https://linux.do/t/topic/5002', '公益站 免费额度', source='linuxdo_welfare')
+r = run([noise, fine],
+        {'fetch_linuxsb': lambda *a, **k: [topic(5003, 'https://linux.sb/topic/5003',
+                                                '公益站 new', source='linuxsb_福利放送')]})
+check({x['id'] for x in r['rows']} == {'5002', '5003'},
+      'a stored row the gate now rejects is removed, its neighbour is not',
+      [x['id'] for x in r['rows']])
+check('no longer pass the gate' in r['log'], 'and the gate purge is logged',
+      [l for l in r['log'].splitlines() if 'purge' in l])
+
+print('\n== a gate regression must not wipe the store ==')
+# 30% 保险（外加 20 行下限）：一次删掉大半库说明闸门写错了，而不是噪音多。
+big = [topic(6000 + i, f'https://linux.do/t/topic/{6000 + i}',
+             '公益站 ok' if i < 15 else '发点积分，各位国庆节快乐呀', source='linuxdo_welfare')
+       for i in range(25)]
+r = run(big, {'fetch_linuxsb': lambda *a, **k: [topic(7000, 'https://linux.sb/topic/7000',
+                                                     '公益站 new', source='linuxsb_福利放送')]})
+check(len(r['rows']) == 26, '40% failing the gate leaves the store untouched', len(r['rows']))
+check('REFUSED' in r['log'], 'and the refusal is logged loudly',
+      [l for l in r['log'].splitlines() if 'purge' in l])
+check(any('gate purge refused' in e for e in r['errors']), 'and it is reported to CI',
+      r['errors'])
+# 反向：同样 25 行、只有 20% 不过闸门 → 该删的照删（保险不能把正常清理也挡住）。
+mild = [topic(8000 + i, f'https://linux.do/t/topic/{8000 + i}',
+              '公益站 ok' if i < 20 else '发点积分，各位国庆节快乐呀', source='linuxdo_welfare')
+        for i in range(25)]
+r = run(mild, {'fetch_linuxsb': lambda *a, **k: [topic(9000, 'https://linux.sb/topic/9000',
+                                                     '公益站 new', source='linuxsb_福利放送')]})
+check(len(r['rows']) == 21, '20% failing the gate is cleaned up normally', len(r['rows']))
+check(not any('gate purge refused' in e for e in r['errors']), 'and no refusal is reported',
+      r['errors'])
+
 print()
 bad = results.count(False)
 print(f'{len(results) - bad}/{len(results)} checks passed' + ('' if not bad else f' -- {bad} FAILURE(S)'))

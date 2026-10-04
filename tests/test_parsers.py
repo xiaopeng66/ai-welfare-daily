@@ -288,6 +288,15 @@ check(relevant('【抽奖】吐血福利免费送4个月gpt额度抽奖'),
       '月gpt')
 check(relevant('GPT6免费瞪？！') and relevant('GLM-5.3 已上线可获得 2000万Tokens'),
       'model names with a version suffix still match (GPT6 / GLM-5.3)')
+# 直接钉住边界规则本身。上面那些「整句过闸」的断言钉不住它：`白嫖福利，富哥请吃
+# deepseekv4flash` 即使模型名匹配不上也有 `白嫖` 兜底，会**因为错误的理由通过**
+# （变异测试就是这么发现的）。所以这里直接查 DOMAIN 正则。
+for probe in ['deepseekv4flash', 'DeepSeekharness', 'opus5', 'GPT6', 'GLM-5.3', '月gpt']:
+    check(mod._DOMAIN_RE.search(probe) is not None,
+          'a model name with a glued version/suffix is matched by the domain regex', probe)
+for probe in ['keyboard', 'aidata', 'cursors']:
+    check(mod._DOMAIN_RE.search(probe) is None,
+          'a short ASCII keyword does not match inside another word', probe)
 # 但「型号词 + 无福利信号」不算：这是发帖人在描述自己用的模型，不是在放额度。
 check(not relevant('0.01x DeepSeek 不降智不掺水'),
       'a model name alone (no giveaway signal) does not pass', '0.01x DeepSeek')
@@ -323,11 +332,17 @@ for title in ['今天风太大，不能出去玩了给饼饼送点积分玩玩',
               '宝可梦机场之十月庆典免费兑换码之猜猜我是谁',
               '白嫖Stripe500$信用额度',
               '【免费 NAT 小鸡 + 家宽出口】一台白嫖 VPS 挂纯净住宅 IP：ChatGPT 不降智',
-              '【OK24shop】steam充值卡100泰铢兑换成功！现在有效']:
+              '【OK24shop】steam充值卡100泰铢兑换成功！现在有效',
+              '话费充值9折优惠，全国通用',
+              'X会员低价充值 3个月 20  6个月40']:
     check(not relevant(title), 'a non-AI giveaway target fails the gate', title)
 # 「积分」被移出领域词，正是这批闲聊过闸的原因（它在论坛语境里指的是论坛积分）。
 check('积分' not in mod.DOMAIN_KEYWORDS,
       '积分 is not an AI domain term (forum points are not relay credit)')
+# 同理「充值」：它是**行为信号**（在 OFFER 里），放领域词里会让非 AI 充值帖过关
+# （实测移出后语料只掉 1 条，而那条正是 `X会员低价充值`）。
+check('充值' not in mod.DOMAIN_KEYWORDS and '充值' in mod.OFFER_KEYWORDS,
+      '充值 is a giveaway signal, not an AI domain term')
 
 # ⑩ 会员类：ChatGPT Plus / Gemini 会员是账号商品，默认否决；但站点自己的充值优惠
 #    （价格词 + AI 词同现）属于目标内容，必须放行。用户 2026-10-04 决定：会员类放行。
@@ -355,13 +370,25 @@ for title in ['个人一直在薅的羊毛（Claude、GPT、DeepSeek都有），
               'LongCat邀请新用户实名，各得1000万Tokens！拼团返现，最高返50%！',
               '【猛蹬】claude顶级模型不花钱！',
               '白嫖福利，富哥请吃deepseekv4flash',
-              '登录 DeepSeekharness 桌面版，领 6 元赠金']:
+              '登录 DeepSeekharness 桌面版，领 6 元赠金',
+              # 纯价格表帖：一个 giveaway 词都没有，靠本轮加的「充值/起充」类信号进来，
+              # 正是用户要的「优惠渠道」内容。
+              '[NachoNekoAPI] 0.01x DeepSeek 不降智不掺水 1:1充值',
+              '【烧饼换用量】Zynk API (Paid) | 国模 0.25x, Claude 0.09x起, GPT 0.07x起 | 一元起充']:
     check(relevant(title), 'the words added this round admit their own real posts', title)
 
 # ⑬ 新增分类「优惠渠道」：低价/优惠的中转渠道单独成类（用户 2026-10-04 要求）。
 check('优惠渠道' in mod.score_topic({'title': '0.04超低倍率GPT 5.6，注册就送1刀'})['tags'],
       'a low-price relay post is tagged 优惠渠道',
       mod.score_topic({'title': '0.04超低倍率GPT 5.6，注册就送1刀'})['tags'])
+# 报价的主流写法是 `0.09x`，词表抓不住，所以分类有「形状」补充（CATEGORY_PATTERNS）。
+# 这条标题里**没有任何价格词**（无「折/倍率/优惠/充值」），标签只能来自正则。
+check('优惠渠道' in mod.score_topic({'title': '掺水司马API GPT直KEY现在0.35x'})['tags'],
+      'a bare 0.35x price (no price word at all) is tagged 优惠渠道',
+      mod.score_topic({'title': '掺水司马API GPT直KEY现在0.35x'})['tags'])
+# 但必须带小数点：裸 `3x` 会撞上 `3x-ui` 面板，`20x` 会撞上 Claude 订阅档位。
+check('优惠渠道' not in mod.score_topic({'title': '按教程搭建 3x-ui 系统和节点'})['tags'],
+      'a bare 3x (the 3x-ui panel) is not a price tag')
 
 # ⑭ cap 300 是行为契约的一部分：闸门放宽后每轮入库量翻倍，回到 200 会立刻
 #    把窗口从 65 天压到 11 天并让 vibex 整源归零（2026-10-04 实测）。

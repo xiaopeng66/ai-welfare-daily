@@ -192,7 +192,17 @@ CATEGORY_KEYWORDS = {
     "体验金": ["体验金", "积分"],
     "抽奖": ["抽奖", "盲盒", "中奖", "欧皇"],
     # 用户要求新增（2026-10-04）：专门收集低价/优惠的中转渠道。
-    "优惠渠道": ["折扣", "折", "特价", "低价", "优惠", "首充", "充值", "返利", "倍率"],
+    "优惠渠道": ["折扣", "折", "特价", "低价", "优惠", "首充", "起充", "充值", "返利", "倍率"],
+}
+
+# 分类的**形状**补充：有些信号是写法而不是词。中转站报价的主流写法是倍率
+# （`Claude 0.09x起`、`国模 0.25x`），词表抓不住 —— 往词表里加 `0.09x` 没用，
+# 加裸 `x` 会把什么都打上。约定与 `_bounded` 一致：x 后面不许跟字母。
+# 不能用 `\b`：`0.09x起` 里 x 后面是汉字，Python 认为两者之间没有边界。
+CATEGORY_PATTERNS = {
+    # 必须带小数点：`3x-ui`（面板）和 `claude 20x`（订阅档位）都会误命中裸 `3x` / `20x`，
+    # 而真实报价一律写成 `0.09x` / `0.25x`。
+    "优惠渠道": (re.compile(r"\d+\.\d+x(?![a-z])", re.I),),
 }
 
 # ---------------------------------------------------------------------------
@@ -257,7 +267,10 @@ DOMAIN_KEYWORDS = [
     # （`发点积分` / `囤积分` / `积分抽奖中奖概率降低了？`），当成 AI 领域词会让
     # 整类闲聊通过 AND 判定。实测移出后 store 掉 7 条，其中 6 条正是这类闲聊，
     # 唯一代价是 `【RelayFor】突发积分`（纯站名帖，属于站名白名单该管的范围）。
-    "余额", "充值", "赠送", "赠金", "签到",
+    # 「充值」不在领域词里 —— 它是**行为信号**（已移入 OFFER），不是 AI 指标：
+    # 放在这里会让「话费充值9折优惠」「X会员低价充值 3个月20」整类非 AI 充值帖过关
+    # （实测：移出后语料只掉 1 条，而那条正是 X会员低价充值）。
+    "余额", "赠送", "赠金", "签到",
     _bounded("gpt"), _bounded("glm"), _bounded("grok"), _bounded("qwen"),
     _bounded("kimi"), _bounded("codex"), _bounded("cursor"), _bounded("astra"),
     _bounded("sonnet"), _bounded("opus"), _bounded("kiro"), _bounded("nvidia"),
@@ -279,6 +292,11 @@ OFFER_KEYWORDS = [
     "免费", "送", "赠", "白嫖", "抽奖", "抽", "兑换", "邀请", "注册", "领取", "领",
     "福利", "试用", "优惠", "折", "限时", "羊毛", "红包", "纳新", "撸", "抢",
     "新用户", "获得", "发", "蹬", "薅", "邀请", "返现", "低价", "特价", "首充", "不花钱",
+    # 价格/充值类信号：用户 2026-10-04 要的「优惠渠道」分类靠它落地。没有它，
+    # 纯价格表帖（`[NachoNekoAPI] 0.01x DeepSeek 不降智不掺水 1:1充值`、
+    # `【烧饼换用量】Zynk API (Paid) | 国模 0.25x… 一元起充`）一个 offer 词都不含，
+    # 整类漏掉。实测净增 2 条、0 噪音（`积分` 试过同位置：净增 0，故不加）。
+    "充值", "起充", "折扣", "打折",
     # 下面两个来自 linux.do 的黑话（`额度快刷新了, GLM5.3搞起来`、`享用￥1000api额度`）：
     # linux.do 在本机取不到（要家宽），所以只能在四源语料上验噪音 —— 实测净增 0 条噪音。
     # 置信度低于上面那批，改闸门时优先怀疑这两个。
@@ -528,6 +546,9 @@ def score_topic(topic: dict) -> dict:
             if kw in title:
                 tags.append(tag)
                 break
+        else:
+            if any(p.search(title) for p in CATEGORY_PATTERNS.get(tag, ())):
+                tags.append(tag)
     tags = list(dict.fromkeys(tags))
     topic["tags"] = tags
     topic["score"] = len(tags)
@@ -1102,6 +1123,31 @@ def main():
             "([已开奖] / 已完 / 已无 ...)",
             file=sys.stderr,
         )
+
+    # 闸门是相关性的唯一权威，对 store 里的老行同样生效。
+    # 只判新抓到的行会漏掉一整类：用旧规则放进来的噪音没有任何一轮会重判它，
+    # 于是会一直留到被 cap 淘汰（实测 store 里积了 28 条，正是用户抱怨的那批）。
+    # 30% 的闸门是防「闸门本身写错」的保险：真出回归时宁可这轮留着噪音，也不要
+    # 一次删掉大半个库 —— 删掉的行若已沉出列表，就再也没有哪一轮抓得回来。
+    # 另有 20 行的绝对下限：小库上「3 行里删 1 行」就是 33%，那不是回归。
+    # 触发时记进 FETCH_ERRORS，CI 会变红、家宽侧会打 WARN，不会静默。
+    if merged:
+        gate_keys = [k for k, t in merged.items() if not is_relevant(t)]
+        if len(merged) >= 20 and len(gate_keys) > len(merged) * 0.30:
+            print(
+                f"[purge] REFUSED to drop {len(gate_keys)}/{len(merged)} stored rows that "
+                "fail the gate (>30%) - that looks like a gate regression, not noise. "
+                "Nothing was removed; check the gate first.",
+                file=sys.stderr,
+            )
+            FETCH_ERRORS.append("gate purge refused: >30% of the store fails the gate")
+        elif gate_keys:
+            for k in gate_keys:
+                merged.pop(k, None)
+            print(
+                f"[purge] {len(gate_keys)} stored row(s) no longer pass the gate",
+                file=sys.stderr,
+            )
 
     if args.probe_missing > 0:
         bad_hosts = unhealthy_hosts(fetched_pre)
