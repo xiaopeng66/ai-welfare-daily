@@ -298,8 +298,19 @@ for probe in ['keyboard', 'aidata', 'cursors']:
     check(mod._DOMAIN_RE.search(probe) is None,
           'a short ASCII keyword does not match inside another word', probe)
 # 但「型号词 + 无福利信号」不算：这是发帖人在描述自己用的模型，不是在放额度。
-check(not relevant('0.01x DeepSeek 不降智不掺水'),
-      'a model name alone (no giveaway signal) does not pass', '0.01x DeepSeek')
+# 2026-10-05 修订：**裸倍率报价算 offer 信号**（`0.01x DeepSeek`、`现在0.35x`）。
+# 理由是用户 2026-10-04 要的「优惠渠道」正是收这类低价中转渠道帖，而语料里纯价格宣告帖
+# 一个 offer 词都不含、整类被丢（`掺水司马API GPT直KEY现在0.35x`、`最低0.06/MTk`）。
+# 仍要挡住的是：型号词真的没有任何信号，以及非小数的档位名/面板名。
+check(not relevant('DeepSeek v4 flash 不降智不掺水'),
+      'a model name with no giveaway signal at all still does not pass', '无信号的型号词')
+check(not relevant('claude 20x 订阅档位'),
+      'a non-decimal tier (20x) is a subscription tier, not a price quote', 'claude 20x')
+check(not relevant('按教程搭建 3x-ui 系统和节点'),
+      'a panel name (3x-ui) is not a price quote', '3x-ui')
+check(relevant('掺水司马API GPT直KEY现在0.35x'),
+      'a decimal price quote (0.35x) is an offer signal now — 优惠渠道 的写法',
+      '0.35x')
 
 # ⑦ 黑话字：只写「抽奖」会漏掉「先抽个奖叭」「抽50个10¥余额」（中间隔了字），
 #    所以 offer 信号收单字「抽」；「蹬」= 免费用额度，「国模」= 国产模型。
@@ -459,6 +470,60 @@ check(not mod.is_relevant_title('XX论坛福利大放送'),
       'a non-AI 福利 post is stopped by the gate (免费放粮 的「福利」形状依赖这个前提)')
 check(not mod.is_relevant_title('双十一福利'),
       'a shopping 福利 post is stopped by the gate')
+
+# ⑰ 2026-10-05 语料复审（574 条唯一标题逐条人工核对）后的增量规则。
+# 漏抓侧：这 11 条真发放帖旧闸门一条都收不到（词表/形状里没有它们的写法）。
+# 每条都对应一个新增的词或形状，写进断言里防止日后回退。
+for title in ['【RelayFor】GPT-6-Luna限免5亿token~',                          # 限免
+              '七牛云新户可用300W deepseek-v4-flash-20260731',                # 新户 + 300W
+              '🔥 热门 AI 模型都来了，低至 ¥0.0211/刀起！',                    # 低至 + 金额
+              '订阅共享中专推荐，标准计费无倍率，最低0.06/MTk',                # 最低
+              'GLM 5.3 flash 也就是牛来模型的 7日体验卡',                      # 体验
+              'gpt的1k生图价格不到1分钱',                                    # 不到
+              '掺水司马API GPT直KEY现在0.35x',                               # 倍率形状进闸门
+              '阶跃星辰stepfun 4亿token',                                    # 万/亿 token 形状
+              '随时跑路站50$ key*3',                                        # 金额形状
+              '英雄不问出处，Token不问来路；gpt系列500刀',                     # 金额形状
+              '快过期的 grokheavy 大家敞开来用']:                             # 白给动作形状
+    check(mod.is_relevant_title(title), 'a freebie the old gate silently dropped now passes', title)
+
+# 多抓侧：这 6 条旧规则收进来但都不是福利投放（4 条噪音 + 2 条已结束）。
+for title in ['曝光：AI 编程助手网站 ahefi.com 实为木马分发器',                  # 「分发」的「发」
+              '基于MoonTVPlus的影视公益站',                                   # 影视站靠自足词「公益」
+              '新Muse邀请码，可参考的注册技巧和注意事项',                      # 技巧
+              '求一个 BoxyBSD 邀请码',                                       # 行首「求」
+              '这个站的余额回收调整，免费的模型经常用不了',                    # 用不了
+              '送个L站青春版邀请码（已送出）',                                # 已送出 = stale
+              '【阶跃星辰】送点阶跃星辰token（已送出）']:                      # 已送出 = stale
+    check(not mod.is_relevant_title(title), 'a non-freebie the old gate admitted is now rejected', title)
+
+# 问句否决带条件：问号收尾本身不是否决理由 —— 中文论坛爱用问号做修辞，
+# 这两条都是真发放帖，一律否决会漏抓（实测就是这么误伤后才改成带条件判定）。
+for title in ['【RelayFor】再发点999刀CDK？', '免费送gpt额度没人要吗？']:
+    check(mod.is_relevant_title(title),
+          'a giveaway phrased as a question is NOT rejected (the veto needs no giveaway verb)', title)
+# 反过来，没有任何发放动词的问价帖必须被挡（金额形状放开后的主要噪音源）。
+for title in ['codex订阅100$还是200$还是500$？', 'claude-sonnet-5-5-high 免费？？网页版？？']:
+    check(not mod.is_relevant_title(title),
+          'a pricing question with no giveaway verb is rejected by the gate', title)
+
+# 打标签侧的增量：3 条 0 标签帖（分类筛选筛不出它们）被救回 + 2 个新形状。
+for title, want in [('token滞销了 发给饼友们蹬吧', '免费放粮'),        # 滞销/蹬
+                    ('织云api 开放注册，可蹬gpt-6.1-sol', '免费放粮'),  # 可蹬
+                    ('【DSH UI复刻】deepseek-v4.1-flash 开蹬 JD Mall 复刻', '免费放粮'),  # 开蹬
+                    ('【RelayFor】亏了20G数据，发20亿DeepSeek对冲一下', '额度'),  # 数字+亿
+                    ('200亿 deepseek-v4-flash 精品鸡蛋', '额度'),        # 数字+亿
+                    ('七牛云新户可用300W deepseek-v4-flash', '额度'),     # 数字+W
+                    ('送一个阶跃星程的api', '免费放粮'),                  # 送…api 形状
+                    ('送300刀cc额度 可以外接和fast', '免费放粮'),          # 送…额度 形状
+                    ('GLM 5.3 flash 7日体验卡', '体验金'),               # 体验卡
+                    ('【抽奖】Claude Pro 一周体验券 × 3', '体验金'),      # 体验券
+                    ('gpt的1k生图价格不到1分钱', '优惠渠道')]:            # 不到N 形状
+    check(want in mod.score_topic({'title': title})['tags'],
+          'a tag the old rules could not produce is now applied', f'{title} -> {want}')
+# 但同音变体不能乱加：`蹬` 只管白拿语境，售价帖（`20出gpt 5x team 速刷`）不因此拿标签。
+check('免费放粮' not in mod.score_topic({'title': '20出gpt 5x team 速刷，11点踢'})['tags'],
+      '蹬/滞销 additions do not tag a sale post as 免费放粮')
 
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
