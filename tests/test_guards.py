@@ -457,6 +457,16 @@ print('\n== linux.do 的 429 要重试一次，而不是丢掉整页 ==')
 # 抓取节奏提到每小时后实测：17 轮里 4 轮 page2 拿到 429、1 轮 page1 拿到 429，
 # 而旧代码对 429 直接 continue 到下一页 —— 整页 30 条静默丢失，且运行仍然「成功」，
 # 没有任何红灯。这里用桩件把三种路径钉住。
+# 这个套件是**离线自包含**的：Scrapling 全是桩件、不发任何请求，所以它必须把
+# LINUXDO_ENABLED 固定成「开」。CI 的 daily-update 工作流把它设成 **job 级**环境变量
+# （数据中心 IP 会被 linux.do 回 429），变量一旦泄漏进来，fetch_linuxdo_welfare()
+# 会在函数开头直接 return []，下面三个用例就全部拿到 0 请求 / 0 行而变红
+# ——2026-10-05 22:45 那次定时运行就是这么挂的（本地与 push 触发的 Tests 工作流不设
+# 这个变量，所以一直没暴露）。测的是重试逻辑，就不该受运行环境开关影响。
+_ambient_linuxdo = os.environ.get('LINUXDO_ENABLED')
+os.environ['LINUXDO_ENABLED'] = '1'
+
+
 class _FakePage:
     def __init__(self, status, body):
         self.status = status
@@ -519,6 +529,22 @@ _rows = _real_fetch_linuxdo_welfare()
 check(len(_rows) == 10 and len(_ld_calls) == 2 and not _ld_slept,
       'the healthy path fetches each page exactly once and never sleeps',
       f'{len(_rows)} rows, {len(_ld_calls)} requests, slept={_ld_slept}')
+
+# ④ 开关关掉时必须直接返回、一个请求都不发（CI 靠这条不把 linux.do 打成红灯；
+#   同时把「环境变量确实被尊重」这件事钉住，免得哪天有人把开关挪走还以为 CI 是安全的）
+os.environ['LINUXDO_ENABLED'] = '0'
+mod.FETCH_ERRORS.clear()
+_ld_calls.clear()
+_rows = _real_fetch_linuxdo_welfare()
+check(_rows == [] and not _ld_calls,
+      'LINUXDO_ENABLED=0 skips the source without issuing any request',
+      f'{len(_rows)} rows, {len(_ld_calls)} requests')
+
+# 收尾：环境变量按原样还回去（不还的话同一进程里后续用例会看到被改过的开关）
+if _ambient_linuxdo is None:
+    os.environ.pop('LINUXDO_ENABLED', None)
+else:
+    os.environ['LINUXDO_ENABLED'] = _ambient_linuxdo
 
 mod.time.sleep = _orig_sleep
 if _orig_scrapling is not None:
