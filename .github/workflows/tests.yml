@@ -44,6 +44,11 @@ jobs:
       - name: Guard tests - generated site
         run: python3 tests/test_site.py
 
+      # The A/B report is what turns "the rules changed" into auditable per-row
+      # evidence; a regression in it used to ship silently because nothing ran it.
+      - name: Guard tests - rules A/B report
+        run: python3 tests/test_ab_rules.py
+
       # The "近 24 小时" split and the card clock live in the page's own JS, so a
       # Python test cannot reach them.
       # NOTE: the version input is what actually pins anything - setup-node
