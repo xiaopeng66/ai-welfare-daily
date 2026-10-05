@@ -15,6 +15,13 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-24.04
+    env:
+      # 与定时那条 daily-update 工作流保持一致的运行环境：套件必须在这个变量下
+      # 也保持绿。只在「变量缺失」时才通过的测试不是测试 —— 它会在生产 CI 里
+      # 变红而不是在 push 时暴露（2026-10-05 就是这么挂的：daily-update 把
+      # LINUXDO_ENABLED=0 设成 job 级变量，泄漏进了 linux.do 的 429 重试用例，
+      # 而这里没设，所以 push 时一路全绿、定时那条红了）。改一个就改两个。
+      LINUXDO_ENABLED: "0"
     steps:
       # Pinned to the same SHAs as the update job: a moving major tag lets an
       # upstream force-push decide what runs here.
