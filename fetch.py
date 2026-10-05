@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -878,58 +879,78 @@ def fetch_linuxdo_welfare() -> list:
         url = f"{BASE_LINUXDO}/c/welfare/36.json"
         if page_num > 1:
             url += f"?page={page_num}"
-        try:
-            # 0.4.8+: fetch is a classmethod; instantiating StealthyFetcher() is the
-            # deprecated path (logs a v0.3-removal warning on every run).
-            # JSON endpoint + page.body: 1.2s vs 90s+ browser HTML render, and
-            # Discourse JSON carries native created_at (no escaped-JSON regex needed).
-            page = StealthyFetcher.fetch(url, headless=True, timeout=90000)
-            raw = page.body if isinstance(page.body, str) else page.body.decode("utf-8", "replace")
 
-            if page.status != 200 or len(raw) < 1000:
-                print(
-                    f"[warn] linux.do welfare page {page_num}: "
-                    f"status={page.status}, body_len={len(raw)}",
-                    file=sys.stderr,
-                )
-                FETCH_ERRORS.append(
-                    f"linux.do welfare page {page_num}: status={page.status}"
-                )
-                continue
-
-            # Discourse JSON endpoint: topic_list.topics carries id/title/created_at
-            # natively (verified 2026-10-02: 30 topics/page, every field populated).
-            # NOTE: page.html_content wraps the payload in <html><body> — use page.body.
-            data = json.loads(raw)
-            topics = data.get("topic_list", {}).get("topics", [])
-            # The first topic of the board is the pinned category description
-            # ("关于福利羊毛类别", created 2024) — drop pinned/no-title entries.
-            count = 0
-            for topic in topics:
-                topic_id = str(topic.get("id", ""))
-                title = (topic.get("title") or "").strip()
-                if not topic_id or not title or topic.get("pinned"):
+        # One retry after a short pause: a 429 here is a transient rate limit,
+        # not a refusal. Measured once the cadence went hourly -- 4 of 17 runs
+        # got a 429 on page 2 and 1 on page 1, i.e. ~20% of runs silently lost
+        # a whole page (the run still "succeeds" and merges what it has, so
+        # nothing goes red). Fetching the same page again normally works, and
+        # the retry cost is paid only by the runs that were losing data.
+        raw = None
+        for attempt in (1, 2):
+            try:
+                page = StealthyFetcher.fetch(url, headless=True, timeout=90000)
+                body = page.body if isinstance(page.body, str) else page.body.decode("utf-8", "replace")
+                if page.status == 429 and attempt == 1:
+                    print(
+                        f"[info] linux.do welfare page {page_num}: 429, retrying in 30s",
+                        file=sys.stderr,
+                    )
+                    time.sleep(30)
                     continue
-                all_topics.append({
-                    "id": topic_id,
-                    "title": title,
-                    "url": f"{BASE_LINUXDO}/t/topic/{topic_id}",
-                    "created_at": topic.get("created_at"),
-                    "source": f"linuxdo_welfare_p{page_num}",
-                    # Discourse populates created_at for every topic; when it is
-                    # absent the row has no publish time at all, which is not a
-                    # verified one.
-                    "published_verified": bool(topic.get("created_at")),
-                })
-                count += 1
-
-            print(f"[fetch] linux.do welfare page {page_num}: {count} topics", file=sys.stderr)
-            if page_num == 1:
-                note_empty_source("linux.do welfare", count)
-        except Exception as e:
-            print(f"[warn] linux.do welfare page {page_num} failed: {e}", file=sys.stderr)
-            FETCH_ERRORS.append(f"linux.do welfare page {page_num}: {e}")
+                if page.status != 200 or len(body) < 1000:
+                    print(
+                        f"[warn] linux.do welfare page {page_num}: "
+                        f"status={page.status}, body_len={len(body)}",
+                        file=sys.stderr,
+                    )
+                    FETCH_ERRORS.append(
+                        f"linux.do welfare page {page_num}: status={page.status}"
+                    )
+                    break
+                raw = body
+                break
+            except Exception as e:
+                if attempt == 2:
+                    print(
+                        f"[warn] linux.do welfare page {page_num} failed: {e}",
+                        file=sys.stderr,
+                    )
+                    FETCH_ERRORS.append(f"linux.do welfare page {page_num}: {e}")
+                    break
+        if raw is None:
+            # Both attempts gone: stop instead of hammering the next page.
             break
+
+        # Discourse JSON endpoint: topic_list.topics carries id/title/created_at
+        # natively (verified 2026-10-02: 30 topics/page, every field populated).
+        # NOTE: page.html_content wraps the payload in <html><body> — use page.body.
+        data = json.loads(raw)
+        topics = data.get("topic_list", {}).get("topics", [])
+        # The first topic of the board is the pinned category description
+        # ("关于福利羊毛类别", created 2024) — drop pinned/no-title entries.
+        count = 0
+        for topic in topics:
+            topic_id = str(topic.get("id", ""))
+            title = (topic.get("title") or "").strip()
+            if not topic_id or not title or topic.get("pinned"):
+                continue
+            all_topics.append({
+                "id": topic_id,
+                "title": title,
+                "url": f"{BASE_LINUXDO}/t/topic/{topic_id}",
+                "created_at": topic.get("created_at"),
+                "source": f"linuxdo_welfare_p{page_num}",
+                # Discourse populates created_at for every topic; when it is
+                # absent the row has no publish time at all, which is not a
+                # verified one.
+                "published_verified": bool(topic.get("created_at")),
+            })
+            count += 1
+
+        print(f"[fetch] linux.do welfare page {page_num}: {count} topics", file=sys.stderr)
+        if page_num == 1:
+            note_empty_source("linux.do welfare", count)
 
     return all_topics
 

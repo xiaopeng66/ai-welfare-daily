@@ -21,6 +21,7 @@ import os
 import shutil
 import sys
 import tempfile
+import types
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FETCH_PY = os.environ.get('FETCH_PY') or (
@@ -54,6 +55,12 @@ setattr(mod, 'fetch', _no_network)
 
 # run() swaps mod.probe_deleted for an injected fake, so keep the real one to test.
 _real_probe_deleted = mod.probe_deleted
+# And run() rebinds EVERY fetch_* source to a stub, never restoring them, so any
+# test that wants to exercise a real source function must hold its own reference.
+# (Discovered the hard way: a linux.do retry test appended at the END of this file
+# called mod.fetch_linuxdo_welfare and got the stub -- 0 requests, and it looked
+# like the retry was broken when it was working.)
+_real_fetch_linuxdo_welfare = mod.fetch_linuxdo_welfare
 
 
 def source_names():
@@ -445,6 +452,79 @@ check(len(untagged) <= len(_store_titles()) * 0.10,
       'at most ~10% of the store is untagged', f'{len(untagged)}/{len(_store_titles())}')
 for t in untagged:
     print('   untagged:', t[:76])
+
+print('\n== linux.do 的 429 要重试一次，而不是丢掉整页 ==')
+# 抓取节奏提到每小时后实测：17 轮里 4 轮 page2 拿到 429、1 轮 page1 拿到 429，
+# 而旧代码对 429 直接 continue 到下一页 —— 整页 30 条静默丢失，且运行仍然「成功」，
+# 没有任何红灯。这里用桩件把三种路径钉住。
+class _FakePage:
+    def __init__(self, status, body):
+        self.status = status
+        self.body = body
+
+
+_ld_topics = [{'id': i, 'title': f'注册送100刀公益站{i}', 'created_at': '2026-10-05T01:00:00Z'}
+              for i in range(5)]
+_ld_good = json.dumps({'topic_list': {'topics': _ld_topics}}) + ' ' * 1500  # 过 1000 字节门槛
+_orig_scrapling = sys.modules.get('scrapling')
+_orig_sleep = mod.time.sleep
+
+_ld_calls, _ld_slept = [], []
+mod.time.sleep = lambda s: _ld_slept.append(s)
+
+# ① 首次 429 → 退避一次后成功：两页都要拿到
+def _f_429_then_ok(url, headless=True, timeout=0):
+    _ld_calls.append(url)
+    return _FakePage(429, 'x' * 2000) if len(_ld_calls) == 1 else _FakePage(200, _ld_good)
+
+
+sys.modules['scrapling'] = types.SimpleNamespace(
+    StealthyFetcher=types.SimpleNamespace(fetch=_f_429_then_ok))
+mod.FETCH_ERRORS.clear()
+_ld_calls.clear()
+_ld_slept.clear()
+_rows = _real_fetch_linuxdo_welfare()
+check(len(_rows) == 10, 'a 429 on the first attempt is retried and the page is recovered',
+      f'{len(_rows)} rows')
+check(_ld_slept == [30], 'the retry waits before re-requesting (not a hot loop)', _ld_slept)
+
+# ② 一直 429 → 放弃并停止，不再去打第二页（也不该被记成「status=200 失败」）
+def _f_always_429(url, headless=True, timeout=0):
+    _ld_calls.append(url)
+    return _FakePage(429, 'x' * 2000)
+
+
+sys.modules['scrapling'] = types.SimpleNamespace(
+    StealthyFetcher=types.SimpleNamespace(fetch=_f_always_429))
+mod.FETCH_ERRORS.clear()
+_ld_calls.clear()
+_ld_slept.clear()
+_rows = _real_fetch_linuxdo_welfare()
+check(_rows == [], 'a persistent 429 yields no rows rather than garbage', len(_rows))
+check(len(_ld_calls) == 2, 'after a persistent 429 page 1 gives up (2 attempts, no page 2)',
+      len(_ld_calls))
+
+# ③ 全 200 → 恰好两页两次请求、零睡眠（重试不能拖慢正常路径）
+def _f_ok(url, headless=True, timeout=0):
+    _ld_calls.append(url)
+    return _FakePage(200, _ld_good)
+
+
+sys.modules['scrapling'] = types.SimpleNamespace(
+    StealthyFetcher=types.SimpleNamespace(fetch=_f_ok))
+mod.FETCH_ERRORS.clear()
+_ld_calls.clear()
+_ld_slept.clear()
+_rows = _real_fetch_linuxdo_welfare()
+check(len(_rows) == 10 and len(_ld_calls) == 2 and not _ld_slept,
+      'the healthy path fetches each page exactly once and never sleeps',
+      f'{len(_rows)} rows, {len(_ld_calls)} requests, slept={_ld_slept}')
+
+mod.time.sleep = _orig_sleep
+if _orig_scrapling is not None:
+    sys.modules['scrapling'] = _orig_scrapling
+else:
+    sys.modules.pop('scrapling', None)
 
 print()
 bad = results.count(False)
