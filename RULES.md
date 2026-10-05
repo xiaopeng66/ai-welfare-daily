@@ -308,6 +308,14 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 - **「没有变化」是正常结果**：抓完发现没有新帖就什么都不写、不提交。**三个** runner 都已处理这条路径
   （日志里的 `no changes to commit` / `store already up to date`），看到它不要当故障排查。
 - **`data/.last_run` 与 `data/.fetch_errors` 都在 `.gitignore` 里**：本机运行状态，不进仓库。
+- **测试的运行环境必须与生产 CI 对齐，否则红的是定时那条而不是 push 那条**：
+  `daily-update` 把 `LINUXDO_ENABLED=0` 设成 **job 级**环境变量，而 linux.do 的 429 重试用例直接调
+  `fetch_linuxdo_welfare()` —— 变量泄漏进去时函数开头就 `return []`，用例拿到 0 请求/0 行而变红。
+  特征很好认：**本地和 push 触发的 Tests 工作流全绿，只有定时那条红**（2026-10-05 22:45 实测，
+  真实原因是当天 15:10 加 429 用例时没管这个变量，直到第一次定时运行才暴露）。
+  两道防线都补上了：测试在该段显式固定 `LINUXDO_ENABLED=1` 并在跑完把原值还回去；
+  `tests.yml` 与 `daily-update.yml` 的 env 保持同值。**离线自包含的套件不该受运行环境开关影响，
+  但开关本身必须有用例盯着**（新增：`LINUXDO_ENABLED=0` 直接返回且一个请求都不发）。
 
 ---
 
