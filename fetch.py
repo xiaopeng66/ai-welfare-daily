@@ -194,7 +194,7 @@ CATEGORY_KEYWORDS = {
     # 公益站 有「公益」这个强特征词，不需要靠它。
     "公益站": ["公益站", "公益", "零门槛"],
     "鸡蛋": ["鸡蛋"],
-    "兑换码": ["兑换码", "邀请码", "注册码", "cdk"],
+    "兑换码": ["兑换码", "邀请码", "注册码", "cdk"],  # score_topic lowers ASCII first (CDK also counts)
     "额度": ["额度", "刀", "美刀", "余额"],
     "体验金": ["体验金", "赠金", "credit",
                # 2026-10-05：`7日体验卡`、`24H 体验卡再来一批`、`Claude Pro 一周体验券 × 3`
@@ -203,7 +203,9 @@ CATEGORY_KEYWORDS = {
     "抽奖": ["抽奖", "盲盒", "中奖", "欧皇"],
     # 无标签帖曾积到 64 条（占 24%），全是「白嫖/羊毛/免费/放粮/号池」这类直接白拿的帖，
     # 一个既有分类都套不上。补这一类后吸收 29 条、剩 20 条（7.5%）。
-    "免费放粮": ["白嫖", "羊毛", "薅", "放粮", "放糧", "号池", "不花钱", "白送", "白给",
+    # 2026-10-06 移除裸号池：linux.sb/25119、/24798 明示全部官方原价。
+    # 免费号池仍由 福利/免费/蹬 等独立信号打标，不为清零无标签而错标。
+    "免费放粮": ["白嫖", "羊毛", "薅", "放粮", "放糧", "不花钱", "白送", "白给",
                  "免费", "免费用", "免费使用", "领取", "领",
                  # 2026-10-05：`token滞销了 发给饼友们蹬吧`（滞销=库存送人，源站黑话）、
                  # `可蹬gpt-6.1-sol`/`开蹬`/`速蹬`/`猛蹬`/`免费瞪`（蹬、瞪同音变体，
@@ -212,10 +214,11 @@ CATEGORY_KEYWORDS = {
                  "滞销", "蹬", "瞪"],
 
     # 用户要求新增（2026-10-04）：专门收集低价/优惠的中转渠道。
+    # linux.sb/25107 等同标题报价：低至 ¥0.0211/刀起，旧表只有额度标签。
     "优惠渠道": ["折扣", "折", "特价", "低价", "优惠", "首充", "起充", "返利", "倍率",
                   # 闸门 OFFER 里有「返现/充值」，分类里漏了对应的优惠写法，于是这些帖
                   # 能过闸却拿不到标签：`充值双倍`、`最高返50%`、`充值最高享20%返赠`。
-                  "返现", "返赠", "双倍", "翻倍", "加赠"],
+                  "返现", "返赠", "双倍", "翻倍", "加赠", "低至"],
 }
 
 # 分类的**形状**补充：有些信号是写法而不是词。中转站报价的主流写法是倍率
@@ -240,7 +243,8 @@ CATEGORY_PATTERNS = {
         # 实测 `月费9.9元套餐`、`年费199元`、`1元试用`、`会员价199元` 全中，
         # 想靠前后文排除会越补越复杂（费写在数字前的、写在后的、售价/价格/月付…）。
         # 三条都要求「送/得/给/领/赠 + 数字」或币种符号或万级 token。
-        re.compile(r"(?:送|得|给|领|赠)\s*[¥$]?\s*\d+(?!\s*%)"),
+        # linux.sb/19953 的 20% 曾回溯匹配成 2，须阻止截断数字/小数并挡全角％。
+        re.compile(r"(?:送|得|给|领|赠)\s*[¥$]?\s*\d+(?:\.\d+)?(?![\d.]|\s*[%％])"),
         re.compile(r"[¥$]\s*\d+(?![a-z])|\d+\s*[¥$](?![a-z])"),
         re.compile(r"\d+\s*万\s*[Tt]okens(?![a-z])"),
         # 亿级（2026-10-05）：`发20亿DeepSeek对冲一下`、`200亿 deepseek-v4-flash 精品鸡蛋`。
@@ -342,7 +346,9 @@ DOMAIN_KEYWORDS = [
     # 因为词边界被整条丢掉的帖 —— `grok` 用 _bounded，右边界不许跟字母，「heavy」把它挡了。
     # 用 _prefix_bounded 而不是把 grok 整体放宽（放宽后语料上 0 收益，只会扩大误命中面）。
     _prefix_bounded("grokheavy"),
-    "刀", "蹬", "白嫖", "美刀", "美元",
+    "刀", "蹬", "美刀", "美元",
+    # vibex/6740: require a 万/亿 quantity for the source spelling tokey.
+    r"\d+\s*(?:亿|万)\s*tokey(?![a-z])",
     "国模",  # 「新站开业，国模免费用」——国产模型的黑话，不含「模型」二字
 ]
 
@@ -392,6 +398,8 @@ OFFER_PATTERNS = (
     # 倍率报价：`掺水司马API GPT直KEY现在0.35x`。分类里已有同名形状（管打标），
     # 闸门原先没有 → 这类帖连门都进不了。
     r"\d+\.\d+x(?![a-z])",
+    # linux.sb/25158: numeric 倍率 is a price offer without a giveaway verb.
+    r"(?:\d+(?:\.\d+)?\s*倍率|倍率\s*\d+(?:\.\d+)?)",
     # 万/亿级 token 发放：`阶跃星辰stepfun 4亿token`、`限免5亿token`
     r"(?:\d+\s*亿|\d+\s*万)\s*[Tt]okens?",
     # 金额：`gpt系列500刀`、`随时跑路站50$ key*3`、`低至 ¥0.0211/刀起`
@@ -461,6 +469,8 @@ _NONAI_TARGET_KEYWORDS = [
     # 不看标的物）。自足词越强，越需要这一层替它把关 —— 「影视」不在 AI 用量范畴。
     # 不误伤：语料里 AI 漫剧类（`AI漫剧平台…发放额度`）写的是「漫剧」，不是「影视」。
     "影视",
+    # nodeloc/112419 provides proxy addresses, not model inference.
+    _bounded("socks5"),
     # 非 AI 的数字商品 / 账号 / 卡
     "tg号", "电报号", "美区号", "苹果id", "抢苹果", _bounded("steam"),
     "礼品卡", "充值卡", "代金券", "虚拟卡", "信用卡", "流量卡", "电话卡",
@@ -479,6 +489,8 @@ _STALE_KEYWORDS = [
     # 「已送出」：`送个L站青春版邀请码（已送出）`、`【阶跃星辰】送点阶跃星辰token（已送出）`
     # —— 和「已赠送」同义，原先只收了后者，这两条一直挂在榜上（2026-10-05 实测 2 条）。
     "已送出",
+    # linux.sb/25116; historical linux.do/2979892 and /2981251.
+    "已耗尽", "刷完啦", "已暂时无",
 ]
 
 # 会员类：ChatGPT Plus / Gemini 会员是账号商品，不是中转额度 → 默认否决。
@@ -495,6 +507,21 @@ _NONAI_TARGET_RE = re.compile("|".join(_NONAI_TARGET_KEYWORDS), re.I)
 _STALE_RE = re.compile("|".join(_STALE_KEYWORDS), re.I)
 
 
+# High-confidence intent vetoes must precede self-sufficient words.
+# Evidence: baipiao/641, linux.sb/25147, /25155, /25159, /21529, /24914;
+# vibex/6690. Keep generic 方法/教程 handling below the strong-offer shortcut.
+_REQUEST_RE = re.compile(r"^(?:求|收(?:一个|个)|帮忙推荐|有佬有)|有没有|问个问题|我能不能", re.I)
+# A title can start with a rhetorical “有好用的…么” and then explicitly
+# announce its own claimable grant. Do not use generic 免费/领 here: those
+# words also occur in requests for a recommendation.
+_RECOMMENDATION_REQUEST_RE = re.compile(r"有好用的.+[么吗嘛]", re.I)
+_RHETORICAL_OFFER_RE = re.compile(
+    r"有好用的[^，,。！？!?；;\n]+[么吗嘛][，,。！!；;？?\s]*"
+    r"(?:我(?:来|给大家)?|本站)?(?:免费)?(?:送|赠)\s*\d+(?:\.\d+)?\s*"
+    r"(?:刀|元|额度|tokens?|credits?)(?:[！!。.]|$)", re.I)
+_NON_OFFER_RE = re.compile(r"自动签到面板|抽奖功能测试|对免费用户下手|免费模型缩水", re.I)
+
+
 def is_relevant_title(title: str) -> bool:
     """True if a title belongs on the site: an AI-API freebie / 中转站 welfare post.
 
@@ -504,11 +531,11 @@ def is_relevant_title(title: str) -> bool:
       1. 非 AI 标的（服务器/域名/卡/论坛头衔）—— 收进来的东西不是 AI 用量，
          与中转无关。这一层此前完全缺失，是「送点积分」「抽个 TG 号」
          「白嫖一台香港小鸡」能混进来的根因。
-      2. 自足词（中转站/公益/鸡蛋/号池/放粮/兑换码）—— 词本身就是福利，命中即收。
+      2. 明确索要、自动签到工具、功能测试、负面消息、会员及问句检查。
+      3. 自足词（中转站/公益/鸡蛋/号池/放粮/兑换码）—— 前置否决通过后收。
          它排在语境否决之前：否则「10亿token鸡蛋块领，Muse轻松注册另一种方法」
          这种带「方法」二字的真货会被误杀。
-      3. 会员类默认否决（ChatGPT Plus / Gemini 会员是账号商品，不是中转额度），
-         只有同时出现价格词和 AI 词才放行。
+         会员默认否决，价格词和 AI 词同时存在时继续判定。
       4. 教程/抱怨意图（经验/教程/太少了…）—— 在教怎么用或在抱怨，不是在放额度。
       5. 否则要求 AI 领域词 AND 发放信号同时命中。
 
@@ -521,14 +548,23 @@ def is_relevant_title(title: str) -> bool:
         return False
     if _NONAI_TARGET_RE.search(low):
         return False
-    if any(kw in low for kw in SELF_SUFFICIENT_KEYWORDS):
-        return True
+    if _REQUEST_RE.search(low):
+        return False
+    if _RECOMMENDATION_REQUEST_RE.search(low) and not _RHETORICAL_OFFER_RE.search(low):
+        return False
+    if _NON_OFFER_RE.search(low):
+        return False
+    # Do not let 免费/白嫖 be their own evidence of an AI domain or a positive
+    # giveaway when preceded by negation (linux.sb/21525: 不白嫖).
+    if "不白嫖" in low and not (_DOMAIN_RE.search(low) and re.search(r"送|领|抽", low)):
+        return False
     if _MEMBERSHIP_RE.search(low) and not (_PRICE_RE.search(low) and _DOMAIN_RE.search(low)):
         return False
-    if _NOT_FREEBIE_RE.search(low):
-        return False
-    # 在提问（问号收尾且没有任何发放动词）→ 不是福利投放。
     if _QUESTION_TAIL_RE.search(low) and not _GIVEAWAY_VERB_RE.search(low):
+        return False
+    if any(kw in low for kw in SELF_SUFFICIENT_KEYWORDS):
+        return True
+    if _NOT_FREEBIE_RE.search(low):
         return False
     return bool(_DOMAIN_RE.search(low)) and bool(_OFFER_RE.search(low))
 
@@ -680,7 +716,7 @@ def note_empty_source(name: str, count: int) -> None:
 
 
 def score_topic(topic: dict) -> dict:
-    title = topic["title"]
+    title = topic["title"].lower()
     tags = []
     for tag, keywords in CATEGORY_KEYWORDS.items():
         for kw in keywords:

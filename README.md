@@ -48,10 +48,14 @@ python3 generate.py -i data/topics.jsonl -o docs/index.html      # 生成页面
 fetch.py             抓取 + 合并 + 落盘
 generate.py          渲染 docs/index.html
 run-update.ps1       更新入口（抓取 → 生成 → 提交）
-tests/               四个测试套件
+tests/               离线测试套件、A/B 对拍及可复核语料证据
 data/topics.jsonl    store：一行一个 JSON
 docs/index.html      生成的站点（GitHub Pages 直接服务这个目录）
 ```
+
+## 规则离线验证
+
+`python3 tests/test_ab_rules.py` 验证 A/B 报告不会原地改写库存行，统计保留行的标签或分数变化，并逐条显示旧值与新值，且同标题不同 URL 的候选各有独立 JSONL 判定。对拍工具通过复制输入行隔离原地打标签函数；`--jsonl PATH` 对每条闸前候选及库存行用两版规则各自计算闸门、标签、分数与 URL；损坏的语料行会按行号报告并跳过，完整扫描后才写结果；`tests/evidence/rules-20261006/generate_report.py` 从 `verdicts.jsonl` 重新生成人读报告。新增规则断言还须运行 `python3 tests/test_parsers.py`（真实正反例）；正式规则评估须对同一份 `--dump-candidates` 闸前语料执行 `tests/ab_rules.py`；无标签数量不代表分类准确率。详见 [RULES.md](RULES.md)。本轮逐条差异与冻结输入见 [规则修复证据](tests/evidence/rules-20261006/REPORT.md)。
 
 ## 更新管道
 

@@ -499,10 +499,23 @@ for title in ['曝光：AI 编程助手网站 ahefi.com 实为木马分发器', 
 
 # 问句否决带条件：问号收尾本身不是否决理由 —— 中文论坛爱用问号做修辞，
 # 这两条都是真发放帖，一律否决会漏抓（实测就是这么误伤后才改成带条件判定）。
-for title in ['【RelayFor】再发点999刀CDK？', '免费送gpt额度没人要吗？']:
+for title in ['【RelayFor】再发点999刀CDK？', '免费送gpt额度没人要吗？',
+              '有好用的claude中转站么，免费送100刀']:
     check(mod.is_relevant_title(title),
           'a giveaway phrased as a question is NOT rejected (the veto needs no giveaway verb)', title)
-# 反过来，没有任何发放动词的问价帖必须被挡（金额形状放开后的主要噪音源）。
+# 合成边界，不能把原有索要句式或否定/转述当成自己的发放承诺。
+for title in ['求推荐，有好用的claude中转站么，免费送100刀',
+              '有好用的claude中转站么，有没有免费送100刀的',
+              '有好用的claude中转站么，不免费送100刀',
+              '有好用的claude中转站么，免费送100刀吗？',
+              '有好用的claude中转站么，想领100刀',
+              '有好用的claude中转站么，免费送100刀（已领完）']:
+    check(not relevant(title), 'rhetorical exception does not bypass requests, negation or expiry', title)
+check(relevant('有好用的claude中转站么？我送100刀！'),
+      'an explicit first-person grant survives a rhetorical introduction')
+# 普通推荐问句仍然拒绝；只有后半句明确声明可领取额度时才例外。
+check(not mod.is_relevant_title('有好用的claude中转站么'),
+      'a recommendation question without an attached grant is rejected')
 for title in ['codex订阅100$还是200$还是500$？', 'claude-sonnet-5-5-high 免费？？网页版？？']:
     check(not mod.is_relevant_title(title),
           'a pricing question with no giveaway verb is rejected by the gate', title)
@@ -524,6 +537,87 @@ for title, want in [('token滞销了 发给饼友们蹬吧', '免费放粮'),   
 # 但同音变体不能乱加：`蹬` 只管白拿语境，售价帖（`20出gpt 5x team 速刷`）不因此拿标签。
 check('免费放粮' not in mod.score_topic({'title': '20出gpt 5x team 速刷，11点踢'})['tags'],
       '蹬/滞销 additions do not tag a sale post as 免费放粮')
+
+# 2026-10-06 同批闸前语料/库存 URL 见 RULES.md；收真与拒错成对守护。
+# https://linux.sb/topic/25158: 报价带「倍率」但没有动作词。
+for title in ['【无套路】自建中转 0.02倍率 4.1 flash',
+              # https://vibex.iflow.cn/t/topic/6740: 实际正文明确送 API 模型用量，
+              # 注意「tokey」是源站拼写，不要擅自改成 token。
+              '我也发一个免费送1亿tokey的']:
+    check(relevant(title), 'an actual AI-API allowance/price offer is included', title)
+for title in ['自建中转 0.02倍率 4.1 flash 怎么领？',
+              '我也发一个免费送1亿tokey的（已送出）']:
+    check(not relevant(title), 'price/question or ended freebie is not an offer', title)
+
+# https://baipiao.org/bbs/d/641-... 与 linux.sb/topic/25159、25147：
+# 索要邀请码/问推荐不是发放。反例是中转站明示可领额度，即使有「推荐」。
+for title in ['有没有大佬给一个linux do的邀请码，我想注册几个公益站',
+              '收一个Noodseek邀请码', '帮忙推荐一个gpt 破甲中转站',
+              '有个小问题，这个中转站我能不能用来采集数据？']:
+    check(not relevant(title), 'a request for others to provide a code/site is rejected', title)
+for title in ['中转站推荐，可签到领鸡蛋10块，GPT倍率0.08-0.3',
+              '【RelayFor】再发点999刀CDK？']:
+    check(relevant(title), 'actual offers remain even with recommendation or rhetorical question', title)
+
+# 当前用户边界：不收纯攻略、不收会员赠品。真实领取说明可以附带「方法」。
+for title in ['薅免费模型deepseek v4.1 flash速度快稳定（带教程）',
+              '开源了基于newapi搭建的公益站自动签到面板',
+              '【抽奖】吐血福利免费送4个月gpt plus会员抽奖']:
+    check(not relevant(title), 'pure tutorial/tool or membership gift is not API credit', title)
+check(relevant('10亿token鸡蛋块领，Muse轻松注册另一种方法'),
+      'a claimable freebie can mention a registration method')
+
+# 额外明确的假收：实测库中已有，而闸前语料也能复现同类。
+for title in ['英雄不问出处，Token不问来路；gpt系列500刀（已耗尽）',
+              '【刷完啦】国庆节快乐，送大家一些生图额度',
+              '客户端抽奖功能测试（AI）', '各位sb铁子好，不白嫖',
+              'gemini 要对免费用户下手了',
+              '我制作了一个免费 socks5 代理获取 api']:
+    check(not relevant(title), 'an ended/non-offer/non-AI item is rejected', title)
+for title in ['再发点999刀CDK', '免费送gpt额度没人要吗？',
+              '【Zynk 公益】国庆第二波福利，GPT 6.1 Sol 蹬 $1000']:
+    check(relevant(title), 'real giveaways survive intent and object vetoes', title)
+
+# 同批真实标题：https://linux.sb/topic/19953 折扣百分比不是白送的额度；
+# /topic/25119 号池按官方原价出售，不是免费放粮。
+for title in ['【乐享 AI】GPT-6 Astra 已上线｜倍率 0.2 起｜充值多送 20% + 邀请返 30%',
+              '充值多送20%']:
+    check('额度' not in mod.score_topic({'title': title})['tags'],
+          'percentage bonus is not an absolute credited amount', title)
+check('额度' in mod.score_topic({'title': '注册就送20刀额度'})['tags'],
+      'numeric AI credit (not percent) is still tagged 额度')
+check('免费放粮' not in mod.score_topic({'title': '一手源头号池 全部官方原价'})['tags'],
+      'a paid official-price 号池 is not labelled free')
+check('免费放粮' in mod.score_topic({'title': '国庆福利 纯grok heavy号池'})['tags'],
+      'a genuinely free 号池 gets its tag from 福利')
+for title in ['【RelayFor】发点999刀CDK',
+              '【dure公益站】100$公益站CDK兑换码,限量10位',
+              '再发点999刀cdk']:
+    check('兑换码' in mod.score_topic({'title': title})['tags'],
+          'case-insensitive CDK code tag', title)
+check('兑换码' not in mod.score_topic({'title': 'Claude Code 公益站'})['tags'],
+      'ASCII code-like strings are not automatically redemption codes')
+
+# Boundary pairs for the intent checks that run before the shortcut.
+for title in ['公益站送gpt会员一年', '公益站哪个好？',
+              '有佬有claude pro 7天试用嘛', '做中转站的进来 问个问题',
+              '有好用的claude中转站么', '[快讯] Gemini免费模型缩水😭',
+              '【新CHY公益站】开一个新站（已暂时无，预计明天恢复']:
+    check(not relevant(title), 'strong keywords cannot bypass a negative intent/status', title)
+for title in ['公益站首充优惠，Claude会员返利叠加', '公益站送gpt额度没人要吗？',
+              'gemini 免费模型开放领取', '新公益站已恢复，注册送10刀',
+              '我也发一个免费送token的']:
+    check(relevant(title), 'a nearby genuine offer still passes', title)
+for title in ['充值多送20.5%', '充值多送20％', '充值多送20.5 %']:
+    check('额度' not in mod.score_topic({'title': title})['tags'],
+          'percentage matching cannot backtrack to a partial number', title)
+check('优惠渠道' in mod.score_topic({'title': 'AI 模型低至 ¥0.0211/刀起'})['tags'],
+      'explicit 低至 offer has a price tag')
+check('优惠渠道' not in mod.score_topic({'title': '送5刀额度'})['tags'],
+      'a giveaway alone is not a price tag')
+check(not relevant('stokey免费送'), 'tokey typo rule has quantity and ASCII boundaries')
+check('体验金' in mod.score_topic({'title': 'Lovable Pro 200 Credits 免费额度'})['tags'],
+      'Credits case is normalized without modifying the title')
 
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
