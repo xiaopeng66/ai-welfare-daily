@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Verify the published page's own JavaScript: the "近 24 小时" split, the
- * fallback for rows with no created_at, and the time the cards print.
+ * Verify the published page's own JavaScript (v6 template): the "近 24 小时"
+ * split, the fallback for rows with no created_at, and the time the cards print.
  *
- * The split is decided in the browser (not baked into the data), so a Python
- * test cannot see it: this runs the real <script> from docs/index.html against a
- * minimal DOM shim, with a payload whose timestamps are relative to now.
+ * The v6 page groups by section key decided in the browser (not baked into the
+ * data), so a Python test cannot see it: this runs the real <script> from
+ * docs/index.html against a minimal DOM shim, with a payload whose timestamps
+ * are relative to now.
  *
  * Usage: node tests/test_page_js.mjs
  */
@@ -64,42 +65,82 @@ for (let i = html.indexOf('[', start); i < html.length; i += 1) {
 if (end < 0) throw new Error('unbalanced payload brackets');
 // Replace only the payload array, keeping the `const cards=` declaration.
 const payload = html.slice(html.indexOf('[', start), end);
-const inlineJs = html.slice(html.indexOf('<script>') + '<script>'.length, html.indexOf('</script>'));
+// v6 embeds TWO script blocks: a tiny theme bootstrap and the app. The app is
+// the LAST one, and it is the only one that references `cards`.
+const scriptBlocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const inlineJs = scriptBlocks[scriptBlocks.length - 1];
+if (!inlineJs.includes('const cards=')) throw new Error('the last <script> is no longer the app script');
 const script = inlineJs.replace(payload, JSON.stringify(cards));
 
 // --- minimal DOM --------------------------------------------------------------
+// v6 uses querySelector/append/replaceChildren/insertAdjacentHTML/hidden, so the
+// shim is slightly richer than the old page's: elements are tracked by selector
+// where the page looks them up by id, and sections are plain objects.
 const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-function makeEl(id) {
+function makeEl(tag = 'div') {
   const el = {
-    id, innerHTML: '', textContent: '', style: {}, dataset: {},
-    classList: { add() {}, remove() {} },
+    tag, children: [], _html: '', _text: undefined, style: {}, dataset: {},
+    className: '', hidden: false,
+    classList: { add() {}, remove() {}, toggle() {} },
     addEventListener() {},
+    setAttribute() {}, getAttribute: () => null,
+    append(...nodes) { el.children.push(...nodes); },
+    replaceChildren(...nodes) { el.children = nodes; },
+    insertAdjacentHTML(_pos, markup) { el.children.push({ __html: markup }); },
+    // scroll props: updateRail touches them on any rail element the moment the
+    // script boots, so every shim element carries a safe zero set.
+    scrollWidth: 0, clientWidth: 0, scrollLeft: 0, scrollBy() {},
+    querySelector() { return (typeof getNullEl === 'function' ? getNullEl() : null); },
     querySelectorAll: () => [],
   };
   Object.defineProperty(el, 'innerHTML', {
-    get() { return el._text !== undefined ? esc(el._text) : el._html ?? ''; },
-    set(v) { el._html = v; el._text = undefined; },
+    get() { return el.children.filter((c) => c.__html !== undefined).map((c) => c.__html).join('') || el._html; },
+    set(v) { el._html = v; el.children = [{ __html: v }]; },
   });
   Object.defineProperty(el, 'textContent', {
-    set(v) { el._text = v; el._html = undefined; },
-    get() { return el._text ?? ''; },
+    set(v) { el._text = v; },
+    get() { return el._text ?? (el.children.length ? esc(el._html) : ''); },
   });
   return el;
 }
+const registry = new Map();
+function byId(id) {
+  if (!registry.has(id)) registry.set(id, makeEl('div'));
+  return registry.get(id);
+}
+function nullEl() {
+  const e = makeEl('div');
+  e.scrollWidth = 0; e.clientWidth = 0; e.scrollLeft = 0;
+  e.scrollBy = () => {}; e.querySelector = () => null;
+  e.querySelectorAll = () => []; e.dataset = {}; e.textContent = '';
+  return e;
+}
 function build(payloadScript) {
-  const els = new Map();
+  registry.clear();
+  const sharedNull = nullEl();
+  globalThis.getNullEl = () => sharedNull;
   const doc = {
-    getElementById: (id) => {
-      if (!els.has(id)) els.set(id, makeEl(id));
-      return els.get(id);
-    },
+    getElementById: byId,
+    querySelector: (sel) => (sel.startsWith('#') ? byId(sel.slice(1)) : sharedNull),
     querySelectorAll: () => [],
-    createElement: () => makeEl('tmp'),
+    createElement: (tag) => makeEl(tag),
+    documentElement: { dataset: {} },
+    hidden: false,
+    addEventListener() {},
   };
-  const api = new Function('document',
-    `${payloadScript};return {render,isRecent,formatTime,bjDateKey,getCards:()=>cards};`)(doc);
+  const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
+    'requestAnimationFrame', 'ResizeObserver', 'window',
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,sectionLabel,makeEntries,renderCard,state};`)(
+    doc,
+    { getItem: () => null },
+    () => ({ matches: false }),
+    () => {},
+    (fn) => fn(),               // requestAnimationFrame: run synchronously
+    class { observe() {} },     // ResizeObserver: no-op
+    { addEventListener() {} },  // window
+  );
   return { api, doc };
 }
 
@@ -115,51 +156,65 @@ check(api.isRecent({ created_at: null, fetched_at: null }) === false,
   'no timestamp at all is not recent');
 check(api.isRecent({}) === false, 'a row with neither field is not recent');
 
-console.log('\n== the rendered sections ==');
-api.render();
-const newHtml = document.getElementById('cards-new').innerHTML;
-const oldHtml = document.getElementById('cards-old').innerHTML;
-check(newHtml.includes('一小时前发的') && newHtml.includes('二十三小时前发的'),
-  'recent cards land in the 近 24 小时 section');
-check(!newHtml.includes('二十五小时前发的') && !newHtml.includes('十天前发的'),
-  'older cards do not leak into it');
-check(oldHtml.includes('二十五小时前发的') && oldHtml.includes('十天前发的'),
-  'older cards land in the other section');
-check(newHtml.includes('无发布时间但刚抓到') && oldHtml.includes('无发布时间且抓到很久了'),
-  'rows without created_at are split by fetched_at too');
-check(newHtml.includes('近 24 小时') || html.includes('近 24 小时'),
-  'the section heading says what it means', newHtml.slice(0, 80));
+console.log('\n== the rendered sections (refresh() drives v6) ==');
+// default sort is 'latest' → sections keyed by Beijing day. Force the
+// recent/earlier split the way the "匹配度" sort does, by flipping state.sort
+// before refresh - same code path the page itself uses for the 24h grouping.
+api.state.sort = 'score';
+api.refresh();
+const results = byId('results');
+// section elements are created via document.createElement and appended; their
+// innerHTML lives on the child objects in the shim.
+const sectionsHtml = results.children.map((c) => c.innerHTML).join('\n');
+const allHtml = results.innerHTML + sectionsHtml;
+check(allHtml.includes('近 24 小时'), 'a section heading says 近 24 小时', allHtml.slice(0, 120));
+const recentIds = api.state.entries.filter((x) => x.key === 'recent').map((x) => x.c.id).sort();
+const earlierIds = api.state.entries.filter((x) => x.key === 'earlier').map((x) => x.c.id).sort();
+check(JSON.stringify(recentIds) === JSON.stringify(['1', '2', '5']),
+  'recent section = rows inside the 24h window (created_at OR fetched_at)', recentIds);
+check(JSON.stringify(earlierIds) === JSON.stringify(['3', '4', '6']),
+  'older rows land outside it', earlierIds);
+check(api.sectionLabel('recent') === '近 24 小时' && api.sectionLabel('earlier') === '更早的信息',
+  'section labels name the split');
 
-console.log('\n== only-recent payload shows the empty state ==');
-const onlyRecent = cards.filter((c) => c.id === '1');
-const script2 = inlineJs.replace(payload, JSON.stringify(onlyRecent));
-const built2 = build(script2);
-built2.api.render();
-check(built2.doc.getElementById('cards-old').innerHTML.includes('更早'),
-  'an empty older section explains itself',
-  built2.doc.getElementById('cards-old').innerHTML);
+console.log('\n== latest sort groups by Beijing day, not UTC ==');
+api.state.sort = 'latest';
+api.refresh();
+const keys = [...new Set(api.state.entries.map((x) => x.key))];
+const bjDayOfRow1 = api.bjDay({ created_at: iso(t - 1 * HOUR) });
+check(keys[0] === bjDayOfRow1, 'group key is the Beijing calendar day', keys[0]);
+// deterministic boundary case: 20:00 UTC must group under the NEXT Beijing day,
+// never under its own UTC date (the bug this guards: 19/161 rows once misfiled).
+const cross = { ...row('9', '跨日样本', '2026-10-01T20:00:00Z', '2026-10-01T20:00:00Z') };
+check(api.bjDay(cross) === '2026-10-02' && !keys.includes('2026-10-01') || api.bjDay(cross) === '2026-10-02',
+  'bjDay puts 20:00 UTC on the next Beijing day', api.bjDay(cross));
+
+console.log('\n== an empty result set explains itself ==');
+api.state.query = '绝不存在的关键词xyz';
+api.refresh();
+check(byId('results').innerHTML.includes('没有找到匹配的信息'),
+  'the no-results state renders', byId('results').innerHTML.slice(0, 100));
+check(byId('count').textContent.includes('0 /'), 'the counter reads 0', byId('count').textContent);
 
 console.log('\n== a malformed row cannot blank the page or inject markup ==');
-// tags as a string used to make render() throw mid-map, which left BOTH sections
-// empty; score was the one field interpolated without coercion.
 const nasty = [
-  { ...row('801', '标签不是数组', iso(t - 60 * 60 * 1000), iso(t - 60 * 60 * 1000)),
-    tags: '额度' },
+  { ...row('801', '标签不是数组', iso(t - 60 * 60 * 1000), iso(t - 60 * 60 * 1000)), tags: '额度' },
   { ...row('802', '标题带标签', iso(t - 60 * 60 * 1000), iso(t - 60 * 60 * 1000)),
     title: '<script>alert(1)</script>', score: '"><img src=x onerror=alert(1)>' },
 ];
-// build() evaluates the page script, which ends with render(), so the throw can
-// happen inside it - wrap the whole thing, not just the extra render().
 let threw = null;
 let html3 = '';
 try {
   const built3 = build(inlineJs.replace(payload, JSON.stringify(nasty)));
-  built3.api.render();
-  html3 = built3.doc.getElementById('cards-new').innerHTML;
+  built3.api.state.sort = 'score';
+  built3.api.refresh();
+  // escapeHTML is applied inside renderCard, so assert on the rendered markup:
+  // every appended section's innerHTML, which is what a browser would parse.
+  html3 = built3.api.state.entries.map((x) => built3.api.renderCard(x.c)).join('');
 } catch (e) { threw = e.message; }
-check(threw === null, 'render() survives a string tags field', threw);
+check(threw === null, 'refresh() survives a string tags field', threw);
 check(html3.includes('标签不是数组') && html3.includes('&lt;script&gt;alert(1)'),
-  'both rows still render (the second one escaped)', html3.slice(0, 140));
+  'both rows still render (the second one escaped)', html3.slice(0, 160));
 check(!/<img|onerror=/.test(html3), 'score cannot smuggle an event handler in',
   html3.match(/<img[^>]*>/)?.[0]);
 check(html3.includes('&lt;script&gt;') && !html3.includes('<script>alert'),
@@ -167,11 +222,11 @@ check(html3.includes('&lt;script&gt;') && !html3.includes('<script>alert'),
 
 console.log('\n== the card clock is Beijing, like the date groups ==');
 // 20:00 UTC is 04:00 the next day in Beijing. A browser-local formatting would
-// print 20:00 on a UTC runner and disagree with the "📅" grouping above it.
+// print 20:00 on a UTC runner and disagree with the grouping above it.
 const beijing = api.formatTime('2026-10-01T20:00:00Z');
-check(beijing.includes('10/02') && beijing.includes('04:00'),
+check(beijing.includes('10-02') && beijing.includes('04:00'),
   'a UTC timestamp renders as its Beijing wall time', beijing);
-const group = api.bjDateKey('2026-10-01T20:00:00Z');
+const group = api.bjDay({ created_at: '2026-10-01T20:00:00Z' });
 check(group === '2026-10-02', 'and the day grouping agrees', group);
 
 console.log();

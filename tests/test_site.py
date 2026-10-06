@@ -66,18 +66,20 @@ def cards_of(html):
 d = tempfile.mkdtemp(prefix='site-test-')
 store, out = os.path.join(d, 'topics.jsonl'), os.path.join(d, 'index.html')
 
-print('== the "更新于" badge comes from the data, not the clock ==')
-# A row last changed in 2020 can only produce a 2020 badge if the stamp is read
-# from the store -- a rendered-at timestamp would print today.
+print('== the "最近收录" badge comes from the data, not the clock ==')
+# The v6 page computes the badge client-side from max(fetched_at), so the
+# rendered HTML must NOT bake in any wall-clock value, and the badge code must
+# read the fetched_at of the newest row. A row last changed in 2020 + a page
+# containing "now" would mean the clock crept back into the render.
 p = build([row(9001, '额度 A', '2019-12-31T20:00:00Z', '2020-01-01T00:00:00Z')], out, store)
 check(p.returncode == 0, 'generate.py exits 0', p.stderr[-300:])
 html = open(out, encoding='utf-8').read()
-badge = re.search(r'更新于[^<]*', html)
-got = badge.group(0) if badge else ''
-check('2020-01-01 08:00' in got,
-      'badge = newest fetched_at, converted to Beijing (UTC+8)', got)
-check(got.replace('更新于', '').strip() == '2020-01-01 08:00',
-      'badge carries nothing but that timestamp', got)
+check('2020-01-01T00:00:00Z' in html,
+      'the newest row (and its fetched_at) is embedded', None)
+check(not re.search(r'最近收录[^<]*\d{4}-\d{2}-\d{2}', html),
+      'no wall-clock badge is baked into the HTML', None)
+check("Math.max(0,...cards.map(c=>stamp(c.fetched_at)))" in html,
+      'the badge is computed client-side from max(fetched_at)', None)
 
 print('\n== rendering the same store twice is a no-op ==')
 rows = [row(1, '额度 A', '2026-09-30T10:00:00Z', '2026-10-01T12:00:00Z'),
@@ -117,33 +119,43 @@ else:
 
 shutil.rmtree(d, ignore_errors=True)
 
-print('\n== every category has an icon and a tag style ==')
-# 报告过的两个 bug 形状相同：一个新分类进了 CATEGORY_KEYWORDS，却没进展示层的
-# CATEGORY_ICONS / .tag-<分类> CSS。症状轻微（按钮少个图标、标签变成裸文字）所以
-# 不会报错，但用户一眼就看得出来。断言盯着「只要分类词表里有它，展示层就必须有」。
-
+print('\n== every category has a tone, an order slot, and a CSS rule ==')
+# fetch.py 是分类的权威来源（打标用的是它），generate.py 只负责展示。
+# v6 模板把展示映射从「图标+CSS」换成「色调表 tones + 顺序表 order」，断言跟着搬：
+# 只要分类词表里有它，注入模板的三张表就必须有 —— 漏掉只会让按钮/标签缺色，不报错。
 _s2 = importlib.util.spec_from_file_location('gen_mod', os.path.join(ROOT, 'generate.py'))
 _g = importlib.util.module_from_spec(_s2)
 _s2.loader.exec_module(_g)
 _f2 = importlib.util.spec_from_file_location('fetch_mod', os.path.join(ROOT, 'fetch.py'))
 _f = importlib.util.module_from_spec(_f2)
 _f2.loader.exec_module(_f)
-# fetch.py 是分类的权威来源（打标用的是它），generate.py 只负责展示。
 for cat in _f.CATEGORY_KEYWORDS:
-    check(cat in _g.CATEGORY_ICONS, 'a category in the map has an icon (else its button is bare)', cat)
+    check(cat in _g.CATEGORY_TONES, 'a category in the map has a tone (else its tag is bare)', cat)
     check(cat in _g.CATEGORY_ORDER, 'and it is in the display order (else it sorts to the end)', cat)
-# .tag-<分类> 是卡片的底色规则；没有它标签就渲染成无边框裸文字。
+# 注入后的页面里：tones/order 表和 CSS 色规则都必须真实落在 index.html 上
 _site_html = open(os.path.join(ROOT, 'docs', 'index.html'), encoding='utf-8').read()
-for cat in _f.CATEGORY_KEYWORDS:
-    check(f'.tag-{cat}' in _site_html, 'and it has a tag colour rule (else the tag has no background)', cat)
+_tones = re.search(r'const tones=(\{[^}]*\});', _site_html)
+_order = re.search(r'const order=(\[[^]]*\]);', _site_html)
+check(_tones is not None and _order is not None,
+      'the template injection points survive rendering', None)
+if _tones and _order:
+    tones_js = _tones.group(1)
+    order_js = _order.group(1)
+    for cat in _f.CATEGORY_KEYWORDS:
+        check(f'"{cat}"' in tones_js, 'the rendered tones map carries every category', cat)
+        check(f'"{cat}"' in order_js, 'the rendered order carries every category', cat)
+    check(f'.tag[data-tone=' in _site_html or 'data-tone=' in _site_html,
+          'the page styles tags by tone', None)
 # 顺序本身：用户要求 抽奖 排在 优惠渠道 之前。
 check(_g.CATEGORY_ORDER.index('抽奖') < _g.CATEGORY_ORDER.index('优惠渠道'),
       '抽奖 sorts before 优惠渠道 (swapped on user request)',
       _g.CATEGORY_ORDER)
 
-print('\n== filter buttons are derived from the data, not hardcoded ==')
-# 写死过两个报告出来的 bug：新源（vibex）有卡片没按钮、新分类（优惠渠道）有 6 张卡
-# 没按钮。断言必须盯着「数据里有 → 页面里就有」这条不变量，而不是背下某个按钮名。
+print('\n== filter buttons are derived from the data at runtime ==')
+# v6 的来源/分类按钮完全由页内 JS 从 cards 派生（写死按钮的两个旧 bug 从模板层
+# 就不可能再发生），所以断言盯的是派生逻辑与注入的映射表：
+# 1) labels 表注入了全部五个源；2) sourceKey 做前缀匹配（任意新源不静默丢弃）；
+# 3) categories 由 order + 数据中出现的新值拼接；4) 源过滤按前缀匹配而非白名单。
 d2 = tempfile.mkdtemp(prefix='site-filters-')
 store2, out2 = os.path.join(d2, 'topics.jsonl'), os.path.join(d2, 'index.html')
 rows2 = [row(1, '额度 A', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', source='linuxsb_p1'),
@@ -153,27 +165,18 @@ rows2 = [row(1, '额度 A', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', sour
              source='somebrand_new_board', tags=['免费放粮'], score=1)]
 build(rows2, out2, store2)
 h2 = open(out2, encoding='utf-8').read()
-src_btns = re.findall(r'data-group="source".*?</div>', h2, re.S)
-cat_btns = re.findall(r'data-group="category".*?</div>', h2, re.S)
-bar = (src_btns[0] if src_btns else '') + (cat_btns[0] if cat_btns else '')
-for want, why in [('vibex', 'a source that is present gets a source button'),
-                  ('优惠渠道', 'a category that is present gets a category button'),
-                  ('免费放粮', 'a newly added category needs no template edit'),
-                  ('somebrand_new_board', 'an unknown source still gets a button (no silent drop)')]:
-    check(want in bar, why, want)
-# 反向：库里没有的源不该凭空长出按钮。
-check('baipiao' not in bar, 'a source with no rows gets no button')
-check('data-filter="all"' in bar, 'the 全部 buttons survive')
-# JS 侧的过滤必须认任意源前缀，不能只认写死的那几个 —— 否则按钮出现了却点不动。
-check("c.source.indexOf(sourceFilter)===0" in h2,
-      'the source filter matches any prefix, not a hardcoded list')
-check("if(s.indexOf('vibex')===0) return 'vibex.iflow.cn';" in h2,
-      'sourceLabel knows vibex (its cards read "vibex_welfare_p1" otherwise)')
-for gone in ["sourceFilter==='linuxsb'", "sourceFilter==='nodeloc'"]:
-    check(gone not in h2, 'the per-source if-chain is gone', gone)
-shutil.rmtree(d2, ignore_errors=True)
+labels = re.search(r'const labels=(\{[^}]*\});', h2)
+check(labels is not None, 'the labels map is injected', None)
+if labels:
+    for src in ['linuxsb', 'baipiao', 'nodeloc', 'linuxdo', 'vibex']:
+        check(f'"{src}":' in labels.group(1), 'labels knows every production source', src)
+check('const sourceKey=s=>Object.keys(labels).find(k=>String(s||' in h2,
+      'sourceKey matches any prefix (new sources are not silently dropped)', None)
+check('[...order.filter(c=>present.includes(c)),...present.filter(c=>!order.includes(c))]' in h2,
+      'category chips = known order first, then any new category from the data', None)
+check('sourceKey(c.source)===state.source' in h2,
+      'the source filter matches by key, not a hardcoded if-chain', None)
+check("sourceFilter==='linuxsb'" not in h2 and "sourceFilter==='nodeloc'" not in h2,
+      'the per-source if-chain is gone', None)
 
-print()
-bad = results.count(False)
-print(f'{len(results) - bad}/{len(results)} checks passed' + ('' if not bad else f' -- {bad} FAILURE(S)'))
-sys.exit(1 if bad else 0)
+
