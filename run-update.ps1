@@ -25,7 +25,8 @@ $hWnd = $Console::GetConsoleWindow()
 if ($hWnd -ne [IntPtr]::Zero) { [void]$Console::ShowWindow($hWnd, 0) }
 
 
-$repo = 'E:\AI\Hermes\scripts\linuxsb-daily'
+# Repo root = the directory this script lives in (no machine-specific path).
+$repo = $PSScriptRoot
 $log  = Join-Path $repo 'update.log'
 $git  = 'C:\Program Files\Git\cmd\git.exe'
 if (-not (Test-Path $git)) { $git = 'git' }
