@@ -243,7 +243,7 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 - 真正的限额在对面的站点：linux.do 已在 Cloudflare 后且对数据中心 IP 返 429（这就是 CI 里 `LINUXDO_ENABLED=0` 的原因）。
   住宅 IP 侧每小时 2 页 ≈ 48 请求/天，仍是低频；但它**是唯一一个真被限过的源**，若日后返 429，先降 Windows 侧频率。
 - 改抓取频率要**同时改三处**，漏一处就会出现两套节奏打架：workflow 的 `cron:`、Windows 计划任务的 `RepetitionInterval`、Hermes cron 的 `schedule`。
-  Windows 任务的重建脚本在本仓库部署根（如 `E:\AI\Hermes\scripts`）的 `temp\register-linuxsb-tasks.ps1`；改完**必须用 `Export-ScheduledTask` 看 XML 确认**
+  Windows 任务的重建脚本在本仓库部署根的 `temp\register-linuxsb-tasks.ps1`（部署根 = 仓库上一级目录）；改完**必须用 `Export-ScheduledTask` 看 XML 确认**
   `<Repetition><Interval>` —— `Get-ScheduledTask` 显示的 `duration=` 是空的，光看它分不清「永久重复」还是「只跑一次」。
 - **CI 不会准点跑**（实测）：早先的 `0 0,12 * * *` 连续多日落在 ~03:45–03:57Z 与 ~17:30–17:55Z，比计划晚 3h45m–5h30m（GitHub 调度队列积压）。
   所以主节奏放在家宽侧，用「每小时」换时效性时不能建立在一个会漂移几小时的调度器上。
