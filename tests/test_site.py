@@ -168,7 +168,7 @@ h2 = open(out2, encoding='utf-8').read()
 labels = re.search(r'const labels=(\{[^}]*\});', h2)
 check(labels is not None, 'the labels map is injected', None)
 if labels:
-    for src in ['linuxsb', 'baipiao', 'nodeloc', 'linuxdo', 'vibex']:
+    for src in ['linuxsb', 'baipiao', 'nodeloc', 'linuxdo', 'vibex', 'nextbuf']:
         check(f'"{src}":' in labels.group(1), 'labels knows every production source', src)
 check('const sourceKey=s=>Object.keys(labels).find(k=>String(s||' in h2,
       'sourceKey matches any prefix (new sources are not silently dropped)', None)

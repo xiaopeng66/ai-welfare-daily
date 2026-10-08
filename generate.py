@@ -30,6 +30,7 @@ SOURCE_LABELS = {
     'nodeloc': 'nodeloc.com',
     'linuxdo': 'linux.do',
     'vibex': 'vibex.iflow.cn',
+    'nextbuf': 'nextbuf.com',
 }
 CATEGORY_ORDER = ['中转站', '公益站', '鸡蛋', '兑换码', '额度', '体验金', '免费放粮', '抽奖', '优惠渠道']
 CATEGORY_TONES = {
