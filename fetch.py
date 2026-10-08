@@ -8,6 +8,7 @@ Sources:
   - nodeloc.com: /latest.json, /c/welfare/12.json
   - vibex.iflow.cn: /c/4.json (心流AI社区 补给站)
   - linux.do: /c/welfare/36 (via Scrapling StealthyFetcher, Cloudflare protected)
+  - nextbuf.com: /, /page-N (NB 社区；列表只有相对时间，见 fetch_nextbuf)
 """
 import argparse
 import json
@@ -16,7 +17,7 @@ import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 
 import tempfile
@@ -28,6 +29,7 @@ BASE_BAIPIAO = "https://baipiao.org"
 BASE_NODELOC = "https://www.nodeloc.com"
 BASE_LINUXDO = "https://linux.do"
 BASE_VIBEX = "https://vibex.iflow.cn"
+BASE_NEXTBUF = "https://www.nextbuf.com"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; ai-welfare-daily/1.0; +https://github.com/xiaopeng66/ai-welfare-daily)",
@@ -139,6 +141,7 @@ _HOST_MARKERS = {
     "nodeloc": "nodeloc",
     "linuxdo": "linux.do",
     "vibex": "vibex",
+    "nextbuf": "nextbuf",
 }
 
 
@@ -1131,6 +1134,148 @@ def fetch_vibex_welfare() -> list:
             break
     return all_topics
 
+# ---------------------------------------------------------------------------
+# NextBuf（NB 社区，www.nextbuf.com）
+#
+# 站点形态：V2EX-Modern 主题的 PHP 论坛，服务端渲染；没有可用的 JSON API
+# （/api/* 回 500，/latest.json 之类软回落到首页 HTML）；robots.txt 只挡
+# /admin、/install、/runcache，允许抓列表；首页列表混排全部板块，翻页是
+# /page-N，所以只爬首页分页即可覆盖全站（约 200 条主题 / 9 页）。
+#
+# 关键差异：**列表里没有绝对时间**。列表与主题页给的都是相对时间（"17天前"、
+# "31分钟前"、主题页的"发布于 1月前"），主题页也没有 article:published_time。
+# 因此 created_at 只能是估算值，published_verified 一律保持 False。
+# ---------------------------------------------------------------------------
+NEXTBUF_PAGES = 3
+
+# 列表条目：<a href="/t/160" class="topic-title-link " data-tid="160" style="">
+#             <span class="topic-badge redpacket" title="回帖红包主题">红包</span> 0.1 倍率opus5</a>
+_NEXTBUF_ITEM_RE = re.compile(
+    r'<a[^>]*href="/t/(\d+)"[^>]*class="[^"]*topic-title-link[^"]*"[^>]*>(.*?)</a>', re.S
+)
+_NEXTBUF_BADGE_RE = re.compile(r'<span[^>]*class="[^"]*topic-badge[^"]*"[^>]*>.*?</span>', re.S)
+_NEXTBUF_OPEN_TAG_RE = re.compile(r"<a[^>]*>", re.S)
+_NEXTBUF_REL_RE = re.compile(r"(\d+)\s*个?\s*(分钟|小时|天|周|月|年)\s*前|刚刚")
+_NEXTBUF_CST = timezone(timedelta(hours=8))
+
+
+def nextbuf_title(anchor_inner: str) -> str:
+    """锚点内文本剥掉徽章 span，得到真正的标题。
+
+    列表把「红包」（回帖红包主题）和「置顶」做成 <span class="topic-badge ...">
+    贴在标题前面。整段照抄会让「红包」混进标题 —— 闸门是按标题判的，多一个
+    「红包」就可能把一条闲聊帖按平台内货币放进来（同「积分不是领域词」的道理）。
+    """
+    stripped = _NEXTBUF_BADGE_RE.sub(" ", anchor_inner)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", stripped)).strip()
+
+
+def nextbuf_created_at(rel: str | None, now: datetime | None = None) -> str | None:
+    """把列表里的相对时间换算成 ISO 时间戳，并按粒度归整（floor）。
+
+    归整不是美化，是必须的：这个值会进 store 的 created_at，而 _ROW_FIELDS 里就
+    有 created_at —— 相对时间随 now 漂移，不归整时同一条没变的帖每轮算出不同的
+    值，「没有新闻的一轮」也会产生 commit 并触发一次 Pages 部署。归整到
+    本小时 / 当天 00:00 / 当月 1 号之后，同一时间桶里重复抓到的值完全一致。
+
+    换算刻意保守（1月=30天、1年=365天），粒度也只给到桶：这不是源站给的发布时间，
+    所以调用方不设 published_verified（与 nodeloc 的 bumped_at 回落同理）。
+    """
+    if not rel:
+        return None
+    local = (now or datetime.now(timezone.utc)).astimezone(_NEXTBUF_CST)
+    if "刚刚" in rel:
+        n, unit = 0, "分钟"
+    else:
+        m = _NEXTBUF_REL_RE.search(rel)
+        if not m:
+            return None
+        n = int(m.group(1) or 0)
+        unit = m.group(2) or "分钟"
+    if unit in ("分钟", "小时"):
+        est = local - timedelta(hours=n if unit == "小时" else 0,
+                                minutes=n if unit == "分钟" else 0)
+        est = est.replace(minute=0, second=0, microsecond=0)               # → 本小时
+    elif unit in ("天", "周"):
+        est = local - timedelta(days=n * 7 if unit == "周" else n)
+        est = est.replace(hour=0, minute=0, second=0, microsecond=0)       # → 当天 00:00
+    else:
+        est = local - timedelta(days=n * 30 if unit == "月" else n * 365)
+        est = est.replace(day=1, hour=0, minute=0, second=0, microsecond=0)  # → 当月 1 号
+    return est.astimezone(timezone.utc).isoformat()
+
+
+def parse_nextbuf_listing(html: str, now: datetime | None = None) -> list:
+    """One row per topic on a NextBuf listing page. 纯函数：不联网。
+
+    时间取该条目自己的**发帖**相对时间（"1月前"），不是它后面那段「最后回复来自
+    X」—— 后者是回复时间，当成发布时间会让老帖每被顶一次就变成新帖。所以相对
+    时间的搜索范围在 meta-last-reply 处截断（同 linux.sb 那条「每行只认自己的
+    时间戳」的教训：绝不让一行吃掉邻行的时间）。
+
+    隐藏主题（style 里带 display:none）跳过：站点仍把它们渲染进 HTML。
+    """
+    matches = list(_NEXTBUF_ITEM_RE.finditer(html))
+    topics = []
+    seen = set()
+    for i, m in enumerate(matches):
+        topic_id, anchor_inner = m.group(1), m.group(2)
+        if topic_id in seen:
+            continue
+        open_tag = _NEXTBUF_OPEN_TAG_RE.match(m.group(0))
+        if open_tag and "display:none" in open_tag.group(0).replace(" ", ""):
+            continue
+        title = nextbuf_title(anchor_inner)
+        if not title:
+            continue
+        seen.add(topic_id)
+        row_end = matches[i + 1].start() if i + 1 < len(matches) else len(html)
+        tail = html[m.end():row_end]
+        cut = tail.find("meta-last-reply")
+        rel = _NEXTBUF_REL_RE.search(tail if cut < 0 else tail[:cut])
+        topics.append({
+            "id": topic_id,
+            "title": title,
+            "url": f"{BASE_NEXTBUF}/t/{topic_id}",
+            "created_at": nextbuf_created_at(rel.group(0) if rel else None, now=now),
+            "published_verified": False,
+        })
+    return topics
+
+
+def fetch_nextbuf(known_ids: set | None = None) -> list:
+    """NextBuf 首页分页（全部板块混排）。
+
+    known_ids：store 里已有的 id。相对时间只能给到桶粒度、重抓同一条帖也算出同一个
+    值（见 nextbuf_created_at），所以已入库的直接跳过，不浪费请求；旧的 nextbuf 行
+    由增量合并原样保留回 store。轮内新帖与失效帖仍会被看到。
+
+    只爬前 NEXTBUF_PAGES 页：列表按最后回复排序，新帖必在第 1 页，3 页（约 90 条）
+    覆盖最近有活动的主题，再往后翻只是重复老帖。
+    """
+    known_ids = known_ids or set()
+    all_topics = []
+    for page_num in range(1, NEXTBUF_PAGES + 1):
+        url = f"{BASE_NEXTBUF}/" if page_num == 1 else f"{BASE_NEXTBUF}/page-{page_num}"
+        try:
+            rows = parse_nextbuf_listing(fetch(url))
+        except Exception as e:
+            print(f"[warn] nextbuf page {page_num} failed: {e}", file=sys.stderr)
+            FETCH_ERRORS.append(f"nextbuf page {page_num}: {e}")
+            break
+        if page_num == 1:
+            note_empty_source("nextbuf", len(rows))
+        fresh = [t for t in rows if t["id"] not in known_ids]
+        print(f"[fetch] nextbuf page {page_num}: {len(rows)} topics, {len(fresh)} new",
+              file=sys.stderr)
+        all_topics.extend(fresh)
+        if not rows:
+            break
+    for t in all_topics:
+        t["source"] = "nextbuf_首页"
+    return all_topics
+
+
 _ROW_FIELDS = ("title", "url", "source", "created_at")
 
 
@@ -1230,13 +1375,23 @@ def main():
         and str(t.get("source", "")).startswith("linuxsb_")
     }
 
+    # nextbuf 的 created_at 是相对时间估算（列表没有绝对时间），而 fetch_nextbuf
+    # 对已入库的 id 直接跳过 —— 判据是 id 在 store 里就够，与 published_verified 无关。
+    known_nextbuf_ids = {
+        t["id"]
+        for t in existing.values()
+        if str(t.get("source", "")).startswith("nextbuf")
+    }
+
     linuxsb_topics = fetch_linuxsb(known_linuxsb_ids)
     baipiao_topics = fetch_baipiao()
     nodeloc_topics = fetch_nodeloc()
     nodeloc_welfare_topics = fetch_nodeloc_welfare()
     linuxdo_topics = fetch_linuxdo_welfare()
     vibex_topics = fetch_vibex_welfare()
-    all_topics = linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics + linuxdo_topics + vibex_topics
+    nextbuf_topics = fetch_nextbuf(known_nextbuf_ids)
+    all_topics = (linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics
+                  + linuxdo_topics + vibex_topics + nextbuf_topics)
 
     # Partial failures are survivable now that we merge incrementally: cached
     # rows for the failed source stay in the store. Warn loudly (the workflow

@@ -619,6 +619,131 @@ check(not relevant('stokey免费送'), 'tokey typo rule has quantity and ASCII b
 check('体验金' in mod.score_topic({'title': 'Lovable Pro 200 Credits 免费额度'})['tags'],
       'Credits case is normalized without modifying the title')
 
+# --------------------------------------------------------------------------
+# NextBuf (NB 社区, www.nextbuf.com) listing.
+#
+# 这个源没有可用的绝对时间：列表与主题页给的都是相对时间（"17天前"），主题页也
+# 没有 article:published_time。created_at 因此只能是估算，规则一改 store 里所有
+# nextbuf 行的排序与淘汰顺序就整体挪位 —— 那种改动在 --dump-candidates 里看不出来，
+# 所以把归整规则和「每行只认自己的时间」都钉在这里。
+# --------------------------------------------------------------------------
+from datetime import datetime, timezone  # noqa: E402  (本段自足，见文件头说明)
+from urllib.error import URLError  # noqa: E402
+
+print('\n== nextbuf 列表：剥徽章、只认该行自己的发帖时间 ==')
+
+
+def nb_page(items):
+    """items: [(tid, badge, title, rel)] -> 一段列表 HTML（含「最后回复」干扰段）。"""
+    out = []
+    for tid, badge, title, rel in items:
+        b = f'<span class="topic-badge {badge}" title="{badge}主题">{badge}</span> ' if badge else ''
+        meta = ('<div class="topic-footer-meta"><a href="/go/chat" class="meta-node-pill">闲聊</a>'
+                f'<span>{rel or ""}</span> · <span class="meta-last-reply">最后回复来自 '
+                '<a href="/u/z">z</a><span>5分钟前</span></span></div></div>')
+        out.append('<div class="topic-body"><div class="topic-headline">'
+                   f'<a href="/t/{tid}" class="topic-title-link " data-tid="{tid}" style="">{b}{title}</a>'
+                   '</div>' + meta)
+    return ''.join(out)
+
+
+NB_NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)   # = 20:00 CST
+rows = mod.parse_nextbuf_listing(nb_page([
+    ('160', 'redpacket', '0.1 倍率opus5', '1月前'),
+    ('291', 'pinned', '新UI很舒服', '31分钟前'),
+]), now=NB_NOW)
+check(len(rows) == 2, 'two rows parsed', len(rows))
+check(rows[0]['title'] == '0.1 倍率opus5',
+      '回帖红包徽章不进标题（否则闸门按平台内货币放行闲聊帖）', rows[0]['title'])
+check(rows[1]['title'] == '新UI很舒服', '置顶徽章同样剥掉', rows[1]['title'])
+check(rows[0]['url'] == f'{mod.BASE_NEXTBUF}/t/160', 'url built from the id', rows[0]['url'])
+check(rows[0]['created_at'] == '2026-08-31T16:00:00+00:00',
+      '1月前 -> 当月 1 号（CST）', rows[0]['created_at'])
+check(rows[1]['created_at'] == '2026-10-08T11:00:00+00:00',
+      '31分钟前 -> 本小时桶', rows[1]['created_at'])
+check(not any(r['published_verified'] for r in rows),
+      '估算时间不冒充 verified 发布时间', [r.get('published_verified') for r in rows])
+
+print('\n== 同一行里的「最后回复 5分钟前」不能被当成发帖时间 ==')
+check(rows[0]['created_at'] != mod.nextbuf_created_at('5分钟前', now=NB_NOW),
+      '第一行用的是自己的 1月前，不是后面那段回复时间', rows[0]['created_at'])
+
+print('\n== 丢掉相对时间的行不能吃掉邻行的时间 ==')
+rows2 = mod.parse_nextbuf_listing(nb_page([
+    ('77', '', '公益站 体验金', ''),
+    ('78', '', '中转站 额度', '2天前'),
+]), now=NB_NOW)
+check(len(rows2) == 2, '两条都在', len(rows2))
+check(rows2[0]['created_at'] is None, '异常行留空而不是取邻行的', rows2[0]['created_at'])
+check(rows2[1]['created_at'] == '2026-10-05T16:00:00+00:00',
+      '邻行保留自己的时间', rows2[1]['created_at'])
+
+print('\n== 相对时间归整（这个值进 store 的 created_at，必须稳定）==')
+for rel, want in [('刚刚', '2026-10-08T12:00:00+00:00'),
+                  ('22分钟前', '2026-10-08T11:00:00+00:00'),
+                  ('3小时前', '2026-10-08T09:00:00+00:00'),
+                  ('7天前', '2026-09-30T16:00:00+00:00'),
+                  ('2周前', '2026-09-23T16:00:00+00:00'),
+                  ('1月前', '2026-08-31T16:00:00+00:00'),
+                  ('', None), ('昨天', None)]:
+    got = mod.nextbuf_created_at(rel, now=NB_NOW)
+    check(got == want, f'{rel or "(空)"} -> {want}', got)
+check(mod.nextbuf_created_at('3 个月前', now=NB_NOW) == '2026-06-30T16:00:00+00:00',
+      '「N 个月前」这种带「个」的写法也认，同样归整到当月 1 号',
+      mod.nextbuf_created_at('3 个月前', now=NB_NOW))
+check(mod.nextbuf_created_at('N/A', now=NB_NOW) is None,
+      '认不出的写法留空，不瞎猜时间')
+
+t0 = datetime(2026, 10, 8, 12, 31, tzinfo=timezone.utc)   # = 20:31 CST
+t1 = datetime(2026, 10, 8, 12, 59, tzinfo=timezone.utc)   # = 20:59 CST，同一条帖此时显示「59分钟前」
+check(mod.nextbuf_created_at('31分钟前', now=t0) == mod.nextbuf_created_at('59分钟前', now=t1),
+      '源站自己的相对时间在同一条帖上推进时，归整后落在同一个小时桶',
+      (mod.nextbuf_created_at('31分钟前', now=t0), mod.nextbuf_created_at('59分钟前', now=t1)))
+
+print('\n== 隐藏主题（style=display:none）不进列表 ==')
+hidden = ('<a href="/t/9" class="topic-title-link" data-tid="9" '
+          'style="display:none"><span class="topic-badge">置顶</span> 隐藏帖</a><span>1天前</span>')
+check(mod.parse_nextbuf_listing(hidden) == [], '隐藏主题被跳过',
+      mod.parse_nextbuf_listing(hidden))
+
+print('\n== fetch_nextbuf：翻页、已入库跳过、失败要留痕 ==')
+NB_PAGES = {
+    f'{mod.BASE_NEXTBUF}/': nb_page([('301', '', '免费qwen3.8 max', '10分钟前'),
+                                     ('302', '', '抽奖机会 GPT Pro 天卡', '2小时前')]),
+    f'{mod.BASE_NEXTBUF}/page-2': nb_page([('303', '', '新公益站注册送 200', '3天前')]),
+    f'{mod.BASE_NEXTBUF}/page-3': '',
+}
+real_fetch = mod.fetch
+
+
+def _nb_mock(url, *a, **k):
+    if url not in NB_PAGES:
+        raise AssertionError(f'意外的请求: {url}')
+    return NB_PAGES[url]
+
+
+try:
+    mod.fetch = _nb_mock
+    got = mod.fetch_nextbuf()
+    check([t['id'] for t in got] == ['301', '302', '303'], '三页合并、末页空即停', [t['id'] for t in got])
+    check({t['source'] for t in got} == {'nextbuf_首页'}, '源标识统一',
+          {t['source'] for t in got})
+    check(all(t['created_at'] for t in got), '三行都带上了估算时间',
+          [t['created_at'] for t in got])
+    got2 = mod.fetch_nextbuf({'301', '302'})
+    check([t['id'] for t in got2] == ['303'], '已入库的 id 不再返回（避免相对时间漂移）',
+          [t['id'] for t in got2])
+    mod.FETCH_ERRORS.clear()
+    mod.fetch = lambda url, *a, **k: (_ for _ in ()).throw(URLError('boom'))
+    check(mod.fetch_nextbuf() == [], '抓取失败时返回空而不是抛出去', mod.fetch_nextbuf())
+    check(any('nextbuf' in e for e in mod.FETCH_ERRORS), '失败写进 FETCH_ERRORS',
+          mod.FETCH_ERRORS)
+    check('nextbuf' in mod.unhealthy_hosts([]),
+          'nextbuf 在 _HOST_MARKERS 里，整源失败时它的行不会被当删除处理',
+          sorted(mod.unhealthy_hosts([])))
+finally:
+    mod.fetch = real_fetch
+
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
 sys.exit(0 if passed == len(results) else 1)

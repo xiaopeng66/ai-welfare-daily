@@ -288,6 +288,21 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 - **vibex.iflow.cn 对 CI 是安全的**：它是普通 Discourse，直连（无代理）约 0.7s、无 Cloudflare 挑战，是本项目里**唯一能同时被 CI 和 Windows 任务抓到的非 linux.sb 源**。
   选它做新源而不是 NodeSeek / sb.sb 就是因为后两者代理下 200、直连 404（CI 拿不到）。
   **加新源前先按这个标准验一遍：`httpx.get(url)` 不给 proxy，能 200 才算可用。**
+  nextbuf.com（2026-10-08 加）按这个标准验过：**直连与代理都是 200**，Cloudflare 只做 CDN 不发挑战，
+  `robots.txt` 只挡 `/admin`、`/install`、`/runcache`，所以它同时进本机与 CI 两条链路
+  （上面 vibex 那条「唯一」的说法到此为止，两条链路都能抓的源现在有两个）。
+- **没有绝对时间的源，时间只能当估算，且必须归整**：nextbuf 的列表和主题页都只有相对时间
+  （"17天前"、"31分钟前"），没有 `article:published_time`。它的 `created_at` 由抓取时刻倒推，
+  并按粒度归整到本小时 / 当天 00:00 / 当月 1 号（CST）。归整不是美观问题：`created_at` 在
+  `_ROW_FIELDS` 里参与变更比较，不归整的话同一条没变的帖每轮算出不同值，「没有新闻的一轮」
+  也会产生 commit 与一次 Pages 部署；归整后同一时间桶里重复抓到的值完全一致。
+  这类行一律不设 `published_verified`（同 nodeloc 的 `bumped_at` 回落）。
+- **相对时间源的第二个防线是「已入库的 id 不再返回」**：即使归整，源站的相对时间也会随时间漂
+  （"1月前"这周算 9 月 1 号、下周可能算 9 月 8 号）。把 store 里已有的 id 直接跳过，
+  就不会有漂移过的值被写回旧行 —— 这比在合并层做「新值与旧值相差不超过 N 天就沿用旧值」简单，也更稳。
+- **徽章是站点标记，不是标题**：nextbuf 把「红包」（回帖红包主题）和「置顶」做成
+  `<span class="topic-badge ...">` 贴在标题前面。整段照抄会让「红包」混进标题，闸门就可能按
+  平台内货币放行闲聊帖（同「积分不是领域词」）。`nextbuf_title()` 剥掉徽章，`test_parsers.py` 钉住。
 - **不要给 `StealthyFetcher.fetch` 加 `proxy=`**：会让 Cloudflare 判 403（返回 8KB 挑战页而非 91KB 数据）。
   同理 WSL/Linux 下跑 linux.do 会失败——`fetch()` 走代理，但 `StealthyFetcher.fetch` 不接 `proxy=`，Chromium 是直连的，本机直连 linux.do 超时。
   验证完整流程请用 `LINUXDO_ENABLED=0`。
