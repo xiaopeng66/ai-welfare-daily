@@ -4,7 +4,7 @@ on:
   schedule:
     # 兜底用，不是主节奏：linux.do 在 CI 里被关掉了（数据中心 IP 会被 429），
     # 所以这条路径抓到的是与家宽侧相同的四源结果，真正带 linux.do 的完整抓取
-    # 只能在家宽上跑（Windows 任务整点 + Hermes cron 半点，各每小时一次）。
+    # 只能在家宽上跑（Windows 任务每 30 分钟 :07/:37 + Hermes cron 每小时 :30）。
     # 保持 6 小时一次，是为了让仓库在 Windows 机器长期离线时仍有新数据；
     # 提到每小时只是重复抓四源并增加并发冲突，对时效性没有帮助。
     #
@@ -118,8 +118,9 @@ jobs:
             exit 0
           fi
           git commit -m "chore: daily welfare update $(date +%Y-%m-%d)"
-          # The Windows task runs this same job on the same wall clock, so the
-          # branch can move between our commit and our push.
+          # The residential pipeline (Windows task :07/:37, Hermes cron :30) is
+          # far more frequent than this 6-hourly run, so the branch can move
+          # between our commit and our push.
           if git push; then
             echo "push ok"
           else
