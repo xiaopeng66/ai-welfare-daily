@@ -1,7 +1,14 @@
-# -MaxAgeMinutes: freshness gate for the FALLBACK trigger (see the gate below).
-# Must stay the first statement in the file -- PowerShell requires param() before
-# any other executable statement.
-param([int]$MaxAgeMinutes = 0)
+# -NoPublish: produce the page and stop before any git write. Used by the merged
+# publisher (scripts\merge_publish.py), which runs this leg and the promo leg in
+# PARALLEL and then makes ONE commit+push for both products.
+#
+# Why it exists: this script and the promo chain both commit into the same repo.
+# They used to be kept apart by staggering their triggers (:00 vs :07/:37), which
+# meant 4 triggers an hour fetching, generating and racing for .git/index.lock.
+# With -NoPublish neither leg touches git, so the staggering is no longer
+# load-bearing. Everything up to and including the guard suites still runs here --
+# this leg must never hand a page to the publisher that its own guards rejected.
+param([int]$MaxAgeMinutes = 0, [switch]$NoPublish)
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Continue'
@@ -242,18 +249,75 @@ Log 'step 2/3 generate'
 $rc = Run-Py -Label 'generate' -PyArgs @('generate.py', '-i', 'data/topics.jsonl', '-o', 'docs/index.html')
 if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }
 
-# Second guard, and the one CI actually enforces: the page about to be published
-# must be exactly what the committed generator produces from the committed
-# store. Running the same suite the Tests workflow runs turns an hour of red
-# CI plus a mail into a local, loud, zero-side-effect refusal.
-Log 'step 2.5/3 verify the published page matches the store'
-$rc = Run-Py -Label 'guard' -PyArgs @('tests/test_site.py')
-if ($rc -ne 0) {
-    Log "FAIL site guard exit=$rc - refusing to commit: the generated page does not match the store/generator"
-    exit 1
+# Guard suites, and the same set CI enforces: the page about to be published must
+# be exactly what the committed generator produces from the committed store.
+# Running them here turns an hour of red CI plus a mail into a local, loud,
+# zero-side-effect refusal.
+#
+# All four suites run, not just test_site.py: the parsers encode the markup
+# anomalies that silently dropped rows, and test_guards injects each failure
+# mode. Before 2026-10-12 this step ran test_site.py alone, so a parser
+# regression was only caught by CI (or by hand) -- the local pipeline could
+# publish a page built by a broken parser.
+#
+# Measured cost of all four: 4.2s total (vs 1.8s for test_site alone). Cheap
+# enough to run on every trigger.
+Log 'step 2.5/3 guard suites (parsers / guards / site / ab-rules)'
+foreach ($suite in @('tests/test_guards.py', 'tests/test_parsers.py',
+                     'tests/test_site.py', 'tests/test_ab_rules.py')) {
+    $rc = Run-Py -Label $suite -PyArgs @($suite)
+    if ($rc -ne 0) {
+        Log "FAIL $suite exit=$rc - refusing to commit: the generated page does not match the store/generator"
+        exit 1
+    }
+}
+
+# Page-JS suite: tests.yml and daily-update.yml both run it, and it is the only
+# guard on the generated page's own JavaScript. It is a .mjs, so it needs node,
+# not Run-Py (which launches python). Do NOT turn a missing node into a silent
+# pass -- say so explicitly in the log (CI still covers it).
+$node = 'C:\Program Files\nodejs\node.exe'
+if (-not (Test-Path $node)) { $node = $null }
+if (-not $node) {
+    $cmd = Get-Command node -ErrorAction SilentlyContinue
+    if ($cmd) { $node = $cmd.Source }
+}
+if ($node) {
+    $jsOut = Join-Path $env:TEMP ('lsb-js-' + [guid]::NewGuid().ToString('N') + '.log')
+    $jsErr = Join-Path $env:TEMP ('lsb-jserr-' + [guid]::NewGuid().ToString('N') + '.log')
+    $jp = Start-Process -FilePath $node -ArgumentList @('tests/test_page_js.mjs') -NoNewWindow -Wait -PassThru `
+                        -RedirectStandardOutput $jsOut -RedirectStandardError $jsErr
+    $jsrc = $jp.ExitCode
+    if ($null -eq $jsrc) { $jsrc = 1 }
+    foreach ($f in @($jsOut, $jsErr)) {
+        if (Test-Path $f) {
+            Get-Content -LiteralPath $f -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Log "tests/test_page_js.mjs exit code $jsrc"
+    if ($jsrc -ne 0) {
+        Log "FAIL tests/test_page_js.mjs exit=$jsrc - refusing to commit: generated page JS is broken"
+        exit 1
+    }
+} else {
+    Log 'WARN node not found - page-JS suite SKIPPED locally (node is not on PATH and not in Program Files; CI still runs it)'
 }
 
 Log 'step 3/3 commit + push'
+
+# -NoPublish: the merged publisher owns git. Return the success/failure signal the
+# publisher needs, but do not touch the index or the remote.
+#
+# data\.last_run IS still written here: the freshness gate above is what stops a
+# dropped trigger from going unnoticed, and it must mean "this leg finished a
+# fetch", not "someone called the publisher".
+if ($NoPublish) {
+    Log 'step 3/3 skipped (-NoPublish: merge_publish.py commits both legs together)'
+    Set-Content -LiteralPath (Join-Path $repo 'data\.last_run') -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding ascii
+    Log '=== update end (no publish) ==='
+    exit 0
+}
 
 # Guard: publishing the page is only safe when the generator that produced it
 # is the one in the repo. The step below stages all of data/ and docs/, so a
