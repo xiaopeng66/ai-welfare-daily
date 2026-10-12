@@ -13,12 +13,13 @@ on:
     - cron: '17 */6 * * *'
   workflow_dispatch:  # 允许手动触发
 
-# The Windows scheduled task (\linuxsb-daily-08, hourly on the hour) and the
-# Hermes cron job (hourly on the half hour) run the same pipeline on a
-# residential IP; the half-hour offset plus run-update.ps1's -MaxAgeMinutes gate
-# keep them from fetching the same forums twice in one hour.
-# They all share one `concurrency` group so interleaving is absorbed by the
-# pull --rebase below instead of racing for the branch.
+# The Windows scheduled task (\hermes-merged-publish, every 30 minutes) and the
+# Hermes cron job (hourly on the half hour) run the same merged publisher
+# (merge_publish.py) on a residential IP: it runs the main-site and promo-page
+# legs in parallel, then commits and pushes both legs' output in ONE commit.
+# merge_publish.py owns all git operations, so the two legs never race for
+# .git/index.lock. They all share one `concurrency` group so interleaving is
+# absorbed by the pull --rebase below instead of racing for the branch.
 concurrency:
   group: daily-welfare-update
   cancel-in-progress: false

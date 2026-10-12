@@ -220,9 +220,16 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
 
 | 管道 | 入口 | 特点 |
 |------|------|------|
-| **Windows 计划任务**（主） | `\linuxsb-daily-08` → `run-update.ps1` | 住宅 IP，**包含 linux.do** |
-| **Hermes cron**（兜底） | `~/.hermes/scripts/linuxsb-daily-update.sh` → `cmd.exe` → `run-update.ps1` | 开机但无登录会话时接替计划任务 |
+| **Windows 计划任务**（主） | `\hermes-merged-publish` → `run-merged-publish.ps1`（WSL 跑 `merge_publish.py`） | 住宅 IP，**包含 linux.do**；每 30 分钟一次，并行跑主站+推荐页两条腿后**合并为一次提交** |
+| **Hermes cron**（兜底） | `~/.hermes/scripts/linuxsb-daily-update.sh` → 同一个 `merge_publish.py` | 开机但无登录会话时接替计划任务；每小时 :30，`--max-age-minutes` 门避免与计划任务重复 |
 | **GitHub Actions**（兜底） | `.github/workflows/daily-update.yml` | 不依赖本机开机，但**跳过 linux.do**（数据中心 IP 被拒 429） |
+
+**为什么两条腿合并成一次提交**：合并前主站与推荐页是两个独立计划任务
+（`\linuxsb-daily-08` 每小时 :00、`\promo-health-30` 每 30 分 :07/:37），
+每小时共 4 次触发在同一个 worktree 里 `git add/commit/push`，只能靠错开时间躲
+`.git/index.lock`；且主站的 `git add -A -- data docs` 会把推荐页 HTML 顺带暂存。
+现在两条腿**并行**跑（墙钟取较大值），git 全部收归 `merge_publish.py` 一次提交。
+两个旧任务已删除（定义备份在 `~/.hermes/backups/config-changes/cleanup-*/`）。
 
 **为什么需要 Hermes cron**：Windows 计划任务是 `LogonType=InteractiveToken`，机器开着但没人登录时，Task Scheduler 会**直接丢弃**触发并滚到下一次——不会事后补跑。
 实例：2026-10-01 08:00 那次丢失，Windows 07:49 开机、11:50 首次登录，任务日志显示上次运行 09-30 23:36、下次 10-02 08:00。
