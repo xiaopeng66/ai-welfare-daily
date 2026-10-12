@@ -220,7 +220,7 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
 
 | 管道 | 入口 | 特点 |
 |------|------|------|
-| **Windows 计划任务**（主） | `\hermes-merged-publish` → `run-merged-publish.ps1`（WSL 跑 `merge_publish.py`） | 住宅 IP，**包含 linux.do**；每 30 分钟一次，并行跑主站+推荐页两条腿后**合并为一次提交** |
+| **Windows 计划任务**（主） | `\hermes-merged-publish` → `run-merged-publish.ps1`（WSL 跑 `merge_publish.py`） | 住宅 IP，**包含 linux.do**；每 30 分钟触发，并行跑主站+推荐页两条腿后**合并为一次提交**。推荐页每轮都跑（30 分钟）；主站腿只在**固定窗口**跑（整点后第 37 分 ±6 分）→ 主站固定每小时更新一次 |
 | **Hermes cron**（兜底） | `~/.hermes/scripts/linuxsb-daily-update.sh` → 同一个 `merge_publish.py` | 开机但无登录会话时接替计划任务；每小时 :30，`--max-age-minutes` 门避免与计划任务重复 |
 | **GitHub Actions**（兜底） | `.github/workflows/daily-update.yml` | 不依赖本机开机，但**跳过 linux.do**（数据中心 IP 被拒 429） |
 
