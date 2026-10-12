@@ -440,7 +440,7 @@ html[data-theme=dark] .rchip.free b{color:#7fe0bb}
 /* 最近一次检测时间戳（由 bake_preview.py 每次烘焙写入，取自 health.json 的 generated_at）。
    整点脚本每 30 分钟跑一轮，页面是静态快照 —— 这里必须用**采集时间**，
    不能用浏览器当前时间（那会显示"用户打开页面的时刻"，与数据实际新鲜度无关）。 */
-const CHECKED_AT = "10-12 13:18";
+const CHECKED_AT = "10-12 13:36";
 const PROMO = [
   {
     "name": "KiosAPI",
@@ -543,23 +543,23 @@ const PROMO = [
       }
     ],
     "uc": 1.0,
-    "models_note": "Free 分组内命中「glm-5.3、deepseek-v4、deepseek-v4.1」的模型共 2 个，取成功率最高的 2 个；不足 3 个，另从其它分组补 1 个（含关键词优先、倍率升序）（Free-Pro，倍率见各行分组标签）；展示顺序：主分组命中在前（按成功率），补位的排在后（先看是否含关键词，再看分组倍率升序，最后按成功率）；成功率/延迟/TPS 均取该模型所属分组",
+    "models_note": "Free 分组内命中「glm-5.3、deepseek-v4、deepseek-v4.1」的模型共 0 个；不足 3 个，另从其它分组补 3 个（含关键词优先、倍率升序）（Discount，倍率见各行分组标签）；展示顺序：主分组命中在前（按成功率），补位的排在后（先看是否含关键词，再看分组倍率升序，最后按成功率）；成功率/延迟/TPS 均取该模型所属分组",
     "pick_rule": "keyword-top",
     "pick_tag": "公益",
     "pick_group": "Free",
     "pick_groups": [
       "Free"
     ],
-    "pick_fill": 1,
+    "pick_fill": 3,
     "pick_fill_groups": [
-      "Free-Pro"
+      "Discount"
     ],
     "pick_fill_main": 0,
     "pick_top_n": 3,
-    "pick_available": 2,
-    "pick_total": 2,
+    "pick_available": 0,
+    "pick_total": 0,
     "health": {
-      "score": 92.3,
+      "score": 93.7,
       "level": "优",
       "rate_window": 100.0,
       "streak_days": 2,
@@ -822,7 +822,7 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 92.3（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 33.3/35（3 个监控模型成功率中位数 95.27%）+ 延迟 15/15（338ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 93.7（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.7/35（3 个监控模型成功率中位数 99.25%）+ 延迟 15/15（388ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -837,1472 +837,1161 @@ const PROMO = [
         "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 338,
+      "latency_ms": 388,
       "latency_n": 5
     },
     "models": [
       {
-        "n": "deepseek-v4-flash-free",
-        "in_site": "deepseek-v4-flash-free",
-        "r": 95.3,
-        "l": 43603,
-        "t": 9067,
-        "tps": 16.587319604263445,
-        "anomaly": 6,
+        "n": "glm-5.3",
+        "in_site": "glm-5.3",
+        "r": 100,
+        "l": 15913,
+        "t": 11978,
+        "tps": 112.8622267412303,
+        "anomaly": 0,
         "bars": [
           {
             "d": "2026-09-13",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 96.7,
+            "ok": false,
+            "sparse": false,
+            "buckets": 24
           },
           {
             "d": "2026-09-14",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 91.8,
+            "ok": false,
+            "sparse": false,
+            "buckets": 24
           },
           {
             "d": "2026-09-15",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 69.6,
+            "ok": false,
+            "sparse": false,
+            "buckets": 20
           },
           {
             "d": "2026-09-16",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 80.0,
+            "ok": false,
+            "sparse": false,
+            "buckets": 5
           },
           {
             "d": "2026-09-17",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 5
+          },
+          {
+            "d": "2026-09-18",
+            "rate": 96.3,
+            "ok": false,
+            "sparse": false,
+            "buckets": 9
+          },
+          {
+            "d": "2026-09-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 2
+          },
+          {
+            "d": "2026-09-20",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1
+          },
+          {
+            "d": "2026-09-21",
+            "rate": 93.7,
+            "ok": false,
+            "sparse": false,
+            "buckets": 5
+          },
+          {
+            "d": "2026-09-22",
+            "rate": 70.5,
+            "ok": false,
+            "sparse": false,
+            "buckets": 7
+          },
+          {
+            "d": "2026-09-23",
+            "rate": 96.3,
+            "ok": false,
+            "sparse": false,
+            "buckets": 3
+          },
+          {
+            "d": "2026-09-24",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 11
+          },
+          {
+            "d": "2026-09-25",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-18",
-            "rate": 70.8,
+            "d": "2026-09-26",
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0
+          },
+          {
+            "d": "2026-09-27",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 2
+          },
+          {
+            "d": "2026-09-28",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 2
+          },
+          {
+            "d": "2026-09-29",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 4
+          },
+          {
+            "d": "2026-09-30",
+            "rate": 0.0,
             "ok": false,
             "sparse": true,
             "buckets": 2
           },
           {
-            "d": "2026-09-19",
+            "d": "2026-10-01",
+            "rate": 75.0,
+            "ok": false,
+            "sparse": false,
+            "buckets": 4
+          },
+          {
+            "d": "2026-10-02",
+            "rate": 98.9,
+            "ok": false,
+            "sparse": false,
+            "buckets": 4
+          },
+          {
+            "d": "2026-10-03",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 4
+          },
+          {
+            "d": "2026-10-04",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 5
+          },
+          {
+            "d": "2026-10-05",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-20",
+            "d": "2026-10-06",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-21",
+            "d": "2026-10-07",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-22",
+            "d": "2026-10-08",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1
+          },
+          {
+            "d": "2026-10-09",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-23",
+            "d": "2026-10-10",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-24",
+            "d": "2026-10-11",
             "rate": null,
             "ok": null,
             "sparse": null,
             "buckets": 0
           },
           {
-            "d": "2026-09-25",
+            "d": "2026-10-12",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1
+          }
+        ],
+        "buckets_24h": 1,
+        "low_sample": null,
+        "free_group": "Discount",
+        "delisted": false,
+        "why": "",
+        "bars_24h": [
+          {
+            "d": "10-12 11:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
+          }
+        ],
+        "pick": {
+          "g": "Discount",
+          "ratio": 0.08,
+          "eff": 0.08,
+          "r": 100,
+          "l": 15913,
+          "t": 11978,
+          "tps": 112.8622267412303,
+          "days": null,
+          "anomaly": 0,
+          "bars_24h": [
+            {
+              "d": "10-12 11:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            }
+          ],
+          "bars": []
+        },
+        "tier": "fill-group",
+        "groups": [
+          {
+            "g": "Discount",
+            "ratio": 0.08,
+            "eff": 0.08,
+            "r": 100,
+            "l": 15913,
+            "t": 11978,
+            "tps": 112.8622267412303,
+            "days": 1,
+            "anomaly": 0,
+            "bars_24h": [
+              {
+                "d": "10-12 11:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              }
+            ],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-14",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-15",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-16",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-17",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-21",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-22",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-23",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-24",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-25",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-26",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-27",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-28",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-29",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-30",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-01",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-02",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1
+              }
+            ]
+          },
+          {
+            "g": "GLM",
+            "ratio": 0.15,
+            "eff": 0.15,
+            "r": 97.73,
+            "l": 20837,
+            "t": 14997,
+            "tps": 108.79501500802519,
+            "days": 17,
+            "anomaly": 0,
+            "bars_24h": [],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-14",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-15",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-16",
+                "rate": 80.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-17",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-18",
+                "rate": 96.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 9
+              },
+              {
+                "d": "2026-09-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 2
+              },
+              {
+                "d": "2026-09-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-21",
+                "rate": 93.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-22",
+                "rate": 70.5,
+                "ok": false,
+                "sparse": false,
+                "buckets": 7
+              },
+              {
+                "d": "2026-09-23",
+                "rate": 96.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-09-24",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 11
+              },
+              {
+                "d": "2026-09-25",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-26",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-27",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 2
+              },
+              {
+                "d": "2026-09-28",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 2
+              },
+              {
+                "d": "2026-09-29",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 4
+              },
+              {
+                "d": "2026-09-30",
+                "rate": 0.0,
+                "ok": false,
+                "sparse": true,
+                "buckets": 2
+              },
+              {
+                "d": "2026-10-01",
+                "rate": 75.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 4
+              },
+              {
+                "d": "2026-10-02",
+                "rate": 98.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 4
+              },
+              {
+                "d": "2026-10-03",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 4
+              },
+              {
+                "d": "2026-10-04",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              }
+            ]
+          },
+          {
+            "g": "Free",
+            "ratio": 0,
+            "eff": 0.0,
+            "r": 92.4,
+            "l": 60218,
+            "t": 12716,
+            "tps": 37.22960203626627,
+            "days": 3,
+            "anomaly": 0,
+            "bars_24h": [],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": 96.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-09-14",
+                "rate": 91.8,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-09-15",
+                "rate": 69.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 20
+              },
+              {
+                "d": "2026-09-16",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-17",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-21",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-22",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-23",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-24",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-25",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-26",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-27",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-28",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-29",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-30",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-01",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-02",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "n": "deepseek-v4-flash",
+        "in_site": "deepseek-v4-flash",
+        "r": 99.3,
+        "l": 25855,
+        "t": 13640,
+        "tps": 77.57245133480306,
+        "anomaly": 1,
+        "bars": [
+          {
+            "d": "2026-09-13",
+            "rate": 92.6,
+            "ok": false,
+            "sparse": false,
+            "buckets": 24
+          },
+          {
+            "d": "2026-09-14",
+            "rate": 91.0,
+            "ok": false,
+            "sparse": false,
+            "buckets": 24
+          },
+          {
+            "d": "2026-09-15",
+            "rate": 95.5,
+            "ok": false,
+            "sparse": false,
+            "buckets": 5
+          },
+          {
+            "d": "2026-09-16",
+            "rate": 94.5,
+            "ok": false,
+            "sparse": false,
+            "buckets": 7
+          },
+          {
+            "d": "2026-09-17",
+            "rate": 89.6,
+            "ok": false,
+            "sparse": false,
+            "buckets": 10
+          },
+          {
+            "d": "2026-09-18",
             "rate": 100.0,
             "ok": true,
             "sparse": false,
             "buckets": 3
           },
           {
-            "d": "2026-09-26",
-            "rate": 89.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-27",
-            "rate": 81.7,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-28",
-            "rate": 97.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-29",
-            "rate": 97.7,
-            "ok": false,
-            "sparse": false,
-            "buckets": 23
-          },
-          {
-            "d": "2026-09-30",
-            "rate": 78.7,
-            "ok": false,
-            "sparse": false,
-            "buckets": 22
-          },
-          {
-            "d": "2026-10-01",
-            "rate": 96.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 23
-          },
-          {
-            "d": "2026-10-02",
-            "rate": 93.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 23
-          },
-          {
-            "d": "2026-10-03",
-            "rate": 98.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-04",
-            "rate": 91.2,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-05",
-            "rate": 94.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-06",
-            "rate": 98.0,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-07",
-            "rate": 98.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-08",
-            "rate": 96.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-09",
-            "rate": 88.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-10",
-            "rate": 94.2,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-11",
-            "rate": 95.7,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-12",
-            "rate": 92.6,
-            "ok": false,
-            "sparse": false,
-            "buckets": 14
-          }
-        ],
-        "buckets_24h": 24,
-        "low_sample": null,
-        "free_group": "Free",
-        "delisted": false,
-        "why": "",
-        "bars_24h": [
-          {
-            "d": "10-11 14:00",
-            "rate": 98.3,
-            "ok": false,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 15:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 16:00",
-            "rate": 99.5,
-            "ok": false,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 17:00",
-            "rate": 94.2,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-11 18:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 19:00",
-            "rate": 95.3,
-            "ok": false,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 20:00",
-            "rate": 92.2,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-11 21:00",
-            "rate": 86.9,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-11 22:00",
-            "rate": 93.2,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-11 23:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 00:00",
-            "rate": 97.4,
-            "ok": false,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 01:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 02:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 03:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 04:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 05:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 06:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 07:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 09:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 10:00",
-            "rate": 86.5,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-12 11:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 12:00",
-            "rate": 99.4,
-            "ok": false,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 13:00",
-            "rate": 17.4,
-            "ok": false,
-            "anomaly": true
-          }
-        ],
-        "pick": {
-          "g": "Free",
-          "ratio": 0,
-          "eff": 0.0,
-          "r": 95.27,
-          "l": 43603,
-          "t": 9067,
-          "tps": 16.587319604263445,
-          "days": null,
-          "anomaly": 6,
-          "bars_24h": [
-            {
-              "d": "10-11 14:00",
-              "rate": 98.3,
-              "ok": false,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 15:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 16:00",
-              "rate": 99.5,
-              "ok": false,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 17:00",
-              "rate": 94.2,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-11 18:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 19:00",
-              "rate": 95.3,
-              "ok": false,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 20:00",
-              "rate": 92.2,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-11 21:00",
-              "rate": 86.9,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-11 22:00",
-              "rate": 93.2,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-11 23:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 00:00",
-              "rate": 97.4,
-              "ok": false,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 01:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 02:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 03:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 04:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 05:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 06:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 07:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 09:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 10:00",
-              "rate": 86.5,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-12 11:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 12:00",
-              "rate": 99.4,
-              "ok": false,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 13:00",
-              "rate": 17.4,
-              "ok": false,
-              "anomaly": true
-            }
-          ],
-          "bars": []
-        },
-        "tier": "hit",
-        "groups": [
-          {
-            "g": "Free",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 95.28,
-            "l": 43609,
-            "t": 9067,
-            "tps": 16.587319604263445,
-            "days": 19,
-            "anomaly": 6,
-            "bars_24h": [
-              {
-                "d": "10-11 14:00",
-                "rate": 98.3,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 15:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 16:00",
-                "rate": 99.5,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 17:00",
-                "rate": 94.2,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 18:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 19:00",
-                "rate": 95.3,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 20:00",
-                "rate": 92.2,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 21:00",
-                "rate": 86.9,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 22:00",
-                "rate": 93.2,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 00:00",
-                "rate": 97.4,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 01:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 02:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 03:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 04:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 05:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 06:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 07:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 09:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 10:00",
-                "rate": 86.5,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-12 11:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 12:00",
-                "rate": 99.4,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 13:00",
-                "rate": 17.5,
-                "ok": false,
-                "anomaly": true
-              }
-            ],
-            "bars": [
-              {
-                "d": "2026-09-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-14",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-15",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-16",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-17",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-18",
-                "rate": 70.8,
-                "ok": false,
-                "sparse": true,
-                "buckets": 2
-              },
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-20",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-21",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-22",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-23",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-24",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-25",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 3
-              },
-              {
-                "d": "2026-09-26",
-                "rate": 89.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-27",
-                "rate": 81.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-28",
-                "rate": 97.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-29",
-                "rate": 97.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
-              },
-              {
-                "d": "2026-09-30",
-                "rate": 78.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 22
-              },
-              {
-                "d": "2026-10-01",
-                "rate": 96.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 22
-              },
-              {
-                "d": "2026-10-02",
-                "rate": 94.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
-              },
-              {
-                "d": "2026-10-03",
-                "rate": 98.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-04",
-                "rate": 90.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-05",
-                "rate": 94.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-06",
-                "rate": 98.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-07",
-                "rate": 98.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-08",
-                "rate": 97.6,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-09",
-                "rate": 92.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-10",
-                "rate": 94.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-11",
-                "rate": 96.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-12",
-                "rate": 92.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 14
-              }
-            ]
-          },
-          {
-            "g": "Free-Pro",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 91.06,
-            "l": 38100,
-            "t": 9537,
-            "tps": 15.055437247900942,
-            "days": 14,
-            "anomaly": 4,
-            "bars_24h": [
-              {
-                "d": "10-11 14:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 15:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 16:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 17:00",
-                "rate": 84.6,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 18:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 19:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 20:00",
-                "rate": 97.0,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 21:00",
-                "rate": 92.9,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 22:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 02:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 03:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 04:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 09:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 10:00",
-                "rate": 64.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-12 11:00",
-                "rate": 95.1,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 12:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 13:00",
-                "rate": 7.1,
-                "ok": false,
-                "anomaly": true
-              }
-            ],
-            "bars": [
-              {
-                "d": "2026-09-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-14",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-15",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-16",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-17",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-18",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-20",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-21",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-22",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-23",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-24",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-25",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-26",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-27",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-28",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": true,
-                "buckets": 1
-              },
-              {
-                "d": "2026-09-29",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": true,
-                "buckets": 2
-              },
-              {
-                "d": "2026-09-30",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-10-01",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 6
-              },
-              {
-                "d": "2026-10-02",
-                "rate": 73.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 7
-              },
-              {
-                "d": "2026-10-03",
-                "rate": 98.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-04",
-                "rate": 88.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
-              },
-              {
-                "d": "2026-10-05",
-                "rate": 92.6,
-                "ok": false,
-                "sparse": false,
-                "buckets": 22
-              },
-              {
-                "d": "2026-10-06",
-                "rate": 92.0,
-                "ok": false,
-                "sparse": false,
-                "buckets": 18
-              },
-              {
-                "d": "2026-10-07",
-                "rate": 70.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 8
-              },
-              {
-                "d": "2026-10-08",
-                "rate": 72.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 16
-              },
-              {
-                "d": "2026-10-09",
-                "rate": 53.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 13
-              },
-              {
-                "d": "2026-10-10",
-                "rate": 74.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 10
-              },
-              {
-                "d": "2026-10-11",
-                "rate": 88.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
-              },
-              {
-                "d": "2026-10-12",
-                "rate": 86.6,
-                "ok": false,
-                "sparse": false,
-                "buckets": 10
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "n": "deepseek-v4-flash-vision-exp-free",
-        "in_site": "deepseek-v4-flash-vision-exp-free",
-        "r": 91.5,
-        "l": 27578,
-        "t": 4794,
-        "tps": 24.241484442821335,
-        "anomaly": 8,
-        "bars": [
-          {
-            "d": "2026-09-13",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
-          },
-          {
-            "d": "2026-09-14",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
-          },
-          {
-            "d": "2026-09-15",
-            "rate": 79.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 21
-          },
-          {
-            "d": "2026-09-16",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
-          },
-          {
-            "d": "2026-09-17",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
-          },
-          {
-            "d": "2026-09-18",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
-          },
-          {
             "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 3
           },
           {
             "d": "2026-09-20",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 3
           },
           {
             "d": "2026-09-21",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 5
           },
           {
             "d": "2026-09-22",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 75.0,
+            "ok": false,
+            "sparse": false,
+            "buckets": 4
           },
           {
             "d": "2026-09-23",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 5
           },
           {
             "d": "2026-09-24",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 77.8,
+            "ok": false,
+            "sparse": false,
+            "buckets": 9
           },
           {
             "d": "2026-09-25",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 97.4,
+            "ok": false,
+            "sparse": false,
+            "buckets": 14
           },
           {
             "d": "2026-09-26",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 95.5,
+            "ok": false,
+            "sparse": false,
+            "buckets": 16
           },
           {
             "d": "2026-09-27",
-            "rate": 99.2,
+            "rate": 74.6,
             "ok": false,
             "sparse": false,
-            "buckets": 12
+            "buckets": 20
           },
           {
             "d": "2026-09-28",
-            "rate": 99.9,
-            "ok": true,
+            "rate": 93.7,
+            "ok": false,
             "sparse": false,
-            "buckets": 19
+            "buckets": 23
           },
           {
             "d": "2026-09-29",
-            "rate": 98.1,
+            "rate": 99.7,
             "ok": false,
             "sparse": false,
             "buckets": 18
           },
           {
             "d": "2026-09-30",
-            "rate": 73.4,
+            "rate": 97.1,
             "ok": false,
             "sparse": false,
-            "buckets": 16
+            "buckets": 17
           },
           {
             "d": "2026-10-01",
-            "rate": 92.8,
+            "rate": 99.7,
             "ok": false,
             "sparse": false,
-            "buckets": 19
+            "buckets": 24
           },
           {
             "d": "2026-10-02",
-            "rate": 92.5,
+            "rate": 95.6,
             "ok": false,
             "sparse": false,
-            "buckets": 23
+            "buckets": 24
           },
           {
             "d": "2026-10-03",
-            "rate": 97.8,
+            "rate": 99.4,
             "ok": false,
             "sparse": false,
-            "buckets": 21
+            "buckets": 15
           },
           {
             "d": "2026-10-04",
-            "rate": 82.7,
+            "rate": 99.5,
             "ok": false,
             "sparse": false,
-            "buckets": 21
+            "buckets": 24
           },
           {
             "d": "2026-10-05",
-            "rate": 93.7,
+            "rate": 99.1,
             "ok": false,
             "sparse": false,
-            "buckets": 20
+            "buckets": 24
           },
           {
             "d": "2026-10-06",
-            "rate": 98.3,
+            "rate": 99.7,
             "ok": false,
             "sparse": false,
-            "buckets": 19
+            "buckets": 24
           },
           {
             "d": "2026-10-07",
-            "rate": 87.6,
+            "rate": 99.7,
             "ok": false,
             "sparse": false,
             "buckets": 24
           },
           {
             "d": "2026-10-08",
-            "rate": 81.1,
+            "rate": 97.9,
             "ok": false,
             "sparse": false,
             "buckets": 24
           },
           {
             "d": "2026-10-09",
-            "rate": 87.5,
+            "rate": 99.6,
             "ok": false,
             "sparse": false,
-            "buckets": 23
+            "buckets": 24
           },
           {
             "d": "2026-10-10",
-            "rate": 90.0,
+            "rate": 97.7,
             "ok": false,
             "sparse": false,
-            "buckets": 20
+            "buckets": 24
           },
           {
             "d": "2026-10-11",
-            "rate": 80.6,
+            "rate": 99.2,
             "ok": false,
             "sparse": false,
             "buckets": 24
           },
           {
             "d": "2026-10-12",
-            "rate": 92.6,
+            "rate": 99.1,
             "ok": false,
             "sparse": false,
             "buckets": 14
@@ -2310,14 +1999,14 @@ const PROMO = [
         ],
         "buckets_24h": 24,
         "low_sample": null,
-        "free_group": "Free",
+        "free_group": "Discount",
         "delisted": false,
         "why": "",
         "bars_24h": [
           {
             "d": "10-11 14:00",
-            "rate": 100.0,
-            "ok": true,
+            "rate": 97.6,
+            "ok": false,
             "anomaly": false
           },
           {
@@ -2328,44 +2017,44 @@ const PROMO = [
           },
           {
             "d": "10-11 16:00",
-            "rate": 85.7,
-            "ok": false,
-            "anomaly": true
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           },
           {
             "d": "10-11 17:00",
-            "rate": 48.1,
-            "ok": false,
-            "anomaly": true
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           },
           {
             "d": "10-11 18:00",
-            "rate": 76.7,
-            "ok": false,
-            "anomaly": true
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           },
           {
             "d": "10-11 19:00",
-            "rate": 35.1,
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
+          },
+          {
+            "d": "10-11 20:00",
+            "rate": 90.8,
             "ok": false,
             "anomaly": true
           },
           {
-            "d": "10-11 20:00",
-            "rate": 96.4,
+            "d": "10-11 21:00",
+            "rate": 99.4,
             "ok": false,
             "anomaly": false
           },
           {
-            "d": "10-11 21:00",
-            "rate": 70.0,
-            "ok": false,
-            "anomaly": true
-          },
-          {
             "d": "10-11 22:00",
-            "rate": 95.0,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "anomaly": false
           },
           {
@@ -2376,7 +2065,7 @@ const PROMO = [
           },
           {
             "d": "10-12 00:00",
-            "rate": 98.7,
+            "rate": 97.8,
             "ok": false,
             "anomaly": false
           },
@@ -2436,44 +2125,44 @@ const PROMO = [
           },
           {
             "d": "10-12 10:00",
-            "rate": 97.1,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "anomaly": false
           },
           {
             "d": "10-12 11:00",
-            "rate": 86.1,
-            "ok": false,
-            "anomaly": true
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           },
           {
             "d": "10-12 12:00",
-            "rate": 94.6,
-            "ok": false,
-            "anomaly": true
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           },
           {
             "d": "10-12 13:00",
-            "rate": 63.6,
+            "rate": 98.5,
             "ok": false,
-            "anomaly": true
+            "anomaly": false
           }
         ],
         "pick": {
-          "g": "Free",
-          "ratio": 0,
-          "eff": 0.0,
-          "r": 91.52,
-          "l": 27578,
-          "t": 4794,
-          "tps": 24.241484442821335,
+          "g": "Discount",
+          "ratio": 0.08,
+          "eff": 0.08,
+          "r": 99.25,
+          "l": 25855,
+          "t": 13640,
+          "tps": 77.57245133480306,
           "days": null,
-          "anomaly": 8,
+          "anomaly": 1,
           "bars_24h": [
             {
               "d": "10-11 14:00",
-              "rate": 100.0,
-              "ok": true,
+              "rate": 97.6,
+              "ok": false,
               "anomaly": false
             },
             {
@@ -2484,44 +2173,44 @@ const PROMO = [
             },
             {
               "d": "10-11 16:00",
-              "rate": 85.7,
-              "ok": false,
-              "anomaly": true
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             },
             {
               "d": "10-11 17:00",
-              "rate": 48.1,
-              "ok": false,
-              "anomaly": true
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             },
             {
               "d": "10-11 18:00",
-              "rate": 76.7,
-              "ok": false,
-              "anomaly": true
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             },
             {
               "d": "10-11 19:00",
-              "rate": 35.1,
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "10-11 20:00",
+              "rate": 90.8,
               "ok": false,
               "anomaly": true
             },
             {
-              "d": "10-11 20:00",
-              "rate": 96.4,
+              "d": "10-11 21:00",
+              "rate": 99.4,
               "ok": false,
               "anomaly": false
             },
             {
-              "d": "10-11 21:00",
-              "rate": 70.0,
-              "ok": false,
-              "anomaly": true
-            },
-            {
               "d": "10-11 22:00",
-              "rate": 95.0,
-              "ok": false,
+              "rate": 100.0,
+              "ok": true,
               "anomaly": false
             },
             {
@@ -2532,7 +2221,7 @@ const PROMO = [
             },
             {
               "d": "10-12 00:00",
-              "rate": 98.7,
+              "rate": 97.8,
               "ok": false,
               "anomaly": false
             },
@@ -2592,48 +2281,48 @@ const PROMO = [
             },
             {
               "d": "10-12 10:00",
-              "rate": 97.1,
-              "ok": false,
+              "rate": 100.0,
+              "ok": true,
               "anomaly": false
             },
             {
               "d": "10-12 11:00",
-              "rate": 86.1,
-              "ok": false,
-              "anomaly": true
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             },
             {
               "d": "10-12 12:00",
-              "rate": 94.6,
-              "ok": false,
-              "anomaly": true
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             },
             {
               "d": "10-12 13:00",
-              "rate": 63.6,
+              "rate": 98.5,
               "ok": false,
-              "anomaly": true
+              "anomaly": false
             }
           ],
           "bars": []
         },
-        "tier": "hit",
+        "tier": "fill-group",
         "groups": [
           {
-            "g": "Free",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 91.52,
-            "l": 27578,
-            "t": 4794,
-            "tps": 24.241484442821335,
-            "days": 17,
-            "anomaly": 8,
+            "g": "Discount",
+            "ratio": 0.08,
+            "eff": 0.08,
+            "r": 99.25,
+            "l": 25855,
+            "t": 13640,
+            "tps": 77.57245133480306,
+            "days": 10,
+            "anomaly": 1,
             "bars_24h": [
               {
                 "d": "10-11 14:00",
-                "rate": 100.0,
-                "ok": true,
+                "rate": 97.6,
+                "ok": false,
                 "anomaly": false
               },
               {
@@ -2644,44 +2333,44 @@ const PROMO = [
               },
               {
                 "d": "10-11 16:00",
-                "rate": 85.7,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-11 17:00",
-                "rate": 48.1,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-11 18:00",
-                "rate": 76.7,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-11 19:00",
-                "rate": 35.1,
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-11 20:00",
+                "rate": 90.8,
                 "ok": false,
                 "anomaly": true
               },
               {
-                "d": "10-11 20:00",
-                "rate": 96.4,
+                "d": "10-11 21:00",
+                "rate": 99.4,
                 "ok": false,
                 "anomaly": false
               },
               {
-                "d": "10-11 21:00",
-                "rate": 70.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
                 "d": "10-11 22:00",
-                "rate": 95.0,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "anomaly": false
               },
               {
@@ -2692,7 +2381,7 @@ const PROMO = [
               },
               {
                 "d": "10-12 00:00",
-                "rate": 98.7,
+                "rate": 97.8,
                 "ok": false,
                 "anomaly": false
               },
@@ -2752,27 +2441,27 @@ const PROMO = [
               },
               {
                 "d": "10-12 10:00",
-                "rate": 97.1,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "anomaly": false
               },
               {
                 "d": "10-12 11:00",
-                "rate": 86.1,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-12 12:00",
-                "rate": 94.6,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-12 13:00",
-                "rate": 63.6,
+                "rate": 98.5,
                 "ok": false,
-                "anomaly": true
+                "anomaly": false
               }
             ],
             "bars": [
@@ -2792,10 +2481,10 @@ const PROMO = [
               },
               {
                 "d": "2026-09-15",
-                "rate": 79.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 21
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-16",
@@ -2876,112 +2565,112 @@ const PROMO = [
               },
               {
                 "d": "2026-09-27",
-                "rate": 99.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 11
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-28",
-                "rate": 99.9,
-                "ok": true,
-                "sparse": false,
-                "buckets": 19
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-29",
-                "rate": 97.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 18
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-30",
-                "rate": 71.6,
-                "ok": false,
-                "sparse": false,
-                "buckets": 15
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-01",
-                "rate": 92.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 18
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-02",
-                "rate": 93.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-03",
-                "rate": 98.7,
+                "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 20
+                "buckets": 12
               },
               {
                 "d": "2026-10-04",
-                "rate": 94.7,
+                "rate": 99.5,
                 "ok": false,
                 "sparse": false,
-                "buckets": 19
+                "buckets": 24
               },
               {
                 "d": "2026-10-05",
-                "rate": 97.4,
+                "rate": 99.1,
                 "ok": false,
                 "sparse": false,
-                "buckets": 19
+                "buckets": 24
               },
               {
                 "d": "2026-10-06",
-                "rate": 99.9,
-                "ok": true,
+                "rate": 99.7,
+                "ok": false,
                 "sparse": false,
-                "buckets": 17
+                "buckets": 24
               },
               {
                 "d": "2026-10-07",
-                "rate": 86.0,
+                "rate": 99.7,
                 "ok": false,
                 "sparse": false,
-                "buckets": 21
+                "buckets": 24
               },
               {
                 "d": "2026-10-08",
-                "rate": 90.6,
+                "rate": 97.9,
                 "ok": false,
                 "sparse": false,
-                "buckets": 23
+                "buckets": 24
               },
               {
                 "d": "2026-10-09",
-                "rate": 90.0,
+                "rate": 99.7,
                 "ok": false,
                 "sparse": false,
-                "buckets": 22
+                "buckets": 24
               },
               {
                 "d": "2026-10-10",
-                "rate": 85.5,
+                "rate": 98.0,
                 "ok": false,
                 "sparse": false,
-                "buckets": 17
+                "buckets": 24
               },
               {
                 "d": "2026-10-11",
-                "rate": 88.7,
+                "rate": 99.5,
                 "ok": false,
                 "sparse": false,
-                "buckets": 20
+                "buckets": 24
               },
               {
                 "d": "2026-10-12",
-                "rate": 95.7,
+                "rate": 99.7,
                 "ok": false,
                 "sparse": false,
                 "buckets": 14
@@ -2992,110 +2681,13 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 81.35,
-            "l": 24588,
-            "t": 6352,
-            "tps": 25.66289742410204,
-            "days": 16,
-            "anomaly": 8,
-            "bars_24h": [
-              {
-                "d": "10-11 14:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 15:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 16:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 17:00",
-                "rate": 33.3,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 18:00",
-                "rate": 0.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 19:00",
-                "rate": 0.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 20:00",
-                "rate": 50.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 21:00",
-                "rate": 0.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-11 22:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-11 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 07:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 09:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 10:00",
-                "rate": 25.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-12 11:00",
-                "rate": 0.0,
-                "ok": false,
-                "anomaly": true
-              },
-              {
-                "d": "10-12 12:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 13:00",
-                "rate": 5.0,
-                "ok": false,
-                "anomaly": true
-              }
-            ],
+            "r": 98.45,
+            "l": 16383,
+            "t": 5684,
+            "tps": 97.75368110757155,
+            "days": 9,
+            "anomaly": 0,
+            "bars_24h": [],
             "bars": [
               {
                 "d": "2026-09-13",
@@ -3183,6 +2775,230 @@ const PROMO = [
               },
               {
                 "d": "2026-09-25",
+                "rate": 94.8,
+                "ok": false,
+                "sparse": false,
+                "buckets": 7
+              },
+              {
+                "d": "2026-09-26",
+                "rate": 99.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 14
+              },
+              {
+                "d": "2026-09-27",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 15
+              },
+              {
+                "d": "2026-09-28",
+                "rate": 99.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 20
+              },
+              {
+                "d": "2026-09-29",
+                "rate": 99.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 16
+              },
+              {
+                "d": "2026-09-30",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 17
+              },
+              {
+                "d": "2026-10-01",
+                "rate": 99.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-10-02",
+                "rate": 94.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-10-03",
+                "rate": 97.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-10-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              }
+            ]
+          },
+          {
+            "g": "Free",
+            "ratio": 0,
+            "eff": 0.0,
+            "r": 88.43,
+            "l": 23664,
+            "t": 9560,
+            "tps": 95.74479937142351,
+            "days": 4,
+            "anomaly": 0,
+            "bars_24h": [],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": 92.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-09-14",
+                "rate": 91.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-09-15",
+                "rate": 95.5,
+                "ok": false,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-16",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-17",
+                "rate": 63.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-09-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-21",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-22",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-23",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-24",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-25",
                 "rate": null,
                 "ok": null,
                 "sparse": null,
@@ -3197,17 +3013,284 @@ const PROMO = [
               },
               {
                 "d": "2026-09-27",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": true,
-                "buckets": 1
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-28",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-29",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-30",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-01",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-02",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              }
+            ]
+          },
+          {
+            "g": "DeepSeek",
+            "ratio": 0.1,
+            "eff": 0.1,
+            "r": 84.09,
+            "l": 20753,
+            "t": 17380,
+            "tps": 121.99630815637032,
+            "days": 26,
+            "anomaly": 6,
+            "bars_24h": [
+              {
+                "d": "10-11 14:00",
                 "rate": 100.0,
                 "ok": true,
-                "sparse": true,
-                "buckets": 2
+                "anomaly": false
+              },
+              {
+                "d": "10-11 18:00",
+                "rate": 0.0,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 09:00",
+                "rate": 0.0,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 10:00",
+                "rate": 0.0,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 11:00",
+                "rate": 0.0,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 12:00",
+                "rate": 85.7,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 13:00",
+                "rate": 91.3,
+                "ok": false,
+                "anomaly": true
+              }
+            ],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-14",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-15",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-16",
+                "rate": 94.5,
+                "ok": false,
+                "sparse": false,
+                "buckets": 7
+              },
+              {
+                "d": "2026-09-17",
+                "rate": 98.2,
+                "ok": false,
+                "sparse": false,
+                "buckets": 10
+              },
+              {
+                "d": "2026-09-18",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-09-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-09-20",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-09-21",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-22",
+                "rate": 75.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 4
+              },
+              {
+                "d": "2026-09-23",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-24",
+                "rate": 77.8,
+                "ok": false,
+                "sparse": false,
+                "buckets": 9
+              },
+              {
+                "d": "2026-09-25",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 8
+              },
+              {
+                "d": "2026-09-26",
+                "rate": 83.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 6
+              },
+              {
+                "d": "2026-09-27",
+                "rate": 50.4,
+                "ok": false,
+                "sparse": false,
+                "buckets": 12
+              },
+              {
+                "d": "2026-09-28",
+                "rate": 90.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 20
               },
               {
                 "d": "2026-09-29",
@@ -3218,114 +3301,114 @@ const PROMO = [
               },
               {
                 "d": "2026-09-30",
-                "rate": 100.0,
-                "ok": true,
+                "rate": 2.2,
+                "ok": false,
                 "sparse": true,
-                "buckets": 1
+                "buckets": 2
               },
               {
                 "d": "2026-10-01",
                 "rate": 100.0,
                 "ok": true,
-                "sparse": true,
-                "buckets": 2
+                "sparse": false,
+                "buckets": 4
               },
               {
                 "d": "2026-10-02",
-                "rate": 75.0,
-                "ok": false,
-                "sparse": false,
-                "buckets": 11
-              },
-              {
-                "d": "2026-10-03",
-                "rate": 93.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 15
-              },
-              {
-                "d": "2026-10-04",
-                "rate": 44.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 9
-              },
-              {
-                "d": "2026-10-05",
-                "rate": 69.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 10
-              },
-              {
-                "d": "2026-10-06",
-                "rate": 90.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 15
-              },
-              {
-                "d": "2026-10-07",
-                "rate": 81.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 16
-              },
-              {
-                "d": "2026-10-08",
-                "rate": 42.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 11
-              },
-              {
-                "d": "2026-10-09",
-                "rate": 67.3,
+                "rate": 99.5,
                 "ok": false,
                 "sparse": false,
                 "buckets": 14
               },
               {
-                "d": "2026-10-10",
-                "rate": 90.2,
+                "d": "2026-10-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-04",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 8
+              },
+              {
+                "d": "2026-10-05",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 8
+              },
+              {
+                "d": "2026-10-06",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 21
+              },
+              {
+                "d": "2026-10-07",
+                "rate": 99.2,
                 "ok": false,
                 "sparse": false,
-                "buckets": 17
+                "buckets": 14
+              },
+              {
+                "d": "2026-10-08",
+                "rate": 57.5,
+                "ok": false,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-10-09",
+                "rate": 66.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-10-10",
+                "rate": 50.0,
+                "ok": false,
+                "sparse": true,
+                "buckets": 2
               },
               {
                 "d": "2026-10-11",
-                "rate": 70.4,
+                "rate": 40.0,
                 "ok": false,
                 "sparse": false,
-                "buckets": 23
+                "buckets": 5
               },
               {
                 "d": "2026-10-12",
-                "rate": 55.0,
+                "rate": 35.4,
                 "ok": false,
                 "sparse": false,
-                "buckets": 6
+                "buckets": 5
               }
             ]
           }
         ]
       },
       {
-        "n": "glm-5.3-flash-free",
-        "in_site": "glm-5.3-flash-free",
-        "r": 97.8,
-        "l": 22395,
-        "t": 6374,
-        "tps": 40.96879489006451,
-        "anomaly": 3,
+        "n": "deepseek-v4.1-flash",
+        "in_site": "deepseek-v4.1-flash",
+        "r": 98.4,
+        "l": 16714,
+        "t": 13191,
+        "tps": 244.49679547708965,
+        "anomaly": 5,
         "bars": [
           {
             "d": "2026-09-13",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 50.0,
+            "ok": false,
+            "sparse": false,
+            "buckets": 4
           },
           {
             "d": "2026-09-14",
@@ -3343,197 +3426,197 @@ const PROMO = [
           },
           {
             "d": "2026-09-16",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
+            "rate": 54.8,
+            "ok": false,
+            "sparse": false,
+            "buckets": 20
           },
           {
             "d": "2026-09-17",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0
-          },
-          {
-            "d": "2026-09-18",
-            "rate": 90.0,
-            "ok": false,
-            "sparse": false,
-            "buckets": 19
-          },
-          {
-            "d": "2026-09-19",
-            "rate": 90.3,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-20",
-            "rate": 90.3,
-            "ok": false,
-            "sparse": false,
-            "buckets": 22
-          },
-          {
-            "d": "2026-09-21",
-            "rate": 69.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-22",
-            "rate": 61.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 19
-          },
-          {
-            "d": "2026-09-23",
-            "rate": 60.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 21
-          },
-          {
-            "d": "2026-09-24",
-            "rate": 69.4,
-            "ok": false,
-            "sparse": false,
-            "buckets": 16
-          },
-          {
-            "d": "2026-09-25",
-            "rate": 57.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 7
-          },
-          {
-            "d": "2026-09-26",
-            "rate": 88.0,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-27",
-            "rate": 94.7,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-28",
-            "rate": 97.0,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-29",
-            "rate": 98.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-09-30",
-            "rate": 93.8,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-01",
-            "rate": 96.3,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-02",
-            "rate": 94.1,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-03",
-            "rate": 99.0,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-04",
-            "rate": 97.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-05",
             "rate": 99.2,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-06",
-            "rate": 99.1,
             "ok": false,
             "sparse": false,
             "buckets": 23
           },
           {
-            "d": "2026-10-07",
-            "rate": 99.9,
-            "ok": true,
-            "sparse": false,
-            "buckets": 24
-          },
-          {
-            "d": "2026-10-08",
-            "rate": 99.6,
+            "d": "2026-09-18",
+            "rate": 99.8,
             "ok": false,
             "sparse": false,
             "buckets": 24
           },
           {
+            "d": "2026-09-19",
+            "rate": 99.7,
+            "ok": false,
+            "sparse": false,
+            "buckets": 17
+          },
+          {
+            "d": "2026-09-20",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 11
+          },
+          {
+            "d": "2026-09-21",
+            "rate": 99.7,
+            "ok": false,
+            "sparse": false,
+            "buckets": 15
+          },
+          {
+            "d": "2026-09-22",
+            "rate": 98.9,
+            "ok": false,
+            "sparse": false,
+            "buckets": 16
+          },
+          {
+            "d": "2026-09-23",
+            "rate": 98.9,
+            "ok": false,
+            "sparse": false,
+            "buckets": 9
+          },
+          {
+            "d": "2026-09-24",
+            "rate": 65.9,
+            "ok": false,
+            "sparse": false,
+            "buckets": 8
+          },
+          {
+            "d": "2026-09-25",
+            "rate": 95.6,
+            "ok": false,
+            "sparse": false,
+            "buckets": 9
+          },
+          {
+            "d": "2026-09-26",
+            "rate": 74.3,
+            "ok": false,
+            "sparse": false,
+            "buckets": 7
+          },
+          {
+            "d": "2026-09-27",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 4
+          },
+          {
+            "d": "2026-09-28",
+            "rate": 93.3,
+            "ok": false,
+            "sparse": false,
+            "buckets": 15
+          },
+          {
+            "d": "2026-09-29",
+            "rate": 99.9,
+            "ok": true,
+            "sparse": false,
+            "buckets": 5
+          },
+          {
+            "d": "2026-09-30",
+            "rate": 93.0,
+            "ok": false,
+            "sparse": false,
+            "buckets": 8
+          },
+          {
+            "d": "2026-10-01",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 11
+          },
+          {
+            "d": "2026-10-02",
+            "rate": 75.2,
+            "ok": false,
+            "sparse": false,
+            "buckets": 10
+          },
+          {
+            "d": "2026-10-03",
+            "rate": 76.5,
+            "ok": false,
+            "sparse": false,
+            "buckets": 15
+          },
+          {
+            "d": "2026-10-04",
+            "rate": 35.3,
+            "ok": false,
+            "sparse": false,
+            "buckets": 8
+          },
+          {
+            "d": "2026-10-05",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 10
+          },
+          {
+            "d": "2026-10-06",
+            "rate": 99.8,
+            "ok": false,
+            "sparse": false,
+            "buckets": 11
+          },
+          {
+            "d": "2026-10-07",
+            "rate": 97.6,
+            "ok": false,
+            "sparse": false,
+            "buckets": 22
+          },
+          {
+            "d": "2026-10-08",
+            "rate": 76.8,
+            "ok": false,
+            "sparse": false,
+            "buckets": 23
+          },
+          {
             "d": "2026-10-09",
-            "rate": 96.5,
+            "rate": 91.8,
             "ok": false,
             "sparse": false,
             "buckets": 24
           },
           {
             "d": "2026-10-10",
-            "rate": 96.3,
+            "rate": 96.1,
             "ok": false,
             "sparse": false,
             "buckets": 24
           },
           {
             "d": "2026-10-11",
-            "rate": 98.8,
+            "rate": 98.3,
             "ok": false,
             "sparse": false,
-            "buckets": 24
+            "buckets": 23
           },
           {
             "d": "2026-10-12",
-            "rate": 94.6,
+            "rate": 58.3,
             "ok": false,
             "sparse": false,
-            "buckets": 14
+            "buckets": 6
           }
         ],
-        "buckets_24h": 24,
+        "buckets_24h": 11,
         "low_sample": null,
-        "free_group": "Free-Pro",
+        "free_group": "Discount",
         "delisted": false,
         "why": "",
         "bars_24h": [
@@ -3557,7 +3640,7 @@ const PROMO = [
           },
           {
             "d": "10-11 17:00",
-            "rate": 97.1,
+            "rate": 99.8,
             "ok": false,
             "anomaly": false
           },
@@ -3569,129 +3652,51 @@ const PROMO = [
           },
           {
             "d": "10-11 19:00",
-            "rate": 93.4,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-11 20:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 21:00",
-            "rate": 85.5,
-            "ok": false,
-            "anomaly": true
-          },
-          {
-            "d": "10-11 22:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-11 23:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 00:00",
-            "rate": 99.4,
-            "ok": false,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 01:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 02:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 03:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 04:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 05:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 06:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 07:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "10-12 08:00",
             "rate": 100.0,
             "ok": true,
             "anomaly": false
           },
           {
             "d": "10-12 09:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
+            "rate": 0.0,
+            "ok": false,
+            "anomaly": true
           },
           {
             "d": "10-12 10:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
+            "rate": 35.0,
+            "ok": false,
+            "anomaly": true
           },
           {
             "d": "10-12 11:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
+            "rate": 42.9,
+            "ok": false,
+            "anomaly": true
           },
           {
             "d": "10-12 12:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
+            "rate": 38.8,
+            "ok": false,
+            "anomaly": true
           },
           {
             "d": "10-12 13:00",
-            "rate": 24.5,
+            "rate": 37.5,
             "ok": false,
             "anomaly": true
           }
         ],
         "pick": {
-          "g": "Free-Pro",
-          "ratio": 0,
-          "eff": 0.0,
-          "r": 97.84,
-          "l": 22395,
-          "t": 6374,
-          "tps": 40.96879489006451,
+          "g": "Discount",
+          "ratio": 0.08,
+          "eff": 0.08,
+          "r": 98.38,
+          "l": 16714,
+          "t": 13191,
+          "tps": 244.49679547708965,
           "days": null,
-          "anomaly": 3,
+          "anomaly": 5,
           "bars_24h": [
             {
               "d": "10-11 14:00",
@@ -3713,7 +3718,7 @@ const PROMO = [
             },
             {
               "d": "10-11 17:00",
-              "rate": 97.1,
+              "rate": 99.8,
               "ok": false,
               "anomaly": false
             },
@@ -3725,115 +3730,37 @@ const PROMO = [
             },
             {
               "d": "10-11 19:00",
-              "rate": 93.4,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-11 20:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 21:00",
-              "rate": 85.5,
-              "ok": false,
-              "anomaly": true
-            },
-            {
-              "d": "10-11 22:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-11 23:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 00:00",
-              "rate": 99.4,
-              "ok": false,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 01:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 02:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 03:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 04:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 05:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 06:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 07:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "10-12 08:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
             },
             {
               "d": "10-12 09:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
+              "rate": 0.0,
+              "ok": false,
+              "anomaly": true
             },
             {
               "d": "10-12 10:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
+              "rate": 35.0,
+              "ok": false,
+              "anomaly": true
             },
             {
               "d": "10-12 11:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
+              "rate": 42.9,
+              "ok": false,
+              "anomaly": true
             },
             {
               "d": "10-12 12:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
+              "rate": 38.8,
+              "ok": false,
+              "anomaly": true
             },
             {
               "d": "10-12 13:00",
-              "rate": 24.5,
+              "rate": 37.5,
               "ok": false,
               "anomaly": true
             }
@@ -3843,246 +3770,15 @@ const PROMO = [
         "tier": "fill-group",
         "groups": [
           {
-            "g": "Free",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 100,
-            "l": 20826,
-            "t": 5531,
-            "tps": 36.62165005786776,
-            "days": 24,
-            "anomaly": 0,
-            "bars_24h": [
-              {
-                "d": "10-11 14:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              }
-            ],
-            "bars": [
-              {
-                "d": "2026-09-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-14",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-15",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-16",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-17",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              },
-              {
-                "d": "2026-09-18",
-                "rate": 90.0,
-                "ok": false,
-                "sparse": false,
-                "buckets": 19
-              },
-              {
-                "d": "2026-09-19",
-                "rate": 90.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-20",
-                "rate": 90.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 22
-              },
-              {
-                "d": "2026-09-21",
-                "rate": 69.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-22",
-                "rate": 61.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 19
-              },
-              {
-                "d": "2026-09-23",
-                "rate": 60.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 21
-              },
-              {
-                "d": "2026-09-24",
-                "rate": 69.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 16
-              },
-              {
-                "d": "2026-09-25",
-                "rate": 57.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 7
-              },
-              {
-                "d": "2026-09-26",
-                "rate": 88.0,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-27",
-                "rate": 94.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-28",
-                "rate": 96.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-29",
-                "rate": 99.0,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-09-30",
-                "rate": 93.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-01",
-                "rate": 96.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-02",
-                "rate": 94.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-03",
-                "rate": 99.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-04",
-                "rate": 97.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-05",
-                "rate": 99.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-06",
-                "rate": 99.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
-              },
-              {
-                "d": "2026-10-07",
-                "rate": 99.9,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-08",
-                "rate": 99.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-09",
-                "rate": 96.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-10",
-                "rate": 97.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
-              },
-              {
-                "d": "2026-10-11",
-                "rate": 99.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 15
-              },
-              {
-                "d": "2026-10-12",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0
-              }
-            ]
-          },
-          {
-            "g": "Free-Pro",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 97.84,
-            "l": 22395,
-            "t": 6374,
-            "tps": 40.96879489006451,
-            "days": 16,
-            "anomaly": 3,
+            "g": "DeepSeek",
+            "ratio": 0.1,
+            "eff": 0.1,
+            "r": 99.81,
+            "l": 10530,
+            "t": 7287,
+            "tps": 215.89493170086266,
+            "days": 27,
+            "anomaly": 1,
             "bars_24h": [
               {
                 "d": "10-11 14:00",
@@ -4104,8 +3800,8 @@ const PROMO = [
               },
               {
                 "d": "10-11 17:00",
-                "rate": 97.1,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "anomaly": false
               },
               {
@@ -4116,9 +3812,9 @@ const PROMO = [
               },
               {
                 "d": "10-11 19:00",
-                "rate": 93.4,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-11 20:00",
@@ -4128,9 +3824,9 @@ const PROMO = [
               },
               {
                 "d": "10-11 21:00",
-                "rate": 85.5,
-                "ok": false,
-                "anomaly": true
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               },
               {
                 "d": "10-11 22:00",
@@ -4139,76 +3835,10 @@ const PROMO = [
                 "anomaly": false
               },
               {
-                "d": "10-11 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 00:00",
-                "rate": 99.4,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 01:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
                 "d": "10-12 02:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 03:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 04:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 05:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 06:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 07:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 09:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "10-12 10:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
+                "rate": 71.4,
+                "ok": false,
+                "anomaly": true
               },
               {
                 "d": "10-12 11:00",
@@ -4224,7 +3854,298 @@ const PROMO = [
               },
               {
                 "d": "10-12 13:00",
-                "rate": 24.5,
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              }
+            ],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-14",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-15",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-16",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 20
+              },
+              {
+                "d": "2026-09-17",
+                "rate": 99.2,
+                "ok": false,
+                "sparse": false,
+                "buckets": 23
+              },
+              {
+                "d": "2026-09-18",
+                "rate": 99.8,
+                "ok": false,
+                "sparse": false,
+                "buckets": 24
+              },
+              {
+                "d": "2026-09-19",
+                "rate": 99.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 17
+              },
+              {
+                "d": "2026-09-20",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 11
+              },
+              {
+                "d": "2026-09-21",
+                "rate": 99.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 15
+              },
+              {
+                "d": "2026-09-22",
+                "rate": 99.8,
+                "ok": false,
+                "sparse": false,
+                "buckets": 15
+              },
+              {
+                "d": "2026-09-23",
+                "rate": 98.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 9
+              },
+              {
+                "d": "2026-09-24",
+                "rate": 65.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 8
+              },
+              {
+                "d": "2026-09-25",
+                "rate": 95.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 9
+              },
+              {
+                "d": "2026-09-26",
+                "rate": 88.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 3
+              },
+              {
+                "d": "2026-09-27",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 4
+              },
+              {
+                "d": "2026-09-28",
+                "rate": 93.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 15
+              },
+              {
+                "d": "2026-09-29",
+                "rate": 99.9,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-30",
+                "rate": 93.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 8
+              },
+              {
+                "d": "2026-10-01",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 11
+              },
+              {
+                "d": "2026-10-02",
+                "rate": 75.2,
+                "ok": false,
+                "sparse": false,
+                "buckets": 10
+              },
+              {
+                "d": "2026-10-03",
+                "rate": 76.5,
+                "ok": false,
+                "sparse": false,
+                "buckets": 15
+              },
+              {
+                "d": "2026-10-04",
+                "rate": 35.3,
+                "ok": false,
+                "sparse": false,
+                "buckets": 8
+              },
+              {
+                "d": "2026-10-05",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 10
+              },
+              {
+                "d": "2026-10-06",
+                "rate": 99.8,
+                "ok": false,
+                "sparse": false,
+                "buckets": 11
+              },
+              {
+                "d": "2026-10-07",
+                "rate": 97.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 22
+              },
+              {
+                "d": "2026-10-08",
+                "rate": 77.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 23
+              },
+              {
+                "d": "2026-10-09",
+                "rate": 83.5,
+                "ok": false,
+                "sparse": false,
+                "buckets": 18
+              },
+              {
+                "d": "2026-10-10",
+                "rate": 92.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 18
+              },
+              {
+                "d": "2026-10-11",
+                "rate": 94.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 19
+              },
+              {
+                "d": "2026-10-12",
+                "rate": 92.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 4
+              }
+            ]
+          },
+          {
+            "g": "Discount",
+            "ratio": 0.08,
+            "eff": 0.08,
+            "r": 98.38,
+            "l": 16714,
+            "t": 13191,
+            "tps": 244.49679547708965,
+            "days": 5,
+            "anomaly": 5,
+            "bars_24h": [
+              {
+                "d": "10-11 14:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-11 15:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-11 16:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-11 17:00",
+                "rate": 99.8,
+                "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "10-11 18:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-11 19:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-12 09:00",
+                "rate": 0.0,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 10:00",
+                "rate": 35.0,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 11:00",
+                "rate": 42.9,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 12:00",
+                "rate": 38.8,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-12 13:00",
+                "rate": 37.5,
                 "ok": false,
                 "anomaly": true
               }
@@ -4330,115 +4251,563 @@ const PROMO = [
               },
               {
                 "d": "2026-09-27",
-                "rate": 85.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 7
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-28",
-                "rate": 99.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 20
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-29",
-                "rate": 98.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 9
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-09-30",
-                "rate": 96.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 7
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-01",
-                "rate": 91.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 21
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-02",
-                "rate": 77.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-03",
-                "rate": 99.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 19
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-04",
-                "rate": 95.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 17
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-05",
-                "rate": 98.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-06",
-                "rate": 98.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-07",
-                "rate": 99.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               },
               {
                 "d": "2026-10-08",
-                "rate": 98.9,
+                "rate": 94.4,
+                "ok": false,
+                "sparse": false,
+                "buckets": 14
+              },
+              {
+                "d": "2026-10-09",
+                "rate": 91.4,
                 "ok": false,
                 "sparse": false,
                 "buckets": 24
               },
               {
-                "d": "2026-10-09",
-                "rate": 96.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23
-              },
-              {
                 "d": "2026-10-10",
-                "rate": 93.1,
+                "rate": 95.8,
                 "ok": false,
                 "sparse": false,
                 "buckets": 24
               },
               {
                 "d": "2026-10-11",
-                "rate": 98.6,
+                "rate": 97.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 24
+                "buckets": 20
               },
               {
                 "d": "2026-10-12",
-                "rate": 94.6,
+                "rate": 30.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 14
+                "buckets": 5
+              }
+            ]
+          },
+          {
+            "g": "Free-Pro",
+            "ratio": 0,
+            "eff": 0.0,
+            "r": 70.59,
+            "l": 109737,
+            "t": 7887,
+            "tps": 83.89202153315692,
+            "days": 1,
+            "anomaly": 0,
+            "bars_24h": [],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-14",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-15",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-16",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-17",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-21",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-22",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-23",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-24",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-25",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-26",
+                "rate": 64.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 5
+              },
+              {
+                "d": "2026-09-27",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-28",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-29",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-30",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-01",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-02",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              }
+            ]
+          },
+          {
+            "g": "Free",
+            "ratio": 0,
+            "eff": 0.0,
+            "r": 33.36,
+            "l": 6809,
+            "t": 4123,
+            "tps": 208.64590395590682,
+            "days": 1,
+            "anomaly": 0,
+            "bars_24h": [],
+            "bars": [
+              {
+                "d": "2026-09-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-14",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-15",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-16",
+                "rate": 37.7,
+                "ok": false,
+                "sparse": false,
+                "buckets": 15
+              },
+              {
+                "d": "2026-09-17",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-21",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-22",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-23",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-24",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-25",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-26",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-27",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-28",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-29",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-09-30",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-01",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-02",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
+              },
+              {
+                "d": "2026-10-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0
               }
             ]
           }
@@ -4608,7 +4977,7 @@ const PROMO = [
     "pick_available": 3,
     "pick_total": 3,
     "health": {
-      "score": 68.8,
+      "score": 65.6,
       "level": "可用",
       "rate_window": 100.0,
       "streak_days": 2,
@@ -4828,18 +5197,18 @@ const PROMO = [
       "families": [
         {
           "name": "其他",
-          "count": 28
+          "count": 29
         },
         {
           "name": "DeepSeek",
           "count": 14
         },
         {
-          "name": "Claude",
-          "count": 13
+          "name": "GPT",
+          "count": 14
         },
         {
-          "name": "GPT",
+          "name": "Claude",
           "count": 13
         },
         {
@@ -4879,7 +5248,7 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 68.8（可用）｜连通性 35/35（最近 5 次采样多数值：直连 4/5、代理 5/5、延迟中位数 5 次） + 免费模型 14.8/35（3 个监控模型成功率中位数 42.39%）+ 延迟 10/15（1096ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 65.6（可用）｜连通性 35/35（最近 5 次采样多数值：直连 4/5、代理 5/5、延迟中位数 5 次） + 免费模型 11.6/35（3 个监控模型成功率中位数 33.05%）+ 延迟 10/15（1164ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -4894,7 +5263,7 @@ const PROMO = [
         "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 1096,
+      "latency_ms": 1164,
       "latency_n": 5
     },
     "models": [
@@ -4902,9 +5271,9 @@ const PROMO = [
         "n": "deepseek-v4-flash-vision-exp",
         "in_site": "deepseek-v4-flash-vision-exp",
         "r": 99.7,
-        "l": 29993,
-        "t": 20616,
-        "tps": 18.978984998391834,
+        "l": 29737,
+        "t": 20552,
+        "tps": 18.885619787396656,
         "anomaly": 1,
         "bars": [
           {
@@ -5112,7 +5481,7 @@ const PROMO = [
           },
           {
             "d": "2026-10-12",
-            "rate": 96.8,
+            "rate": 96.9,
             "ok": false,
             "sparse": false,
             "buckets": 14
@@ -5222,7 +5591,7 @@ const PROMO = [
           },
           {
             "d": "10-12 13:00",
-            "rate": 98.7,
+            "rate": 99.3,
             "ok": false,
             "anomaly": false
           }
@@ -5231,10 +5600,10 @@ const PROMO = [
           "g": "Unlimited",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.69,
-          "l": 29993,
-          "t": 20616,
-          "tps": 18.978984998391834,
+          "r": 99.7,
+          "l": 29737,
+          "t": 20552,
+          "tps": 18.885619787396656,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
@@ -5336,7 +5705,7 @@ const PROMO = [
             },
             {
               "d": "10-12 13:00",
-              "rate": 98.7,
+              "rate": 99.3,
               "ok": false,
               "anomaly": false
             }
@@ -5598,10 +5967,10 @@ const PROMO = [
             "g": "Unlimited",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.69,
-            "l": 29993,
-            "t": 20616,
-            "tps": 18.978984998391834,
+            "r": 99.7,
+            "l": 29742,
+            "t": 20552,
+            "tps": 18.88599140008019,
             "days": 7,
             "anomaly": 1,
             "bars_24h": [
@@ -5703,7 +6072,7 @@ const PROMO = [
               },
               {
                 "d": "10-12 13:00",
-                "rate": 98.7,
+                "rate": 99.3,
                 "ok": false,
                 "anomaly": false
               }
@@ -6163,8 +6532,8 @@ const PROMO = [
       {
         "n": "deepseek-v4-flash",
         "in_site": "deepseek-v4-flash",
-        "r": 42.4,
-        "l": 22918,
+        "r": 33.1,
+        "l": 19168,
         "t": 36808,
         "tps": 66.40469483366009,
         "anomaly": 4,
@@ -6374,7 +6743,7 @@ const PROMO = [
           },
           {
             "d": "2026-10-12",
-            "rate": 96.7,
+            "rate": 96.6,
             "ok": false,
             "sparse": false,
             "buckets": 14
@@ -6421,8 +6790,8 @@ const PROMO = [
           "g": "Unlimited",
           "ratio": 0,
           "eff": 0.0,
-          "r": 42.39,
-          "l": 22918,
+          "r": 33.05,
+          "l": 19168,
           "t": 36808,
           "tps": 66.40469483366009,
           "days": null,
@@ -6800,10 +7169,10 @@ const PROMO = [
             "g": "Plan-DeepSeek",
             "ratio": 1,
             "eff": 1.0,
-            "r": 97.83,
-            "l": 16628,
-            "t": 3425,
-            "tps": 81.3271025490744,
+            "r": 97.86,
+            "l": 16823,
+            "t": 3435,
+            "tps": 81.84543814778637,
             "days": 24,
             "anomaly": 0,
             "bars_24h": [
@@ -6875,7 +7244,7 @@ const PROMO = [
               },
               {
                 "d": "10-12 13:00",
-                "rate": 98.3,
+                "rate": 98.2,
                 "ok": false,
                 "anomaly": false
               }
@@ -7097,10 +7466,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0.01,
             "eff": 0.01,
-            "r": 94.37,
-            "l": 21491,
-            "t": 10966,
-            "tps": 82.17904451765517,
+            "r": 94.38,
+            "l": 21462,
+            "t": 10950,
+            "tps": 82.16772965248417,
             "days": 29,
             "anomaly": 8,
             "bars_24h": [
@@ -7769,8 +8138,8 @@ const PROMO = [
             "g": "Unlimited",
             "ratio": 0,
             "eff": 0.0,
-            "r": 42.39,
-            "l": 22918,
+            "r": 33.05,
+            "l": 19168,
             "t": 36808,
             "tps": 66.40469483366009,
             "days": 14,
@@ -8025,8 +8394,8 @@ const PROMO = [
       {
         "n": "deepseek-v4.1-flash",
         "in_site": "deepseek-v4.1-flash",
-        "r": 30.7,
-        "l": 14412,
+        "r": 19.7,
+        "l": 11525,
         "t": 16943,
         "tps": 79.73535501938717,
         "anomaly": 4,
@@ -8236,7 +8605,7 @@ const PROMO = [
           },
           {
             "d": "2026-10-12",
-            "rate": 78.2,
+            "rate": 76.7,
             "ok": false,
             "sparse": false,
             "buckets": 14
@@ -8283,8 +8652,8 @@ const PROMO = [
           "g": "Unlimited",
           "ratio": 0,
           "eff": 0.0,
-          "r": 30.68,
-          "l": 14412,
+          "r": 19.71,
+          "l": 11525,
           "t": 16943,
           "tps": 79.73535501938717,
           "days": null,
@@ -8330,9 +8699,9 @@ const PROMO = [
             "ratio": 0.06,
             "eff": 0.06,
             "r": 100,
-            "l": 13691,
-            "t": 11094,
-            "tps": 183.4295967963402,
+            "l": 13901,
+            "t": 11368,
+            "tps": 183.20737452875423,
             "days": 1,
             "anomaly": 0,
             "bars_24h": [
@@ -8828,9 +9197,9 @@ const PROMO = [
             "ratio": 0.15,
             "eff": 0.15,
             "r": 99.74,
-            "l": 36050,
-            "t": 26612,
-            "tps": 126.98704021667704,
+            "l": 35915,
+            "t": 26576,
+            "tps": 126.95818179919047,
             "days": 30,
             "anomaly": 1,
             "bars_24h": [
@@ -9184,10 +9553,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0.01,
             "eff": 0.01,
-            "r": 75.34,
-            "l": 31280,
-            "t": 17217,
-            "tps": 167.94321835352727,
+            "r": 75.13,
+            "l": 31153,
+            "t": 17185,
+            "tps": 167.93668746799497,
             "days": 15,
             "anomaly": 19,
             "bars_24h": [
@@ -9331,7 +9700,7 @@ const PROMO = [
               },
               {
                 "d": "10-12 13:00",
-                "rate": 56.5,
+                "rate": 52.3,
                 "ok": false,
                 "anomaly": true
               }
@@ -9542,7 +9911,7 @@ const PROMO = [
               },
               {
                 "d": "2026-10-12",
-                "rate": 76.3,
+                "rate": 76.0,
                 "ok": false,
                 "sparse": false,
                 "buckets": 14
@@ -9553,8 +9922,8 @@ const PROMO = [
             "g": "Unlimited",
             "ratio": 0,
             "eff": 0.0,
-            "r": 30.68,
-            "l": 14412,
+            "r": 19.71,
+            "l": 11525,
             "t": 16943,
             "tps": 79.73535501938717,
             "days": 16,
@@ -10231,7 +10600,7 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 93.6（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.6/35（3 个监控模型成功率中位数 98.86%）+ 延迟 15/15（402ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 93.6（优）｜连通性 35/35（最近 5 次采样多数值：直连 4/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.6/35（3 个监控模型成功率中位数 98.86%）+ 延迟 15/15（412ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -10239,14 +10608,14 @@ const PROMO = [
       "source": "最近 5 次采样多数值",
       "direct": {
         "ok": true,
-        "votes": "5/5"
+        "votes": "4/5"
       },
       "proxy": {
         "ok": true,
         "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 402,
+      "latency_ms": 412,
       "latency_n": 5
     },
     "models": [
@@ -10443,7 +10812,7 @@ const PROMO = [
           },
           {
             "d": "2026-10-09",
-            "rate": 96.1,
+            "rate": 95.9,
             "ok": false,
             "sparse": false,
             "buckets": 11
@@ -11125,7 +11494,7 @@ const PROMO = [
                 "rate": 95.2,
                 "ok": false,
                 "sparse": false,
-                "buckets": 128
+                "buckets": 125
               },
               {
                 "d": "2026-10-10",
@@ -11156,9 +11525,9 @@ const PROMO = [
         "n": "z-ai/glm-5.3",
         "in_site": "z-ai/glm-5.3",
         "r": 98.9,
-        "l": 98199,
-        "t": 36773,
-        "tps": 20.609646636406165,
+        "l": 98361,
+        "t": 36794,
+        "tps": 20.620559164407606,
         "anomaly": 5,
         "bars": [
           {
@@ -11528,9 +11897,9 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 98.86,
-          "l": 98199,
-          "t": 36773,
-          "tps": 20.609646636406165,
+          "l": 98361,
+          "t": 36794,
+          "tps": 20.620559164407606,
           "days": null,
           "anomaly": 5,
           "bars_24h": [
@@ -11688,9 +12057,9 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 98.86,
-            "l": 98199,
-            "t": 36773,
-            "tps": 20.609646636406165,
+            "l": 98361,
+            "t": 36794,
+            "tps": 20.620559164407606,
             "days": 4,
             "anomaly": 5,
             "bars_24h": [
@@ -12027,7 +12396,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 128
+                "buckets": 125
               },
               {
                 "d": "2026-10-10",
@@ -12048,7 +12417,7 @@ const PROMO = [
                 "rate": 92.9,
                 "ok": false,
                 "sparse": false,
-                "buckets": 151
+                "buckets": 152
               }
             ]
           }
@@ -12929,7 +13298,7 @@ const PROMO = [
                 "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 128
+                "buckets": 125
               },
               {
                 "d": "2026-10-10",
