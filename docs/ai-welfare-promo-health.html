@@ -362,6 +362,13 @@ html[data-theme=dark] .rchip.free b{color:#7fe0bb}
 .rchip[hidden]{display:none}
 .rchip.na{color:var(--date);border-style:dashed;cursor:default;font-weight:500}   /* 站方未公开：虚线灰，别做成可点 */
 .rconv{flex:0 0 auto;font-size:.6rem;color:var(--date);white-space:nowrap}         /* 折算口径小字（仅 uc!=1 时出现） */
+/* ---- 全部模型（站方 /api/pricing 目录口径）----
+   摆在模型卡图例那一行的右侧，chip 与弹出面板**完全复用分组倍率那一套**（.rchip / .rpop），
+   视觉与交互因此跟倍率列表一致。入口只有一个「全部模型 N 个」按钮，模型名 chips 默认 hidden、
+   点开才铺进浮层 —— 不能让 fitRatios 逐个试宽度收起：一个站 233 个 chip 会强制重排几百次。 */
+.rblock.all{margin-left:auto;border:0;border-left:0;padding:0;background:transparent;gap:0}
+.rblock.all .rchips{flex:0 1 auto;overflow:visible}
+.rblock.all .rpop{left:auto;right:0;min-width:min(440px,86vw);max-width:min(640px,86vw);max-height:320px;overflow:auto}
 @media(max-width:760px){
   /* 窄屏：指标**只留成功率**，跟桌面端同布局 —— 名字 + 成功率一行搞定，不再折成"名字独占一行 + 
      4 个数字等分一行"（那版行高翻倍、卡片也跟着高）。表头同步隐藏第 3 项起，靠 nth-child 与实际列对齐。
@@ -440,7 +447,7 @@ html[data-theme=dark] .rchip.free b{color:#7fe0bb}
 /* 最近一次检测时间戳（由 bake_preview.py 每次烘焙写入，取自 health.json 的 generated_at）。
    整点脚本每 30 分钟跑一轮，页面是静态快照 —— 这里必须用**采集时间**，
    不能用浏览器当前时间（那会显示"用户打开页面的时刻"，与数据实际新鲜度无关）。 */
-const CHECKED_AT = "10-14 13:07";
+const CHECKED_AT = "10-14 13:40";
 const PROMO = [
   {
     "name": "KiosAPI",
@@ -826,7 +833,7 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 91.4（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 4/5、延迟中位数 4 次） + 免费模型 32.4/35（3 个监控模型成功率中位数 92.43%）+ 延迟 15/15（404ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 91.4（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 32.4/35（3 个监控模型成功率中位数 92.52%）+ 延迟 15/15（265ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -838,20 +845,20 @@ const PROMO = [
       },
       "proxy": {
         "ok": true,
-        "votes": "4/5"
+        "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 404,
-      "latency_n": 4
+      "latency_ms": 265,
+      "latency_n": 5
     },
     "models": [
       {
         "n": "glm-5.3-flash-free",
         "in_site": "glm-5.3-flash-free",
         "r": 97.0,
-        "l": 82077,
-        "t": 43128,
-        "tps": 30.04302787383507,
+        "l": 81930,
+        "t": 43014,
+        "tps": 30.095075112762018,
         "anomaly": 2,
         "bars": [
           {
@@ -1059,7 +1066,7 @@ const PROMO = [
           },
           {
             "d": "2026-10-14",
-            "rate": 99.0,
+            "rate": 99.3,
             "ok": false,
             "sparse": false,
             "buckets": 14
@@ -1220,10 +1227,10 @@ const PROMO = [
           "g": "Free",
           "ratio": 0,
           "eff": 0.0,
-          "r": 96.98,
-          "l": 82077,
-          "t": 43128,
-          "tps": 30.04302787383507,
+          "r": 97.01,
+          "l": 81930,
+          "t": 43014,
+          "tps": 30.095075112762018,
           "days": null,
           "anomaly": 2,
           "bars_24h": [
@@ -1380,12 +1387,12 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 98.54,
-            "l": 43242,
-            "t": 22381,
-            "tps": 32.776808875308426,
+            "r": 98.56,
+            "l": 43105,
+            "t": 22342,
+            "tps": 32.86459405348967,
             "days": 18,
-            "anomaly": 2,
+            "anomaly": 1,
             "bars_24h": [
               {
                 "d": "10-13 14:00",
@@ -1527,9 +1534,9 @@ const PROMO = [
               },
               {
                 "d": "10-14 13:00",
-                "rate": 90.9,
+                "rate": 97.9,
                 "ok": false,
-                "anomaly": true
+                "anomaly": false
               }
             ],
             "bars": [
@@ -1738,7 +1745,7 @@ const PROMO = [
               },
               {
                 "d": "2026-10-14",
-                "rate": 98.9,
+                "rate": 99.4,
                 "ok": false,
                 "sparse": false,
                 "buckets": 14
@@ -1749,10 +1756,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 96.98,
-            "l": 82077,
-            "t": 43128,
-            "tps": 30.04302787383507,
+            "r": 97.01,
+            "l": 81930,
+            "t": 43014,
+            "tps": 30.095075112762018,
             "days": 27,
             "anomaly": 2,
             "bars_24h": [
@@ -2119,10 +2126,10 @@ const PROMO = [
       {
         "n": "deepseek-v4-flash-vision-exp-free",
         "in_site": "deepseek-v4-flash-vision-exp-free",
-        "r": 92.4,
-        "l": 30373,
-        "t": 6122,
-        "tps": 21.303515207241464,
+        "r": 92.5,
+        "l": 30083,
+        "t": 6080,
+        "tps": 21.3150176941801,
         "anomaly": 10,
         "bars": [
           {
@@ -2485,10 +2492,10 @@ const PROMO = [
           "g": "Free",
           "ratio": 0,
           "eff": 0.0,
-          "r": 92.43,
-          "l": 30373,
-          "t": 6122,
-          "tps": 21.303515207241464,
+          "r": 92.52,
+          "l": 30083,
+          "t": 6080,
+          "tps": 21.3150176941801,
           "days": null,
           "anomaly": 10,
           "bars_24h": [
@@ -2639,10 +2646,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 92.43,
-            "l": 30373,
-            "t": 6122,
-            "tps": 21.303515207241464,
+            "r": 92.52,
+            "l": 30083,
+            "t": 6080,
+            "tps": 21.3150176941801,
             "days": 19,
             "anomaly": 10,
             "bars_24h": [
@@ -3002,10 +3009,10 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 83.33,
-            "l": 27613,
-            "t": 8664,
-            "tps": 24.218661175045774,
+            "r": 83.36,
+            "l": 27566,
+            "t": 8648,
+            "tps": 24.218819054570755,
             "days": 18,
             "anomaly": 9,
             "bars_24h": [
@@ -3125,6 +3132,12 @@ const PROMO = [
               },
               {
                 "d": "10-14 12:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-14 13:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -3336,10 +3349,10 @@ const PROMO = [
               },
               {
                 "d": "2026-10-14",
-                "rate": 87.5,
+                "rate": 88.7,
                 "ok": false,
                 "sparse": false,
-                "buckets": 10
+                "buckets": 11
               }
             ]
           }
@@ -3348,10 +3361,10 @@ const PROMO = [
       {
         "n": "deepseek-v4-flash-free",
         "in_site": "deepseek-v4-flash-free",
-        "r": 91.6,
-        "l": 39772,
-        "t": 9131,
-        "tps": 18.267877835697487,
+        "r": 91.7,
+        "l": 39526,
+        "t": 9034,
+        "tps": 18.286441636351686,
         "anomaly": 9,
         "bars": [
           {
@@ -3720,10 +3733,10 @@ const PROMO = [
           "g": "Free",
           "ratio": 0,
           "eff": 0.0,
-          "r": 91.55,
-          "l": 39772,
-          "t": 9131,
-          "tps": 18.267877835697487,
+          "r": 91.72,
+          "l": 39526,
+          "t": 9034,
+          "tps": 18.286441636351686,
           "days": null,
           "anomaly": 9,
           "bars_24h": [
@@ -3880,10 +3893,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 91.55,
-            "l": 39772,
-            "t": 9131,
-            "tps": 18.267877835697487,
+            "r": 91.72,
+            "l": 39526,
+            "t": 9034,
+            "tps": 18.286441636351686,
             "days": 21,
             "anomaly": 9,
             "bars_24h": [
@@ -4249,10 +4262,10 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 85.33,
-            "l": 36623,
-            "t": 10243,
-            "tps": 17.26709049525155,
+            "r": 85.99,
+            "l": 36166,
+            "t": 10021,
+            "tps": 17.34797414336288,
             "days": 16,
             "anomaly": 12,
             "bars_24h": [
@@ -4610,6 +4623,88 @@ const PROMO = [
           }
         ]
       }
+    ],
+    "all_models": [
+      "agnes-2.5-flash",
+      "agnes-3.0-flash",
+      "atria-dawn-preview",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-haiku-4-5-20251001",
+      "claude-haiku-5-5",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-opus-5-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-5-5",
+      "deepseek-ocr",
+      "deepseek-r1-0528-qwen3-8b",
+      "deepseek-v4-flash",
+      "deepseek-v4-flash-free",
+      "deepseek-v4-flash-vision-exp-free",
+      "deepseek-v4-pro",
+      "deepseek-v4-pro-0813",
+      "deepseek-v4.1-flash",
+      "deepseek-v4.1-flash-free",
+      "dots-3-note-preview",
+      "gemini-2.5-flash",
+      "gemini-3-flash",
+      "gemini-3.1-pro-preview",
+      "gemini-3.5-flash",
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "glm-4-9b-0414",
+      "glm-5.1",
+      "glm-5.2",
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.3-flash-free",
+      "glm-5.3-free",
+      "glm-z1-9b-0414",
+      "glyph-cluster",
+      "gpt-5.5",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-6-astra",
+      "gpt-6-sol",
+      "gpt-6.1-sol",
+      "gpt-image-2",
+      "gpt-image-2.5",
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-sunburst",
+      "gpt-oss-20b",
+      "grok-4.5",
+      "grok-4.6",
+      "grok-4.7",
+      "grok-imagine-image",
+      "grok-imagine-image-2.0",
+      "grok-imagine-image-edit",
+      "grok-imagine-image-quality",
+      "hunyuan-mt-7b",
+      "hy3",
+      "hy4",
+      "kimi-k2.7-code",
+      "kimi-k3",
+      "laguna-s-2.1",
+      "laguna-xs-2.1",
+      "lfm-2.5-2.6b",
+      "ling-3.1-flash",
+      "llama-3.2-11b-vision-instruct",
+      "nemotron-3-super-120b-a12b",
+      "nemotron-3-ultra-550b-a55b",
+      "nemotron-3.5-lightning",
+      "north-mini-code",
+      "openrouter/free",
+      "qwen2.5-7b-instruct",
+      "qwen3-8b",
+      "qwen3.8-27b-free",
+      "qwen3.8-flash-free",
+      "sensenova-6.8-flash-lite",
+      "step-5-preview-free"
     ],
     "monitor_mode": "tags",
     "free_pool": null,
@@ -5051,7 +5146,7 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 88.6（良）｜连通性 35/35（最近 5 次采样多数值：直连 4/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.6/35（3 个监控模型成功率中位数 98.92%）+ 延迟 10/15（1041ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 88.6（良）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.6/35（3 个监控模型成功率中位数 98.93%）+ 延迟 10/15（1028ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -5059,14 +5154,14 @@ const PROMO = [
       "source": "最近 5 次采样多数值",
       "direct": {
         "ok": true,
-        "votes": "4/5"
+        "votes": "5/5"
       },
       "proxy": {
         "ok": true,
         "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 1041,
+      "latency_ms": 1028,
       "latency_n": 5
     },
     "models": [
@@ -5074,9 +5169,9 @@ const PROMO = [
         "n": "deepseek-v4-flash-vision-exp",
         "in_site": "deepseek-v4-flash-vision-exp",
         "r": 99.6,
-        "l": 175198,
-        "t": 26171,
-        "tps": 1.0025137199865357,
+        "l": 169969,
+        "t": 25433,
+        "tps": 1.0326880278698871,
         "anomaly": 1,
         "bars": [
           {
@@ -5445,10 +5540,10 @@ const PROMO = [
           "g": "Unlimited",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.59,
-          "l": 175198,
-          "t": 26171,
-          "tps": 1.0025137199865357,
+          "r": 99.6,
+          "l": 169969,
+          "t": 25433,
+          "tps": 1.0326880278698871,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
@@ -5836,10 +5931,10 @@ const PROMO = [
             "g": "Unlimited",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.59,
-            "l": 175198,
-            "t": 26171,
-            "tps": 1.0025137199865357,
+            "r": 99.6,
+            "l": 169969,
+            "t": 25433,
+            "tps": 1.0326880278698871,
             "days": 9,
             "anomaly": 1,
             "bars_24h": [
@@ -6431,9 +6526,9 @@ const PROMO = [
         "n": "glm-5.3",
         "in_site": "glm-5.3",
         "r": 98.9,
-        "l": 56757,
+        "l": 56819,
         "t": 30606,
-        "tps": 36.31742084137187,
+        "tps": 36.59149865457128,
         "anomaly": 1,
         "bars": [
           {
@@ -6644,10 +6739,10 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": false,
-            "buckets": 8
+            "buckets": 9
           }
         ],
-        "buckets_24h": 16,
+        "buckets_24h": 17,
         "low_sample": null,
         "free_group": "Free",
         "delisted": false,
@@ -6748,16 +6843,22 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-14 13:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "Free",
           "ratio": 0.01,
           "eff": 0.01,
-          "r": 98.92,
-          "l": 56757,
+          "r": 98.93,
+          "l": 56819,
           "t": 30606,
-          "tps": 36.31742084137187,
+          "tps": 36.59149865457128,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
@@ -6856,6 +6957,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-14 13:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -6866,10 +6973,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0.01,
             "eff": 0.01,
-            "r": 98.92,
-            "l": 56757,
+            "r": 98.93,
+            "l": 56819,
             "t": 30606,
-            "tps": 36.31742084137187,
+            "tps": 36.59149865457128,
             "days": 6,
             "anomaly": 1,
             "bars_24h": [
@@ -6965,6 +7072,12 @@ const PROMO = [
               },
               {
                 "d": "10-14 12:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-14 13:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -7179,7 +7292,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 8
+                "buckets": 9
               }
             ]
           },
@@ -7636,10 +7749,10 @@ const PROMO = [
       {
         "n": "glm-5.3-flash",
         "in_site": "glm-5.3-flash",
-        "r": 98.1,
-        "l": 175765,
-        "t": 72477,
-        "tps": 0.9953756649353764,
+        "r": 98.6,
+        "l": 135860,
+        "t": 52995,
+        "tps": 2.043317581054528,
         "anomaly": 1,
         "bars": [
           {
@@ -7850,10 +7963,10 @@ const PROMO = [
             "rate": 99.3,
             "ok": false,
             "sparse": false,
-            "buckets": 8
+            "buckets": 9
           }
         ],
-        "buckets_24h": 9,
+        "buckets_24h": 10,
         "low_sample": null,
         "free_group": "Free",
         "delisted": false,
@@ -7912,16 +8025,22 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-14 13:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "Free",
           "ratio": 0.01,
           "eff": 0.01,
-          "r": 98.15,
-          "l": 175765,
-          "t": 72477,
-          "tps": 0.9953756649353764,
+          "r": 98.61,
+          "l": 135860,
+          "t": 52995,
+          "tps": 2.043317581054528,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
@@ -7975,6 +8094,12 @@ const PROMO = [
             },
             {
               "d": "10-14 12:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "10-14 13:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -8219,10 +8344,10 @@ const PROMO = [
             "g": "Free",
             "ratio": 0.01,
             "eff": 0.01,
-            "r": 98.15,
-            "l": 175765,
-            "t": 72477,
-            "tps": 0.9953756649353764,
+            "r": 98.61,
+            "l": 135860,
+            "t": 52995,
+            "tps": 2.043317581054528,
             "days": 13,
             "anomaly": 1,
             "bars_24h": [
@@ -8276,6 +8401,12 @@ const PROMO = [
               },
               {
                 "d": "10-14 12:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-14 13:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -8490,7 +8621,7 @@ const PROMO = [
                 "rate": 99.3,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8
+                "buckets": 9
               }
             ]
           },
@@ -8945,6 +9076,147 @@ const PROMO = [
         ]
       }
     ],
+    "all_models": [
+      "Claude-Haiku-4-5",
+      "Claude-Sonnet-4-5",
+      "DeepSeek-V4-Flash",
+      "DeepSeek-V4-Pro",
+      "DeepSeek-V4.1-Flash",
+      "GLM-5.1",
+      "GLM-5.2",
+      "GLM-5.3",
+      "Gemini-3.1-Pro",
+      "Gemini-3.6-Flash",
+      "Gemini-3.7-Flash",
+      "Gemini-3.8-Flash",
+      "Grok-4.5",
+      "Grok-4.6",
+      "Grok-4.7",
+      "Kimi-K2.6",
+      "Kimi-K3",
+      "Ling-3.1-flash",
+      "MiniMax-M2.7",
+      "Qwen3.8-Flash",
+      "Qwen3.8-Max",
+      "agents-a1",
+      "agnes-2.5-flash",
+      "agnes-3.0-flash",
+      "agnes-image-2.0-flash",
+      "agnes-image-2.1-flash",
+      "agnes-image-2.5-flash",
+      "apodex-1.1-mini",
+      "atria-dawn-preview",
+      "bge-large-en-v1.5",
+      "bge-large-zh-v1.5",
+      "bge-m3",
+      "bge-reranker-v2-m3",
+      "claude-fable-5",
+      "claude-haiku-4-5",
+      "claude-opus-4-5",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-4-8-request",
+      "claude-opus-5",
+      "claude-opus-5-5",
+      "claude-sonnet-4-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-5-5",
+      "codex-auto-review",
+      "deepseek-ocr",
+      "deepseek-v3.2",
+      "deepseek-v4-flash",
+      "deepseek-v4-flash-0731",
+      "deepseek-v4-flash-vision-exp",
+      "deepseek-v4-pro",
+      "deepseek-v4-pro-0813",
+      "deepseek-v4.1-flash",
+      "deepseek-v4.1-flash-expires-on-0910",
+      "deepseek-v4.1-flash-request",
+      "diffusiongemma-26b-a4b-it",
+      "dots-3-note-preview",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-3-flash",
+      "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-pro",
+      "gemini-3.1-pro-preview",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "glm-4-9b-0414",
+      "glm-5.1",
+      "glm-5.2",
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.3-flashx",
+      "glm-z1-9b-0414",
+      "gpt-5.5",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-6",
+      "gpt-6-astra",
+      "gpt-6-luna",
+      "gpt-6-sol",
+      "gpt-6.1-sol",
+      "gpt-image-2",
+      "gpt-image-2-4k",
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-flare-4k",
+      "gpt-image-2.5-sunburst",
+      "gpt-image-2.5-sunburst-4k",
+      "grok-4.5",
+      "grok-4.6",
+      "grok-4.7",
+      "grok-4.7-build-fast",
+      "grok-build-0.1",
+      "grok-imagine-image",
+      "grok-imagine-image-2.0",
+      "grok-imagine-image-edit",
+      "hunyuan-mt-7b",
+      "hy3",
+      "hy4-preview",
+      "intern-s2",
+      "kimi-k2.6",
+      "kimi-k2.8",
+      "kimi-k3",
+      "llama-3.2-11b-vision-instruct",
+      "longcat-2.5",
+      "midjourney",
+      "mimo-v2.5",
+      "mimo-v2.6-flash",
+      "minimax-m2.7",
+      "minimax-m3",
+      "muse-glimmer-30b",
+      "nano-banana-2",
+      "nano-banana-2.1",
+      "nano-banana-pro",
+      "nemotron-3-super-120b-a12b",
+      "nemotron-3-ultra-550b-a55b",
+      "nemotron-3.5-lightning-30b-a3b",
+      "nemotron-parse-2.0",
+      "north-mini-code",
+      "openrouter/free",
+      "paddleocr-vl-1.5",
+      "qwen2.5-7b-instruct",
+      "qwen3-8b",
+      "qwen3.5-4b",
+      "qwen3.8-flash",
+      "qwen3.8-flash-next",
+      "qwen3.8-max",
+      "qwen3.8-max-preview",
+      "seedream-v5-pro",
+      "seedream-v5-pro-nsfw",
+      "sensenova-6.8-flash-lite",
+      "step-5-preview",
+      "swe-1-6",
+      "xing4.0-29b"
+    ],
     "monitor_mode": "tags",
     "free_pool": null,
     "free_groups": null,
@@ -9353,7 +9625,7 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 76.9（良）｜连通性 18/35（最近 5 次采样多数值：直连 1/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.9/35（3 个监控模型成功率中位数 99.81%）+ 延迟 15/15（411ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 76.9（良）｜连通性 18/35（最近 5 次采样多数值：直连 2/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.9/35（3 个监控模型成功率中位数 99.81%）+ 延迟 15/15（420ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -9361,14 +9633,14 @@ const PROMO = [
       "source": "最近 5 次采样多数值",
       "direct": {
         "ok": false,
-        "votes": "1/5"
+        "votes": "2/5"
       },
       "proxy": {
         "ok": true,
         "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 411,
+      "latency_ms": 420,
       "latency_n": 5
     },
     "models": [
@@ -9376,9 +9648,9 @@ const PROMO = [
         "n": "z-ai/glm-5.3-flash",
         "in_site": "z-ai/glm-5.3-flash",
         "r": 99.9,
-        "l": 21583,
-        "t": 5404,
-        "tps": 32.687707056205284,
+        "l": 21524,
+        "t": 5385,
+        "tps": 32.76468353398559,
         "anomaly": 0,
         "bars": [
           {
@@ -9586,8 +9858,8 @@ const PROMO = [
           },
           {
             "d": "2026-10-14",
-            "rate": 99.3,
-            "ok": false,
+            "rate": 99.9,
+            "ok": true,
             "sparse": false,
             "buckets": 14
           }
@@ -9738,7 +10010,7 @@ const PROMO = [
           },
           {
             "d": "10-14 13:00",
-            "rate": 95.2,
+            "rate": 98.9,
             "ok": false,
             "anomaly": false
           }
@@ -9748,9 +10020,9 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 99.89,
-          "l": 21583,
-          "t": 5404,
-          "tps": 32.687707056205284,
+          "l": 21524,
+          "t": 5385,
+          "tps": 32.76468353398559,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
@@ -9894,7 +10166,7 @@ const PROMO = [
             },
             {
               "d": "10-14 13:00",
-              "rate": 95.2,
+              "rate": 98.9,
               "ok": false,
               "anomaly": false
             }
@@ -9908,9 +10180,9 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 99.89,
-            "l": 21583,
-            "t": 5404,
-            "tps": 32.687707056205284,
+            "l": 21523,
+            "t": 5385,
+            "tps": 32.76465487159987,
             "days": 4,
             "anomaly": 0,
             "bars_24h": [
@@ -10054,7 +10326,7 @@ const PROMO = [
               },
               {
                 "d": "10-14 13:00",
-                "rate": 95.2,
+                "rate": 98.9,
                 "ok": false,
                 "anomaly": false
               }
@@ -10247,7 +10519,7 @@ const PROMO = [
                 "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 129
+                "buckets": 122
               },
               {
                 "d": "2026-10-12",
@@ -10268,7 +10540,7 @@ const PROMO = [
                 "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 158
+                "buckets": 165
               }
             ]
           }
@@ -10278,9 +10550,9 @@ const PROMO = [
         "n": "deepseek-ai/deepseek-v4.1-flash",
         "in_site": "deepseek-ai/deepseek-v4.1-flash",
         "r": 99.8,
-        "l": 70814,
-        "t": 31203,
-        "tps": 48.34611535382106,
+        "l": 70956,
+        "t": 31322,
+        "tps": 48.2450363573599,
         "anomaly": 0,
         "bars": [
           {
@@ -10488,7 +10760,7 @@ const PROMO = [
           },
           {
             "d": "2026-10-14",
-            "rate": 99.7,
+            "rate": 99.8,
             "ok": false,
             "sparse": false,
             "buckets": 14
@@ -10640,7 +10912,7 @@ const PROMO = [
           },
           {
             "d": "10-14 13:00",
-            "rate": 98.4,
+            "rate": 99.7,
             "ok": false,
             "anomaly": false
           }
@@ -10650,9 +10922,9 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 99.81,
-          "l": 70814,
-          "t": 31203,
-          "tps": 48.34611535382106,
+          "l": 70956,
+          "t": 31322,
+          "tps": 48.2450363573599,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
@@ -10796,7 +11068,7 @@ const PROMO = [
             },
             {
               "d": "10-14 13:00",
-              "rate": 98.4,
+              "rate": 99.7,
               "ok": false,
               "anomaly": false
             }
@@ -10810,9 +11082,9 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 99.81,
-            "l": 70815,
-            "t": 31202,
-            "tps": 48.34594761323284,
+            "l": 70957,
+            "t": 31322,
+            "tps": 48.24481077661385,
             "days": 4,
             "anomaly": 0,
             "bars_24h": [
@@ -10956,7 +11228,7 @@ const PROMO = [
               },
               {
                 "d": "10-14 13:00",
-                "rate": 98.4,
+                "rate": 99.7,
                 "ok": false,
                 "anomaly": false
               }
@@ -11146,10 +11418,10 @@ const PROMO = [
               },
               {
                 "d": "2026-10-11",
-                "rate": 68.2,
+                "rate": 71.5,
                 "ok": false,
                 "sparse": false,
-                "buckets": 109
+                "buckets": 104
               },
               {
                 "d": "2026-10-12",
@@ -11170,7 +11442,7 @@ const PROMO = [
                 "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 158
+                "buckets": 165
               }
             ]
           }
@@ -11180,9 +11452,9 @@ const PROMO = [
         "n": "z-ai/glm-5.3",
         "in_site": "z-ai/glm-5.3",
         "r": 99.5,
-        "l": 193886,
-        "t": 82946,
-        "tps": 19.19118535350833,
+        "l": 193855,
+        "t": 82803,
+        "tps": 19.203319735523017,
         "anomaly": 3,
         "bars": [
           {
@@ -11551,10 +11823,10 @@ const PROMO = [
           "g": "NIM",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.47,
-          "l": 193886,
-          "t": 82946,
-          "tps": 19.19118535350833,
+          "r": 99.48,
+          "l": 193855,
+          "t": 82803,
+          "tps": 19.203319735523017,
           "days": null,
           "anomaly": 3,
           "bars_24h": [
@@ -11711,10 +11983,10 @@ const PROMO = [
             "g": "NIM",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.47,
-            "l": 193886,
-            "t": 82946,
-            "tps": 19.19118535350833,
+            "r": 99.48,
+            "l": 193855,
+            "t": 82803,
+            "tps": 19.203319735523017,
             "days": 4,
             "anomaly": 3,
             "bars_24h": [
@@ -12048,10 +12320,10 @@ const PROMO = [
               },
               {
                 "d": "2026-10-11",
-                "rate": 94.1,
+                "rate": 93.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 125
+                "buckets": 118
               },
               {
                 "d": "2026-10-12",
@@ -12072,12 +12344,224 @@ const PROMO = [
                 "rate": 99.0,
                 "ok": false,
                 "sparse": false,
-                "buckets": 132
+                "buckets": 137
               }
             ]
           }
         ]
       }
+    ],
+    "all_models": [
+      "MiniMax-H3",
+      "MiniMax-M2.7",
+      "MiniMax-M2.7-free",
+      "MiniMax-M2.7-highspeed",
+      "MiniMax-M3",
+      "agnes-2.5-flash",
+      "agnes-3.0-flash",
+      "agnes-image-2.0-flash",
+      "agnes-image-2.1-flash",
+      "agnes-image-2.5-flash",
+      "agnes-video-2.5-flash",
+      "ali/deepseek-v4-flash-0731",
+      "ali/deepseek-v4-pro-0813",
+      "ali/deepseek-v4.1-flash",
+      "ali/doubao-seed-2-1-pro",
+      "ali/doubao-seed-2-1-turbo",
+      "ali/glm-5.2",
+      "ali/glm-5.3",
+      "ali/glm-5.3-flash",
+      "ali/glm-5.3-flashx",
+      "ali/glm-5.3-prime",
+      "ali/kimi-k2.5",
+      "ali/kimi-k3",
+      "ali/qwen3.7-flash",
+      "ali/qwen3.7-max",
+      "ali/qwen3.7-plus",
+      "ali/qwen3.8-flash",
+      "ali/qwen3.8-max",
+      "ali/qwen3.8-max-0902",
+      "anti/gemini-3.1-pro-preview",
+      "azure-tts",
+      "bge-large-en-v1.5",
+      "bge-large-zh-v1.5",
+      "bge-m3",
+      "bge-reranker-v2-m3",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-haiku-4-5-20251001",
+      "claude-haiku-5-5",
+      "claude-opus-4-5-20251101",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-opus-5-5",
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-5-5",
+      "codex-auto-review",
+      "cohere-north-mini-code-free",
+      "deepseek-ai/deepseek-v4.1-flash",
+      "deepseek-ocr",
+      "deepseek-r1-0528-qwen3-8b",
+      "deepseek-v4-flash",
+      "deepseek-v4-flash-0731-free",
+      "deepseek-v4-flash-0731-free-3",
+      "deepseek-v4-flash-vision-exp-free",
+      "deepseek-v4-pro",
+      "deepseek-v4.1-flash",
+      "deepseek-v4.1-flash-free",
+      "gemini-2.5-flash-image",
+      "gemini-3-pro-image",
+      "gemini-3.1-flash-image",
+      "gemini-3.8-flash",
+      "gemini-4-argon",
+      "gemini-nano-banana-2.1",
+      "gemma-4-31b-it-free",
+      "glm-4-9b-0414",
+      "glm-5.1",
+      "glm-5.2",
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-5.3-flash-free",
+      "glm-5.3-flash-free-2",
+      "glm-5.3-flashx",
+      "glm-z1-9b-0414",
+      "go/ali/deepseek-v4-flash-0731",
+      "go/ali/deepseek-v4-pro-0813",
+      "go/ali/deepseek-v4.1-flash",
+      "go/ali/doubao-seed-2-1-pro",
+      "go/ali/doubao-seed-2-1-turbo",
+      "go/ali/glm-5.3",
+      "go/ali/glm-5.3-flash",
+      "go/ali/glm-5.3-flashx",
+      "go/ali/glm-5.3-prime",
+      "go/ali/qwen3.8-flash",
+      "go/ali/qwen3.8-max",
+      "go/claude-haiku-5-5",
+      "go/deepseek-v4-flash-0731",
+      "go/deepseek-v4-pro-0813",
+      "go/deepseek-v4.1-flash",
+      "go/glm-5.1",
+      "go/glm-5.2",
+      "go/glm-5.3",
+      "go/glm-5.3-flash",
+      "go/gpt-5.6-luna",
+      "go/gpt-5.6-sol",
+      "go/gpt-6-astra",
+      "go/gpt-6.1-sol",
+      "go/grok-4.6",
+      "go/grok-4.7",
+      "go/hy3",
+      "go/hy4-preview",
+      "go/kimi-k2.6",
+      "go/kimi-k2.7-code",
+      "go/kimi-k3",
+      "go/longcat-2.5-preview-free",
+      "go/mimo-v2.5",
+      "go/mimo-v2.5-pro",
+      "go/mimo-v2.6-flash",
+      "go/mimo-v2.6-pro",
+      "go/minimax-m2.7",
+      "go/minimax-m3",
+      "go/muse-spark-1.2-contributor",
+      "go/muse-spark-1.3-contributor",
+      "go/qwen3.8-flash",
+      "go/qwen3.8-max",
+      "go/space-bunny-free",
+      "google/diffusiongemma-26b-a4b-it",
+      "google/gemma-4-31b-it",
+      "gpt-5.5",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-6-astra",
+      "gpt-6-sol",
+      "gpt-6.1-sol",
+      "gpt-image-2",
+      "gpt-image-2-medium",
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-sunburst",
+      "grok-4.5",
+      "grok-4.6",
+      "grok-4.7",
+      "grok-4.7-build-fast",
+      "grok-build-0.1",
+      "grok-imagine-image",
+      "grok-imagine-image-2.0",
+      "hunyuan-mt-7b",
+      "hy3",
+      "hy4-preview",
+      "indextts-2",
+      "jev-1.13",
+      "jev-1.13-free",
+      "kimi-k2.6",
+      "kimi-k2.7-code",
+      "kimi-k2.8-preview",
+      "kimi-k3",
+      "kolors",
+      "m/gemini-flash",
+      "m/gpt-image-2",
+      "m/gpt-image-2.5-flare",
+      "m/gpt-image-2.5-sunburst",
+      "m/nano-banana-2",
+      "m/nano-banana-2-lite",
+      "m/nano-banana-pro",
+      "meta/llama-3.2-11b-vision-instruct",
+      "meta/llama-3.2-90b-vision-instruct",
+      "meta/llama-guard-4-12b",
+      "mimo-v2.5",
+      "mimo-v2.5-pro",
+      "mimo-v2.6-flash",
+      "mimo-v2.6-flash-free",
+      "mimo-v2.6-flash-free-2",
+      "mimo-v2.6-pro",
+      "mineru2.5-pro-free",
+      "minicpm5-2b-free",
+      "moonshotai/kimi-k3",
+      "muse-spark-1.2-contributor",
+      "muse-spark-1.3-contributor",
+      "nvidia/ising-calibration-1.5-31b",
+      "nvidia/llama-3.1-nemoguard-8b-content-safety",
+      "nvidia/llama-3.1-nemoguard-8b-topic-control",
+      "nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
+      "nvidia/nemotron-3-embed-1b",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "nvidia/nemotron-3-super-120b-a12b",
+      "nvidia/nemotron-3-ultra-550b-a55b",
+      "nvidia/nemotron-3.5-content-safety",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "nvidia/riva-translate-4b-instruct-v1.1",
+      "nvidia/riva-translate-4b-instruct-v2",
+      "oc/big-pickle",
+      "oc/ling-3.1-flash",
+      "oc/longcat-2.5-preview",
+      "oc/mimo-v2.6-flash",
+      "oc/muse-spark-1.2-contributor",
+      "oc/muse-spark-1.3-contributor",
+      "oc/nemotron-3-ultra",
+      "oc/nemotron-3.5-lightning",
+      "oc/space-bunny",
+      "oc/step-5-preview",
+      "openai/gpt-5.6-luna",
+      "openai/gpt-oss-20b",
+      "poolside/laguna-xs-2.1",
+      "qwen2.5-7b-instruct",
+      "qwen3-8b",
+      "qwen3.7-max",
+      "qwen3.8-27b-free",
+      "qwen3.8-flash",
+      "qwen3.8-flash-free",
+      "qwen3.8-max",
+      "sensevoicesmall",
+      "space-bunny-free",
+      "step-5-preview-free",
+      "telespeechasr",
+      "unreal-speech-v8",
+      "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash"
     ],
     "monitor_mode": "tags",
     "free_pool": null,
@@ -12237,7 +12721,7 @@ const PROMO = [
     "pick_available": 3,
     "pick_total": 5,
     "health": {
-      "score": 83.0,
+      "score": 83.1,
       "level": "良",
       "rate_window": 100.0,
       "streak_days": 1,
@@ -12476,6 +12960,10 @@ const PROMO = [
           "count": 7
         },
         {
+          "name": "Qwen",
+          "count": 4
+        },
+        {
           "name": "其他",
           "count": 4
         },
@@ -12484,15 +12972,11 @@ const PROMO = [
           "count": 3
         },
         {
-          "name": "Qwen",
-          "count": 3
-        },
-        {
           "name": "Kimi",
           "count": 1
         }
       ],
-      "note": "得分 83.0（良）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.0/35（3 个监控模型成功率中位数 97.10%）+ 延迟 10/15（943ms）+ 观测证据 4/15（1~2 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
+      "note": "得分 83.1（良）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.1/35（3 个监控模型成功率中位数 97.32%）+ 延迟 10/15（1037ms）+ 观测证据 4/15（1~2 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 <30"
     },
     "net": {
       "n": 5,
@@ -12507,7 +12991,7 @@ const PROMO = [
         "votes": "5/5"
       },
       "latency_src": "proxy",
-      "latency_ms": 943,
+      "latency_ms": 1037,
       "latency_n": 5
     },
     "models": [
@@ -12515,7 +12999,7 @@ const PROMO = [
         "n": "[24k]gpt-image-2.5-sunburst",
         "in_site": "[24k]gpt-image-2.5-sunburst",
         "r": 100,
-        "l": 59589,
+        "l": 59210,
         "t": 0,
         "tps": 0,
         "anomaly": 0,
@@ -12728,10 +13212,10 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": false,
-            "buckets": 6
+            "buckets": 7
           }
         ],
-        "buckets_24h": 14,
+        "buckets_24h": 15,
         "low_sample": null,
         "free_group": "生图",
         "delisted": false,
@@ -12820,6 +13304,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-14 13:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -12827,7 +13317,7 @@ const PROMO = [
           "ratio": 1,
           "eff": 1.0,
           "r": 100,
-          "l": 59589,
+          "l": 59210,
           "t": 0,
           "tps": 0,
           "days": null,
@@ -12916,6 +13406,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-14 13:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -12927,7 +13423,7 @@ const PROMO = [
             "ratio": 1,
             "eff": 1.0,
             "r": 100,
-            "l": 59589,
+            "l": 59210,
             "t": 0,
             "tps": 0,
             "days": 10,
@@ -13013,6 +13509,12 @@ const PROMO = [
               },
               {
                 "d": "10-14 12:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-14 13:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -13227,7 +13729,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 6
+                "buckets": 7
               }
             ]
           }
@@ -13236,10 +13738,10 @@ const PROMO = [
       {
         "n": "gpt-image-2.5-flare",
         "in_site": "gpt-image-2.5-flare",
-        "r": 97.1,
-        "l": 39769,
+        "r": 97.3,
+        "l": 39022,
         "t": 0,
-        "tps": 48.619348217122294,
+        "tps": 49.70771678096532,
         "anomaly": 3,
         "bars": [
           {
@@ -13572,10 +14074,10 @@ const PROMO = [
           "g": "生图",
           "ratio": 1,
           "eff": 1.0,
-          "r": 97.1,
-          "l": 39769,
+          "r": 97.32,
+          "l": 39022,
           "t": 0,
-          "tps": 48.619348217122294,
+          "tps": 49.70771678096532,
           "days": null,
           "anomaly": 3,
           "bars_24h": [
@@ -13945,10 +14447,10 @@ const PROMO = [
             "g": "生图",
             "ratio": 1,
             "eff": 1.0,
-            "r": 97.1,
-            "l": 39769,
+            "r": 97.32,
+            "l": 39022,
             "t": 0,
-            "tps": 48.619348217122294,
+            "tps": 49.70771678096532,
             "days": 30,
             "anomaly": 3,
             "bars_24h": [
@@ -14279,10 +14781,10 @@ const PROMO = [
       {
         "n": "gpt-image-2.5-sunburst",
         "in_site": "gpt-image-2.5-sunburst",
-        "r": 92.4,
-        "l": 45911,
+        "r": 92.5,
+        "l": 45626,
         "t": 0,
-        "tps": 44.42088059173943,
+        "tps": 44.534565860495476,
         "anomaly": 6,
         "bars": [
           {
@@ -14490,13 +14992,13 @@ const PROMO = [
           },
           {
             "d": "2026-10-14",
-            "rate": 89.3,
+            "rate": 91.1,
             "ok": false,
             "sparse": false,
-            "buckets": 5
+            "buckets": 6
           }
         ],
-        "buckets_24h": 14,
+        "buckets_24h": 15,
         "low_sample": null,
         "free_group": "生图",
         "delisted": false,
@@ -14585,16 +15087,22 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-14 13:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "生图",
           "ratio": 1,
           "eff": 1.0,
-          "r": 92.37,
-          "l": 45911,
+          "r": 92.47,
+          "l": 45626,
           "t": 0,
-          "tps": 44.42088059173943,
+          "tps": 44.534565860495476,
           "days": null,
           "anomaly": 6,
           "bars_24h": [
@@ -14678,6 +15186,12 @@ const PROMO = [
             },
             {
               "d": "10-14 10:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "10-14 13:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -14922,10 +15436,10 @@ const PROMO = [
             "g": "生图",
             "ratio": 1,
             "eff": 1.0,
-            "r": 92.37,
-            "l": 45911,
+            "r": 92.47,
+            "l": 45626,
             "t": 0,
-            "tps": 44.42088059173943,
+            "tps": 44.534565860495476,
             "days": 30,
             "anomaly": 6,
             "bars_24h": [
@@ -15009,6 +15523,12 @@ const PROMO = [
               },
               {
                 "d": "10-14 10:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-14 13:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -15220,15 +15740,250 @@ const PROMO = [
               },
               {
                 "d": "2026-10-14",
-                "rate": 89.3,
+                "rate": 91.1,
                 "ok": false,
                 "sparse": false,
-                "buckets": 5
+                "buckets": 6
               }
             ]
           }
         ]
       }
+    ],
+    "all_models": [
+      "BAAI/bge-m3",
+      "Qwen/Qwen3-Embedding-0.6B",
+      "Qwen/Qwen3-Embedding-4B",
+      "Qwen/Qwen3-Embedding-8B",
+      "Qwen/Qwen3-Reranker-0.6B",
+      "Qwen/Qwen3-Reranker-4B",
+      "Qwen/Qwen3-Reranker-8B",
+      "[24k]gpt-image-2",
+      "[24k]gpt-image-2.5-flare",
+      "[24k]gpt-image-2.5-sunburst",
+      "[cli-按次]gemini-2.5-flash",
+      "[cli-按次]gemini-2.5-flash-lite",
+      "[cli-按次]gemini-2.5-pro",
+      "[cli-按次]gemini-3-flash",
+      "[cli-按次]gemini-3-flash-preview",
+      "[cli-按次]gemini-3-pro-preview",
+      "[cli-按次]gemini-3.1-flash-lite",
+      "[cli-按次]gemini-3.1-flash-lite-preview",
+      "[cli-按次]gemini-3.1-pro-preview",
+      "[cli-按次]gemini-3.5-flash",
+      "[cli-按次]gemini-3.6-flash",
+      "[cli-按次]gemini-3.7-flash",
+      "[cli-按次]gemini-3.8-flash",
+      "[cli-按次]gemini-4-argon",
+      "[cli]gemini-2.5-flash",
+      "[cli]gemini-2.5-flash-lite",
+      "[cli]gemini-2.5-pro",
+      "[cli]gemini-3-flash",
+      "[cli]gemini-3-flash-preview",
+      "[cli]gemini-3-pro-preview",
+      "[cli]gemini-3.1-flash-lite",
+      "[cli]gemini-3.1-flash-lite-preview",
+      "[cli]gemini-3.1-pro-preview",
+      "[cli]gemini-3.5-flash",
+      "[cli]gemini-3.6-flash",
+      "[cli]gemini-3.7-flash",
+      "[cli]gemini-3.8-flash",
+      "[cli]gemini-4-argon",
+      "[官逆]gemini-3.1-pro-preview",
+      "[官逆]gemini-3.5-flash",
+      "[官逆]gemini-3.6-flash",
+      "[官逆]gemini-3.7-flash",
+      "[官逆]gemini-3.8-flash",
+      "[按次]claude-fable-5",
+      "[按次]claude-fable-5-1",
+      "[按次]claude-haiku-4-5-20251001",
+      "[按次]claude-opus-4-6",
+      "[按次]claude-opus-4-7",
+      "[按次]claude-opus-4-8",
+      "[按次]claude-opus-5",
+      "[按次]claude-opus-5-5",
+      "[按次]claude-sonnet-4-6",
+      "[按次]claude-sonnet-5",
+      "[按次]claude-sonnet-5-5",
+      "[按次]deepseek-v4-flash",
+      "[按次]deepseek-v4-flash-vision-exp",
+      "[按次]deepseek-v4-pro",
+      "[按次]gemini-2.5-flash",
+      "[按次]gemini-2.5-flash-lite",
+      "[按次]gemini-2.5-pro",
+      "[按次]gemini-3-flash",
+      "[按次]gemini-3-flash-preview",
+      "[按次]gemini-3-pro-preview",
+      "[按次]gemini-3.1-flash-lite",
+      "[按次]gemini-3.1-flash-lite-preview",
+      "[按次]gemini-3.1-pro-preview",
+      "[按次]gemini-3.5-flash",
+      "[按次]gemini-3.5-flash-lite",
+      "[按次]gemini-3.6-flash",
+      "[按次]gemini-3.7-flash",
+      "[按次]gemini-3.8-flash",
+      "[按次]gemini-3.8-flash-high",
+      "[按次]gemini-4-argon",
+      "[按次]glm-5.1",
+      "[按次]glm-5.2",
+      "[按次]glm-5.3",
+      "[按次]gpt-5.4-pro",
+      "[按次]gpt-5.5-pro",
+      "[按次]gpt-oss-20b",
+      "[按次]grok-4.5",
+      "[按次]grok-4.6",
+      "[按次]grok-4.7",
+      "[按次]kimi-k2.7-code",
+      "[按次]抗截断/gemini-3.8-flash",
+      "[按量]Minimax-M3",
+      "[按量]deepseek-v3.2",
+      "[按量]deepseek-v4-flash",
+      "[按量]deepseek-v4-flash-0731",
+      "[按量]deepseek-v4-pro",
+      "[按量]deepseek-v4-pro-0813",
+      "[按量]deepseek-v4.1-flash",
+      "[按量]glm-5.1",
+      "[按量]glm-5.2",
+      "[按量]glm-5.3",
+      "[按量]glm-5.3-flash",
+      "[按量]kimi-k2.7-code",
+      "[按量]kimi-k3",
+      "[按量]mimo-v2.5",
+      "[按量]mimo-v2.5-pro",
+      "[按量]mimo-v2.6-flash",
+      "[旧按次]deepseek-v4-flash",
+      "[旧按次]deepseek-v4-pro",
+      "[正常]nai-diffusion-3",
+      "[正常]nai-diffusion-4-5-curated",
+      "[正常]nai-diffusion-4-5-full",
+      "[正常]nai-diffusion-4-curated-preview",
+      "[正常]nai-diffusion-4-full",
+      "[正常]nai-diffusion-5-curated",
+      "[正常]nai-diffusion-5-full",
+      "[正常]nai-diffusion-furry-3",
+      "[薄甲]deepseek-v4-flash",
+      "[薄甲]deepseek-v4.1-flash",
+      "[薄甲]gemini-3.8-flash",
+      "[薄甲]gemini-3.8-flash-2",
+      "[高级]nai-diffusion-3",
+      "[高级]nai-diffusion-4-5-curated",
+      "[高级]nai-diffusion-4-5-full",
+      "[高级]nai-diffusion-4-curated-preview",
+      "[高级]nai-diffusion-4-full",
+      "[高级]nai-diffusion-5-curated",
+      "[高级]nai-diffusion-5-full",
+      "[高级]nai-diffusion-furry-3",
+      "agnes-image-2.0-flash",
+      "agnes-image-2.1-flash",
+      "byte-plus-seedream-4",
+      "byte-plus-seedream-4-5",
+      "byte-plus-seedream-5-lite",
+      "byte-plus-seedream-5-pro",
+      "cf/bge-base-en-v1.5",
+      "cf/bge-large-en-v1.5",
+      "cf/bge-m3",
+      "cf/bge-small-en-v1.5",
+      "cf/embeddinggemma-300m",
+      "cf/plamo-embedding-1b",
+      "cf/qwen-embedding-0.6b",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-haiku-4-5-20251001",
+      "claude-haiku-5-5",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-opus-5-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-5-5",
+      "dynavision-xl",
+      "embed-english-light-v3.0",
+      "embed-english-v3.0",
+      "embed-multilingual-light-v3.0",
+      "embed-multilingual-v3.0",
+      "flux-pro-v1.1",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-pro",
+      "gemini-3-flash",
+      "gemini-3-flash-preview",
+      "gemini-3-pro-image-preview",
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-3.1-pro-preview",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-high",
+      "gemini-3.5-flash-lite",
+      "gemini-3.5-flash-low",
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "gemini-3.8-flash-high",
+      "gemini-3.8-flash-low",
+      "gemini-3.8-flash-medium",
+      "gemini-4-argon",
+      "gemini-4-argon-high",
+      "gpt-5.5",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-6-astra",
+      "gpt-6-sol",
+      "gpt-6.1-sol",
+      "gpt-image-2",
+      "gpt-image-2.5",
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-sunburst",
+      "grok-3-mini",
+      "grok-3-mini-fast",
+      "grok-4.20-0309-non-reasoning",
+      "grok-4.20-0309-reasoning",
+      "grok-4.20-non-reasoning",
+      "grok-4.20-reasoning",
+      "grok-4.3",
+      "grok-4.5",
+      "grok-4.6",
+      "grok-4.7",
+      "grok-build-latest",
+      "grok-composer-2.5-fast",
+      "grok-imagine-image",
+      "grok-imagine-image-2.0",
+      "grok-imagine-image-2026-03-02",
+      "grok-imagine-image-lite",
+      "grok-imagine-image-quality-20260403",
+      "grok-imagine-image-quality-latest",
+      "juggernaut-flux-pro",
+      "juggernaut-xl",
+      "openart-photorealistic",
+      "openart-sdxl",
+      "qwen-image-2",
+      "qwen-image-3",
+      "qwen-image-3-pro",
+      "qwen-image-max",
+      "qwen-image-plus",
+      "text-embedding-3-large",
+      "text-embedding-3-small",
+      "text-embedding-ada-002",
+      "voyage-3-lite",
+      "voyage-4",
+      "voyage-4-large",
+      "voyage-4-lite",
+      "voyage-code-2",
+      "voyage-code-3",
+      "wai-ani-nsfw-ponyxl",
+      "wan2-7-image",
+      "wan2-7-image-pro",
+      "z-image",
+      "「反重力」claude-opus-4-6",
+      "「反重力」claude-opus-4-6-thinking",
+      "「反重力」claude-sonnet-4-6",
+      "「反重力」claude-sonnet-4-6-thinking",
+      "「反重力按量」claude-opus-4-6",
+      "「反重力按量」claude-opus-4-6-thinking",
+      "「反重力按量」claude-sonnet-4-6",
+      "「反重力按量」claude-sonnet-4-6-thinking",
+      "「特价反重力」claude-sonnet-4.6"
     ],
     "monitor_mode": "tags",
     "free_pool": null,
@@ -15292,6 +16047,15 @@ function stripHtml(bars,cls){
   return `<div class="${cls}">${(bars||[]).map(b=>
     `<i class="${barClass(b)}" title="${esc(b.d)} ${b.rate===null||b.rate===undefined?'无数据':b.rate+'%'}"></i>`).join('')}</div>`;
 }
+/* 全部模型：站方 /api/pricing 目录里的**全部**模型名（含从没被调用过的），按名称排序。
+   与分组倍率共用同一套 chip + 弹出面板（toggleMore 直接吃 .rchip.more），摆在图例那一行右侧。
+   拿不到 /api/pricing 的站返回空串 —— 不编数据，跟倍率「站方未公开」同一原则。 */
+function allModelsHtml(s){
+  const ms=s.all_models||[];
+  if(!ms.length) return '';
+  const chips=ms.map(n=>`<span class="rchip" hidden>${esc(n)}</span>`).join('');
+  return `<div class="rblock all"><div class="rchips" data-fixed="1">${chips}<button class="rchip more" type="button" aria-expanded="false">全部模型 ${ms.length} 个</button></div></div>`;
+}
 function modelsHtml(s){
   const all=s.models||[];
   /* 显示几个：tags/free 模式脚本已截好；models 模式"配置几个显示几个"（不要 slice，否则
@@ -15350,7 +16114,7 @@ function modelsHtml(s){
       <div class="mbarrow"><span class="slab">近 24h</span>${sample}${down}${flag}${none}${stripHtml(bars,'mstrip')}</div></div>`;
   }).join('');
   const legend=`<div class="mlegend">
-    <div class="mline"><span><i class="ok"></i>100%</span><span><i class="soft"></i>≥95%</span><span><i class="warn"></i>≥70%</span><span><i class="bad"></i>&lt;70%</span><span><i class="none"></i>无数据</span></div>
+    <div class="mline"><span><i class="ok"></i>100%</span><span><i class="soft"></i>≥95%</span><span><i class="warn"></i>≥70%</span><span><i class="bad"></i>&lt;70%</span><span><i class="none"></i>无数据</span>${allModelsHtml(s)}</div>
   </div>`;
   return `<div class="mblock"${userAttr}>${head}<div class="mbody">${hdr}${rows}${legend}</div></div>`;
 }
@@ -15377,7 +16141,7 @@ function ratiosHtml(s){
 function fitRatios(root){
   (root||document).querySelectorAll('.rchips').forEach(el=>{
     const chips=[...el.querySelectorAll('.rchip:not(.more)')], more=el.querySelector('.rchip.more');
-    if(!more||!chips.length) return;
+    if(!more||!chips.length||el.dataset.fixed) return;   /* data-fixed：入口自带「全部」按钮，不参与逐个收起 */
     const total=chips.length; let vis=total;
     const paint=()=>{ closePops(); chips.forEach((c,idx)=>{c.hidden=idx>=vis;});
       more.hidden=vis>=total; more.title=el.dataset.all||'';
