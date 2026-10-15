@@ -1322,6 +1322,21 @@ def fetch_nextbuf(known_ids: set | None = None) -> list:
 _ROW_FIELDS = ("title", "url", "source", "created_at")
 
 
+def carry_forward(prev: dict, t: dict) -> None:
+    """把上一轮已经知道、这一轮列表里没有的字段，从旧行搬到新行（就地改 t）。
+
+    列表接口给不出这些：`created_at`（有些源只在主题页暴露）、`published_verified`、
+    以及**正文层判出的 `offer`** —— 正文层是「按 URL 判一次」的结果，不该因为一次
+    列表重抓就被丢掉。实测踩到（2026-10-15）：一轮重抓后 v2 行从 143 掉到 85，
+    因为 `merged[key] = t` 用没有 offer 的新行盖掉了旧行。
+    """
+    if not t.get("created_at") and prev.get("created_at"):
+        t["created_at"] = prev["created_at"]
+        t["published_verified"] = prev.get("published_verified", False)
+    if not t.get("offer") and prev.get("offer"):
+        t["offer"] = prev["offer"]
+
+
 def store_row(t: dict, fetched_at: str) -> dict:
     """把一行整理成落盘形状。**这是字段白名单**：库里的行经过它之后只剩这些键，
     新加的字段（如正文层的 offer）不写进来就会在下一轮被静默丢掉 —— 2026-10-15
@@ -1392,6 +1407,20 @@ def main():
         default="",
         help="把**预过滤**语料（闸门之前解析出的全部帖子）写到这个文件，供离线规则 A/B。"
         "默认关闭；写进去的是候选全集，不写 store、不参与提交。",
+    )
+    ap.add_argument(
+        "--content-stealth-limit",
+        type=int,
+        default=8,
+        help="正文层里 linux.do（Cloudflare 挡着）每轮最多抓几条 —— 要开隐身浏览器，"
+        "每条约 20 秒；0 = 不抓它的正文（该源的行按标题折叠）。",
+    )
+    ap.add_argument(
+        "--content-stealth-delay",
+        type=float,
+        default=15.0,
+        help="正文层里隐身通道每条之间的最小间隔秒数 —— linux.do 连打会 429（实测每 2-3 秒一条立刻限速），"
+        "这个值就是它的节流阀；连续两条失败本轮放弃。",
     )
     ap.add_argument(
         "--content-limit",
@@ -1548,9 +1577,8 @@ def main():
             # A source that stops emitting the publish time must not wipe one we
             # already know: created_at drives display order and the age cap, so
             # losing it drops the row to the front of the eviction queue.
-            if not t.get("created_at") and prev.get("created_at"):
-                t["created_at"] = prev["created_at"]
-                t["published_verified"] = prev.get("published_verified", False)
+            # （同一条规矩也适用于正文层的 offer，见 carry_forward。）
+            carry_forward(prev, t)
         merged[key] = t
     for key, old_url, new_url in url_changes:
         print(f"[warn] url changed for {key}: {old_url} -> {new_url}", file=sys.stderr)
@@ -1680,8 +1708,29 @@ def main():
     if args.content_limit > 0:
         try:
             import content as content_layer
+            # linux.do 的正文匿名拿不到（Cloudflare 403），走 scrapling 隐身浏览器 ——
+            # 与它的列表抓取同一条路。装不上 scrapling / LINUXDO_ENABLED=0 时不给这个
+            # 抓取器，该源的行就不写 offer（行为与 v1 相同）。
+            stealth = None
+            stealth_limit = max(0, args.content_stealth_limit)
+            if stealth_limit and os.environ.get("LINUXDO_ENABLED", "1") != "0":
+                try:
+                    from scrapling import StealthyFetcher
+
+                    def stealth_fetch(url: str, timeout: int = 90) -> str:
+                        page = StealthyFetcher.fetch(url, headless=True, timeout=timeout * 1000)
+                        raw = page.body if isinstance(page.body, str) else page.body.decode("utf-8", "replace")
+                        if page.status != 200 or len(raw) < 200:
+                            raise RuntimeError(f"linux.do 正文 HTTP {page.status}")
+                        return raw
+
+                    stealth = stealth_fetch
+                except ImportError:
+                    print("[content] scrapling 不可用 → linux.do 正文跳过", file=sys.stderr)
             content_layer.annotate(
                 [t for _k, t in merged_items], fetch, limit=args.content_limit,
+                stealth_fetch=stealth, stealth_limit=stealth_limit,
+                stealth_delay=max(0.0, args.content_stealth_delay),
                 log=lambda m: print(m, file=sys.stderr),
             )
         except Exception as exc:          # 正文层永不拖垮主链

@@ -49,6 +49,66 @@ for src, name, needle, min_len in BODY_CASES:
     bad = [w for w in FURNITURE if w in body]
     check(not bad, f"{src}: 正文不含页面家具", bad)
 
+print("\n== v2 规则：站点归一 / 传送宿主排除 / 身份不含品牌 ==")
+# 审计（2026-10-15 真实 store）发现的误拆分与误合并，逐条钉死：
+check(c.offer_of("a", "https://www.workbuddy.ai/x")["key"]
+      == c.offer_of("b", "https://workbuddy.ai/y")["key"] == "workbuddy.ai",
+      "www 前缀归一（实测 www.workbuddy.ai 与 workbuddy.ai 曾是两把 key）")
+check(c.offer_of("a", "https://console.river.ai/")["key"]
+      == c.offer_of("b", "https://river.ai/")["key"] == "river.ai",
+      "同站子域归一到注册域（console.river.ai 与 river.ai）")
+check(c.offer_of("claude 免费领", "https://dzhsmartai.com/a")["key"]
+      == c.offer_of("deepseek 送额度", "https://dzhsmartai.com/b")["key"],
+      "身份不含品牌：同一站标题分别写 claude/deepseek 也合并（实测被拆成四份）")
+check(c.normalize_site("developer.amd.com.cn") == "amd.com.cn"
+      and c.normalize_site("free.zynk.bot.cd") == "bot.cd", "两段式后缀（com.cn / *.cd）按注册域取")
+for u, host in [("https://github.com/x/y", "github.com"), ("https://t.co/abc", "t.co"),
+                ("https://www.nodeseek.com/post-1", "nodeseek.com"),
+                ("https://wwbpt.lanzouw.com/xyz", "蓝奏云"), ("https://apps.apple.com/cn/app/x", "App Store"),
+                ("https://drive.google.com/file/d/1", "Google Drive")]:
+    check(c.offer_of("某帖", u)["key"] is None, f"{host} 是传送/平台宿主，不构成 offer 身份")
+check(c.offer_of("a", "https://a.github.io/x")["key"] != c.offer_of("b", "https://b.github.io/y")["key"],
+      "多租户平台保留完整主机名：两个 pages 部署不合并")
+check(c.normalize_site("laisiai.tw.cpolar.io") == "laisiai.tw.cpolar.io",
+      "隧道域名（cpolar.io）不算可归一的注册域")
+check(c.offer_of("muse 30亿", "https://t.co/abc 短链 https://satudigital.bot.cd/join 真目标")["site"] == "bot.cd",
+      "短链跳过、取后面的真实目标")
+
+print("\n== v3 规则：静态资源与自身 CDN 不算目标 ==")
+# 实测（2026-10-15）：Discourse 的 cooked 里图片常包在 <a href="...png"> 里，
+# ldstatic.com（linux.do 的静态资源 CDN）因此成了 7 条不相干帖子的共同身份。
+check(c.skipped_host("ldstatic.com") and c.skipped_host("cdn.ldstatic.com"),
+      "linux.do 的静态资源 CDN（ldstatic.com）计入自身域名")
+check(c.offer_of("某帖", "看这张图 https://img.example.com/a.png")["site"] == "",
+      "纯文本里的图片链接不算推广目标")
+check(c.offer_of("某帖", "图 https://img.example.com/a.png 真站 https://station-z.com/reg")["site"]
+      == "station-z.com", "跳过图片后取后面的真目标")
+check(c._links_from('<a href="https://ldstatic.com/x.png"><img src="x"></a>') == [],
+      "容器 href 里的资源 URL 一律丢弃（cooked 的图片包裹链接）")
+check(c._links_from('<a href="https://t.me/somebot?start=1">进群</a>') == ["https://t.me/somebot?start=1"],
+      "正常链接照旧保留")
+
+print("\n== linux.do：隐身通道（v2 新增）==")
+LD = '{"post_stream":{"posts":[{"username":"alice","cooked":"<p>https://station-y.com/reg 送 20 刀</p>"}]}}'
+def boom(*a, **k):
+    raise OSError("匿名 403")
+ld_rows = [{"id": "9", "source": "linuxdo_welfare", "url": "https://linux.do/t/topic/9",
+            "title": "linux.do 的帖", "created_at": "2026-10-15T09:00:00+00:00"}]
+n_ld = c.annotate([dict(ld_rows[0])], boom, limit=0, stealth_fetch=lambda url, timeout=20: LD,
+                  stealth_limit=1, delay=0, timeout=1, log=lambda _m: None)
+probe = dict(ld_rows[0]); probe.pop("offer", None)
+c.annotate([probe], boom, limit=0, stealth_fetch=lambda url, timeout=20: LD,
+           stealth_limit=1, delay=0, timeout=1, log=lambda _m: None)
+check(n_ld == 1 and probe.get("offer", {}).get("site") == "station-y.com",
+      "linux.do 经 stealth_fetch 判出身份（site=station-y.com）", probe.get("offer"))
+check(probe.get("offer", {}).get("key") == "station-y.com", "linux.do 的 offer.key 就是站点", probe.get("offer"))
+check(c.content_url("linuxdo", "https://linux.do/t/topic/9") == "https://linux.do/t/topic/9.json",
+      "linux.do 走 /t/topic/{id}.json 端点")
+probe2 = dict(ld_rows[0]); probe2.pop("offer", None)
+n_no = c.annotate([probe2], boom, limit=10, delay=0, timeout=1, log=lambda _m: None)
+check(n_no == 0 and "offer" not in probe2,
+      "没传 stealth_fetch 时 linux.do 不抓、不写（CI/无 scrapling 环境行为同 v1）")
+
 print("\n== 链接提取：锚点文字 + /jump?to= 跳转（linux.sb 的真实外链形态）==")
 # 实测：linux.sb 正文里外链是「锚点文字 + href」，strip_tags 后只剩「👉 TG机器人」；
 # 而 href 又套了一层 /jump?to=<urlencoded> —— 只读纯文本会判不出任何 offer。
@@ -87,8 +147,8 @@ keys = {c.offer_of(t, b)["key"] for t, b in zip(
     ["速领30亿token，机器人灌满muse，耍疯喽", "白嫖30亿muse token", "tg bot 把 muse 的价格打下来了"],
     muse_bodies)}
 check(len(keys) == 1 and None not in keys, "muse 三条不同标题 → 同一把 offer key", keys)
-check(keys.pop() == "muse|t.me/satudigitalbot",
-      "key = 品牌|TG机器人（t.me 取机器人名当身份，ref 推广号不进 key）")
+check(keys.pop() == "t.me/satudigitalbot",
+      "key = TG 机器人名（v2：身份只看站点，品牌进 offer.brand；ref 推广号不进 key）")
 
 print("\n== offer 判定：不同份绝不能合并 ==")
 gpt_a = c.offer_of("注册送20刀 0.15倍率gpt", "https://www.primerelay.online/register?aff=X 注册进群领10刀")
@@ -136,6 +196,18 @@ check("offer" not in fm.store_row(_row2, "2026-10-15T01:00:00+00:00"),
       "没有 offer 的行不写这个键（保持逐字节不变）")
 check(fm._row_changed({"offer": None}, {"offer": {"v": 1}}),
       "offer 的出现算「行变了」（fetched_at 要更新、要有提交）")
+# 列表重抓不能把已判的 offer 弄丢（2026-10-15 实测：v2 行 143 → 85）
+_prev = {"created_at": "2026-10-15T00:00:00+00:00", "published_verified": True,
+         "offer": {"v": 2, "key": "t.me/satudigitalbot", "site": "t.me/satudigitalbot"}}
+_fresh = {"id": "1", "title": "t", "url": "u", "source": "linuxsb_首页"}   # 列表行：没有 offer/created_at
+fm.carry_forward(_prev, _fresh)
+check(_fresh.get("offer", {}).get("key") == "t.me/satudigitalbot",
+      "carry_forward：重抓的行继承上一轮的 offer（否则每轮重抓都白判）", _fresh.get("offer"))
+check(_fresh.get("created_at") == "2026-10-15T00:00:00+00:00" and _fresh.get("published_verified") is True,
+      "carry_forward：created_at / published_verified 照旧继承")
+_own = {"offer": {"v": 2, "key": "new.example"}}
+fm.carry_forward(_prev, _own)
+check(_own["offer"]["key"] == "new.example", "carry_forward：新行自己判出的 offer 不被旧值覆盖")
 
 print("\n== annotate：预算、缓存、失败跳过 ==")
 tmp = tempfile.mkdtemp()
@@ -167,7 +239,7 @@ try:
 
     n = c.annotate(rows, fake_fetch, limit=10, delay=0, timeout=1, log=lambda _m: None)
     check(n == 2, "处理了两条（1 号成功、3 号成功、2 号失败被跳过）", n)
-    check(rows[0].get("offer", {}).get("key") == "muse|t.me/satudigitalbot",
+    check(rows[0].get("offer", {}).get("key") == "t.me/satudigitalbot",
           "1 号帖写入 offer key", rows[0].get("offer"))
     check("offer" not in rows[1], "抓失败的 2 号帖不写 offer（下轮再试）")
     check("offer" not in rows[3], "linux.do 不在 EXTRACTORS 里 → 不抓、不写（行为同今天）")

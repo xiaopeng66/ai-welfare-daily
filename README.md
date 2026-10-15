@@ -41,6 +41,7 @@
 ```bash
 python3 fetch.py -o data/topics.jsonl                            # 抓取（含正文层的 offer 判定）
 python3 fetch.py -o data/topics.jsonl --content-limit 0          # 只抓取、不抓正文
+python3 fetch.py -o data/topics.jsonl --content-stealth-limit 0  # 不抓 linux.do 的正文（免隐身浏览器）
 python3 generate.py -i data/topics.jsonl -o docs/index.html      # 生成页面
 
 `tests/test_content.py` 覆盖正文层（解析 + offer 判定 + 预算/缓存），离线可跑。

@@ -239,8 +239,23 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
   写进 store 行（页面按 `offer.key` 折叠，见 §5）。**量值不参与 key**：实测同一个活动被写成
   30亿 / 3B / 30B 三种口径，拿它当身份会把同一份拆开；「同一个机器人/同一个站」才是读者眼里的同一件事。
   量值仍照抽（`offer.amount`），供展示与后续的精选板块用。
-- **抓什么**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、nextbuf `.markdown-body`
-  （原始 HTML 就有，无需渲染）、nodeloc/vibex 的 `/t/topic/{id}.json` → `post_stream.posts[0].cooked`。
+- **判什么（v2，2026-10-15 审计后）**：身份 = **归一后的被推广站点**。
+  ① 归一：去 `www.`、同站子域归一到注册域（`console.river.ai` → `river.ai`），
+  多租户平台保留完整主机名（`*.github.io` / `*.cpolar.io` / `*.railway.app` 等 —— 否则把不同人的部署并成一份），
+  两段式后缀（`com.cn` / `*.cd`）按注册域取。
+  ② 排除「传送/平台宿主」：短链（t.co/bit.ly…）、代码托管（github/gitlab/gitee）、网盘与文档
+  （百度网盘/蓝奏云/Drive/Docs…）、商店与社交（App Store/Play/x.com/bilibili…）、**别家论坛**
+  （nodeseek/v2ex/hostloc…）—— 它们是链接的载体，不是被推广的服务。
+  ③ **身份不含品牌**：品牌取自标题（同一站可能写 claude/deepseek/gpt），放 `offer.brand` 只作展示；
+  量值同样只进 `offer.amount`。
+  这三条都是审计出来的：`www.workbuddy.ai` 与 `workbuddy.ai`、`river.ai` 与 `console.river.ai`、
+  `dzhsmartai.com` 的四种品牌写法，曾把同一份拆成 2-4 把 key；`github.com`/`t.co`/`nodeseek.com`
+  又曾把两份不相干的帖并成一份。规则改动升 `OFFER_V`（v2），旧行下一轮自动重判。
+- **抓什么（六源全覆盖）**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、
+  nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、nodeloc/vibex 的 `/t/topic/{id}.json`
+  → `post_stream.posts[0].cooked`；**linux.do 同一端点但匿名 403**（Cloudflare），走 scrapling
+  隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（默认每轮 ≤4 条，每条约 20 秒）；
+  装不上 scrapling（如 CI）或 `LINUXDO_ENABLED=0` 时该源不抓正文，行为同 v1。
   正文用**配对标签切片**（`_slice_balanced`）而不是「下一个 post-footer 标记」：容器内有嵌套 div，
   家具标记位置飘忽，原型第一版把「展开全文/点赞打赏/登录可见」都带进来了。
   **linux.do v1 不抓**（匿名 403，管线里要走 scrapling 隐身浏览器）：它的行不写 offer、按标题折叠，行为同今天。
