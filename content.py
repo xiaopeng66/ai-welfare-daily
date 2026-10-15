@@ -7,10 +7,11 @@
 指向同一个 TG 机器人（t.me/satudigitalbot），只是各带各的 ref_ 推广号。
 
 产物：store 行的 `offer` 字段（页面按 offer.key 折叠，×N 角标沿用现有折叠 UI）：
-    "offer": {"v": 3, "key": "t.me/satudigitalbot", "site": "t.me/satudigitalbot",
-              "amount": "30亿token", "brand": "muse"}
+    "offer": {"v": 8, "key": "t.me/satudigitalbot", "site": "t.me/satudigitalbot",
+              "campaign": "muse", "amount": "30亿token", "brand": "muse"}
 `key` 为 None = 已判过、判不出同一份 offer（比如正文里没有推广链接）——
-仍写 v 标记，否则每轮都会重抓同一条。
+仍写 v 标记，否则每轮都会重抓同一条。`campaign` 是**活动级**身份（一个活动多个入口时
+用来合卡，见 CAMPAIGN_ALIASES），`thin` = 正文取到了但不可用（< 30 字）。
 
 正文缓存写**本地** `data/cache/content/`（已 gitignore）：公开仓库只留派生的
 offer 字段，不落论坛正文（体积 + 转载问题）。TTL 24h。
@@ -33,8 +34,10 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 7                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
-                                 # （v6：正文声明隐藏内容时只认入口形状的 URL；v5：量值单位边界 + offer 会过期重判；v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
+OFFER_V = 8                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+                                 # （v8：活动级身份 offer.campaign + 亿/万 左边界放宽 + 正文不可用也写 thin；
+                                 #   v7：量值边界 + …；v6：正文声明隐藏内容时只认入口形状的 URL；v5：量值单位边界 + offer 会过期重判；
+                                 #   v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
                                  #   v2：注册域归一 + 传送/平台宿主排除 + 身份只看站点）
 DEFAULT_TTL_H = 24               # 正文缓存保留时长
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -233,15 +236,24 @@ MONEY = [
     (re.compile(r"\$\s*(\d+(?:\.\d+)?)"), 1.0),
     (re.compile(r"(\d+(?:\.\d+)?)\s*(?:美)?刀"), 1.0),
     (re.compile(r"(\d+(?:\.\d+)?)\s*美元"), 1.0),
+    # 后缀写法 `100$`（2026-10-16 实测：`送个100$额度的deepseek-v4.1-flash` 因为美元符号
+    # 写在数字后面，旧模式一条都匹配不上 —— 与 `10刀` / `10美元` 同族的写法）。
+    (re.compile(r"(\d+(?:\.\d+)?)\s*\$"), 1.0),
     (re.compile(r"¥\s*(\d+(?:\.\d+)?)"), 1 / 7.0),
     (re.compile(r"(\d+(?:\.\d+)?)\s*元"), 1 / 7.0),
 ]
 TOKENS = [
     # 左边界 (?<![A-Za-z0-9])：网址里的邀请码 `…/i/4JHSM73B` 曾被当成「73 billion tokens」
-    # = 730 亿（2026-10-15 审计：8 行库存被这一条污染）。B/M 还要额外要求附近有 token
-    # 语境，否则模型参数 `Qwen3.8 27B`、文件大小 `10MB`、限速 `10M` 都会被当成额度。
-    (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*亿"), 1e8),
-    (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*万"), 1e4),
+    # = 730 亿（2026-10-15 审计：8 行库存被这一条污染）。B/M 还要额外要求附近有
+    # token 语境，否则模型参数 `Qwen3.8 27B`、文件大小 `10MB`、限速 `10M` 都会被当成额度。
+    #
+    # 亿/万 的左边界 2026-10-16 放宽到「只挡前一位数字」：真实语料里「品牌名/模型名紧贴
+    # 数量」是常见写法 —— `注册送gpt2亿`、`再发一次dp4.1f2亿token` 都曾被字母边界挡掉，
+    # 在精选筛查里直接落进「量值不可判」。B/M 的字母边界不动：那两个误抽案例（URL 里的
+    # 73B、模型参数 27B）本来就不靠字母边界解决（一个靠 token 语境、一个靠 B 的语境界定）。
+    # `个?` 收口语写法（`大概还有60个亿`）。
+    (re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*个?\s*亿"), 1e8),
+    (re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*个?\s*万"), 1e4),
     (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*[Bb](?![a-zA-Z])"), 1e9),
     (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*[Mm](?![a-zA-Z])"), 1e6),
 ]
@@ -428,6 +440,33 @@ def amount_in_offer(title: str, body: str) -> str:
     return amount_of(" ".join(picked))[2] if picked else ""
 
 
+# 活动级身份（2026-10-16）。同一个官方活动常有**多个入口**，站点级 key 合不掉：实测
+# muse 一个活动在 store 里同时以三种身份出现 —— `muse.ai`（官网邀请码）、
+# `t.me/satudigitalbot`（电报机器人）、以及别人转帖（正文里连链接都没有，标题只写
+# 「Muse 兑换 10亿额度」）。精选板块要「一个活动一张卡」，所以再加一层。
+#
+# **这层不改 offer.key**：页面折叠继续按站点（跨站合并会误合，RULES.md §5 有实测记录）；
+# campaign 只给精选用。加条目必须有实测证据（哪个活动、哪几个入口），别凭品牌词猜 ——
+# 品牌词很泛（gpt/claude 这类）会一锅端。
+CAMPAIGN_ALIASES = {
+    "muse": ("muse.ai", "t.me/satudigitalbot"),
+}
+
+
+def campaign_of(site: str, title: str, body: str) -> str:
+    """活动身份：命中别名表就用活动名，否则退回站点（= 今天的身份，默认不合并）。
+
+    站点为空时才看标题、且**只看标题**：转帖常常既没链接、标题里又只写了活动名；
+    但正文里顺带提一句别人的品牌不算同一份活动（汇总帖会因此被误合）。
+    """
+    for name, members in CAMPAIGN_ALIASES.items():
+        if site and any(site == m or site.endswith("." + m) for m in members):
+            return name
+        if not site and re.search(re.escape(name), title, re.I):
+            return name
+    return site or ""
+
+
 def offer_of(title: str, body: str, links=()) -> dict:
     """判这条帖属于哪一份 offer。判不出就返回 key=None（仍带 v 标记）。
 
@@ -441,7 +480,8 @@ def offer_of(title: str, body: str, links=()) -> dict:
     amount = amount_in_offer(title, body)
     m = BRAND.search(title) or BRAND.search(body[:400])
     brand = m.group(0).lower() if m else ""
-    return {"v": OFFER_V, "key": (site or None), "site": site, "amount": amount, "brand": brand}
+    return {"v": OFFER_V, "key": (site or None), "site": site,
+            "campaign": campaign_of(site, title, body), "amount": amount, "brand": brand}
 
 
 # 纯函数到这里为止；`at` 时间戳由 _judge 落笔（offer_of 保持可离线断言）。
@@ -474,19 +514,28 @@ def _cache_save(url: str, body: str, meta: dict) -> None:
 
 # ---------------------------------------------------------------- 批量标注（网络部分很薄）
 def _judge(row: dict, body: str, meta: dict, now: float | None = None) -> bool:
-    """把**已抽好的正文**判成 offer 写回行里；正文太短（抽不到）返回 False。
+    """把**已抽好的正文**判成 offer 写回行里；返回值 = 「正文可用」（决定计数与熔断）。
 
     注意入参是抽好的正文，不是原始页面：_fetch_with_cache 负责「取 + 抽」，
     这里只判 —— 早期版本在这里又抽了一遍，等于对纯文本再找 HTML 容器，恒为空。
     `at` 是判定时刻：offer 也会过期（源站改推广链接、活动结束），见 _offer_stale。
+
+    **正文不可用（< 30 字）也照样写 offer**，只打 `thin: true` 并返回 False
+    （2026-10-16 实测：52 行「回复可见 / 只有一张图 / 就一句标题」的短正文因为不写
+    offer，每轮都被当成「没判过」重新排进预算 —— 一轮 60 条预算里它们吃掉大半，
+    新帖被挤到后面；而它们的量值往往就在标题里，`offer_of(标题, 短正文, links)`
+    其实判得出来，`注册送gpt2亿` 这种还能顺手补上 amount）。
+    返回 False 是为了让隐身通道的熔断与成功计数保持原样（「200 但正文不可用」仍算失败）。
     """
-    if len(body) < 30:
-        return False
-    row["offer"] = offer_of(row.get("title") or "", body, (meta or {}).get("links") or ())
-    row["offer"]["at"] = int(time.time() if now is None else now)
+    thin = len(body) < 30
+    offer = offer_of(row.get("title") or "", body, (meta or {}).get("links") or ())
+    offer["at"] = int(time.time() if now is None else now)
+    if thin:
+        offer["thin"] = True
     if (meta or {}).get("author"):
-        row["offer"]["author"] = meta["author"]
-    return True
+        offer["author"] = meta["author"]
+    row["offer"] = offer
+    return not thin
 
 
 def _fetch_with_cache(row: dict, fetcher, cache_url: str, delay: float, timeout: int,
@@ -563,10 +612,12 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
         return 0
 
     # 先判没判过的（新帖优先），再按创建时间新的先重判 —— 不这样排，重判会把预算吃光。
+    # 已知正文不可用的（thin）排到最后：再抓一次还是那点内容，不该挤掉新帖。
     def _order(r: dict):
         o = r.get("offer") or {}
-        first_time = int(o.get("v") or 0) < OFFER_V or not o.get("at")
-        return (0 if first_time else 1, r.get("created_at") or r.get("fetched_at") or "")
+        never = int(o.get("v") or 0) < OFFER_V or not o.get("at")
+        return (2 if o.get("thin") else (0 if never else 1),
+                r.get("created_at") or r.get("fetched_at") or "")
 
     todo.sort(key=_order)
 

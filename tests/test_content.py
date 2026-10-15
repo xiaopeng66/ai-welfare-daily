@@ -199,6 +199,27 @@ check(c.offer_of("某站", "https://linux.sb/topic/29999 论坛自己的链接")
 check(c.offer_of("某站", "https://qm.qq.com/q/abc 群链接 https://t.me/somebot?start=1")["site"]
       == "t.me/somebot", "QQ 群链接跳过、TG 机器人当目标")
 
+print("\n== 活动级身份（2026-10-16）：一个活动多个入口 ==")
+# 实测：muse 一个活动在 store 里同时是 muse.ai（官网邀请码）、t.me/satudigitalbot（电报
+# 机器人）、以及别人的转帖（正文没有链接，标题只写「Muse 兑换 10亿额度」）。精选要
+# 「一个活动一张卡」，站点级 key 合不掉这三种入口 —— 所以加 campaign 这一层。
+muse_site = c.offer_of("muse AI免费领鸡蛋邀请码",
+                       "加入后的 48 小时内兑现我的邀请码，我们就能分别获得 10 亿个词元 https://muse.ai/join")
+muse_bot = c.offer_of("鸡蛋！加入频道能领30亿的token",
+                      "电报加入频道可以领30亿muse的token https://t.me/satudigitalbot?start=ref_1")
+muse_repost = c.offer_of("Muse兑换 10亿额度", "自己把邀请码扔给机器人,上面有教程 99积分撬动10亿额度")
+check(muse_site["campaign"] == muse_bot["campaign"] == muse_repost["campaign"] == "muse",
+      "官网 / 电报机器人 / 无链接转帖 → 同一个活动身份",
+      [muse_site["campaign"], muse_bot["campaign"], muse_repost["campaign"]])
+check(len({muse_site["key"], muse_bot["key"]}) == 2 and muse_repost["key"] is None,
+      "offer.key 保持站点级不变（页面折叠不动，跨站合并会误合，见 RULES.md §5）",
+      [muse_site["key"], muse_bot["key"], muse_repost["key"]])
+check(c.offer_of("注册送20刀 gpt", "https://a-relay.example/register 送20刀")["campaign"] == "a-relay.example"
+      and c.offer_of("注册送10刀 gpt", "https://b-relay.example/register 送10刀")["campaign"] == "b-relay.example",
+      "别名表外的一律退回站点身份（两家 gpt 中转站不会被并成一个活动）")
+check(c.offer_of("羊毛分享", "正文只在结尾提了一句 muse，没有链接")["campaign"] == "",
+      "站点为空时只看标题：正文顺带提到的品牌不算这个活动")
+
 print("\n== 量值抽取的上下界 ==")
 _, tok, label = c.amount_of("送 30 亿 token")
 check(tok == 3e9 and label == "30亿token", "亿级 token 取值正确", label)
@@ -227,6 +248,20 @@ check(c.amount_of("免费领取20美元额度，月费99美元")[0] == 20.0,
       "领取语境的 20 美元胜过价格语境的 99 美元", c.amount_of("免费领取20美元额度，月费99美元"))
 check(c.amount_of("需买7元套餐")[0] == 0.0, "价格语境的金额不算送的额度", c.amount_of("需买7元套餐"))
 check(c.amount_of("充值送20刀")[0] == 20.0, "价格词后面跟着发放动词的照旧算", c.amount_of("充值送20刀"))
+
+print("\n== 量值：字母紧贴的数量与「个亿」（2026-10-16 实测盲点）==")
+# 真实语料里这三条都被旧边界挡掉，精选筛查时全部落进「量值不可判」：
+# `注册送gpt2亿`、`再发一次dp4.1f2亿token`、`大概还有60个亿`。
+for text, want_tok, why in [
+        ("注册送gpt2亿", 2e8, "品牌名紧贴数量（gpt2亿）"),
+        ("下课了好伤心，那就再发一次dp4.1f2亿token", 2e8, "模型名紧贴数量（f2亿）"),
+        ("臭鸡蛋glm-5.3-flash，大概还有60个亿，到9点", 6e9, "口语写法「60个亿」")]:
+    check(c.amount_of(text)[1] == want_tok, f"量值取数正确（{why}）", c.amount_of(text))
+check(c.amount_of("注册链接 https://modeloc.com/i/EXAMPLE73B")[1] == 0.0,
+      "URL 邀请码里的 73B 仍不算额度（B/M 的字母边界与 token 语境不动）")
+check(c.amount_of("送个100$额度的deepseek-v4.1-flash")[0] == 100.0,
+      "美元符号写在数字后面的写法（100$）也算金额",
+      c.amount_of("送个100$额度的deepseek-v4.1-flash"))
 
 print("\n== 预算按尝试计数（2026-10-15 审计：失败风暴放大请求）==")
 _tmp = tempfile.mkdtemp(dir=os.path.dirname(os.path.abspath(__file__)) or ".")
@@ -260,6 +295,28 @@ try:
     c.annotate(rows_ld, lambda *a, **k: (_ for _ in ()).throw(OSError()), limit=0, delay=0,
                stealth_fetch=_unusable, stealth_limit=1, stealth_delay=0, log=lambda _m: None)
     check(len(calls) == 1, "隐身通道「200 但正文不可用」也占额度、也计入熔断", len(calls))
+
+    print("\n== 正文不可用也写 offer（thin），不再每轮占预算（2026-10-16 实测）==")
+    # 52 行「回复可见 / 只有一张图 / 就一句标题」的短正文，旧行为是「不写 offer」，
+    # 于是每轮都被当成「没判过」重新排进预算 —— 一轮 60 条预算被它们吃掉大半。
+    calls_thin = []
+
+    def _hidden(url, timeout=20):
+        calls_thin.append(url)
+        return '<div class="post-readability-content">请回复后查看内容。</div>'
+
+    rows_thin = [{"id": "9", "source": "linuxsb_首页", "url": "https://linux.sb/topic/9",
+                  "title": "送个100$额度的deepseek-v4.1-flash", "created_at": "2026-10-15T09:00:00+00:00"}]
+    n_thin = c.annotate(rows_thin, _hidden, limit=5, delay=0, timeout=1, log=lambda _m: None)
+    check(n_thin == 0, "正文不可用不计成功（隐身通道的熔断与计数保持原样）", n_thin)
+    check(rows_thin[0].get("offer", {}).get("thin") is True
+          and rows_thin[0]["offer"].get("v") == c.OFFER_V
+          and rows_thin[0]["offer"].get("amount") == "$100",
+          "但仍写 offer（量值从标题抽：thin + $100）", rows_thin[0].get("offer"))
+    calls_thin.clear()
+    n_thin2 = c.annotate(rows_thin, _hidden, limit=5, delay=0, timeout=1, log=lambda _m: None)
+    check(n_thin2 == 0 and not calls_thin, "下一轮不再重判、也不再重抓（TTL 到了才重判）",
+          (n_thin2, calls_thin))
 
     print("\n== offer 过期后会重判（缓存过期不该只让缓存失效）==")
     import time as _time
