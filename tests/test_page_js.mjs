@@ -225,6 +225,39 @@ check(!foldedBuilt.api.renderCard(folded.find((c) => c.id === '103')).includes('
 check(String(byId('total').textContent) === '3',
   'the header count shows the folded total', byId('total').textContent);
 
+console.log('\n== same-offer folding (offer.key, 正文层判定) ==');
+// 2026-10-15 muse 30 亿：近 48h 22 条、22 个不同标题、全部指向同一个 TG 机器人
+// （各带各的 ref 推广号）—— 标题级折叠一条都折不掉，身份只能来自正文层写进 store 的 offer.key。
+const offerCards = [
+  { ...row('301', '免费Muse 30亿token', iso(t - 3 * HOUR), iso(t - 3 * HOUR)), source: 'linuxsb_首页',
+    offer: { v: 1, key: 'muse|t.me/satudigitalbot', site: 't.me/satudigitalbot', amount: '30亿token' } },
+  { ...row('302', 'tg bot 把 muse 的价格打下来了，免费领 30 亿 token', iso(t - 1 * HOUR), iso(t - 1 * HOUR)),
+    source: 'linuxsb_福利放送', offer: { v: 1, key: 'muse|t.me/satudigitalbot', site: 't.me/satudigitalbot', amount: '300亿token' } },
+  { ...row('303', '注册送20刀 0.15倍率gpt', iso(t - 2 * HOUR), iso(t - 2 * HOUR)), source: 'linuxsb_我要推广',
+    offer: { v: 1, key: 'gpt|www.primerelay.online', site: 'www.primerelay.online', amount: '$10' } },
+  { ...row('304', '注册送gpt2亿', iso(t - 2 * HOUR), iso(t - 2 * HOUR)), source: 'linuxsb_我要推广',
+    offer: { v: 1, key: 'gpt|api.moremark.app', site: 'api.moremark.app', amount: '2亿token' } },
+  { ...row('305', '没判出 offer 的帖', iso(t - 2 * HOUR), iso(t - 2 * HOUR)), source: 'linuxsb_首页',
+    offer: { v: 1, key: null, site: '', amount: '' } },
+];
+const offerBuilt = build(inlineJs.replace(payload, JSON.stringify(offerCards)));
+const offerView = offerBuilt.api.getView();
+check(offerView.length === 4, 'two titles of one offer fold into a single card (5 -> 4)', offerView.length);
+const museKept = offerView.find((c) => c.id === '302');
+check(museKept && museKept.dups === 2, 'the newest of the offer survives with dups=2',
+  museKept && `${museKept.id}/${museKept.dups}`);
+check(!offerView.some((c) => c.id === '301'), 'the older offer duplicate is gone from the view');
+check(offerView.some((c) => c.id === '303') && offerView.some((c) => c.id === '304'),
+  'two DIFFERENT offers (different stations) are never merged');
+check(offerView.some((c) => c.id === '305'), 'a null offer key falls back to title folding');
+const museHtml = offerBuilt.api.renderCard(museKept);
+check(museHtml.includes('×2') && museHtml.includes('同一份福利共 2 条（按正文判定）'),
+  'the badge tooltip says the fold came from the offer layer', museHtml.slice(0, 260));
+check(!offerBuilt.api.renderCard(offerView.find((c) => c.id === '303')).includes('class="dups"'),
+  'an unfolded card carries no badge');
+check(String(byId('total').textContent) === '4',
+  'the header count uses the offer-folded total', byId('total').textContent);
+
 console.log('\n== a malformed row cannot blank the page or inject markup ==');
 const nasty = [
   { ...row('801', '标签不是数组', iso(t - 60 * 60 * 1000), iso(t - 60 * 60 * 1000)), tags: '额度' },

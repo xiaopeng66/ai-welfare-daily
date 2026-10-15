@@ -90,7 +90,7 @@ html[data-theme=dark] .tag:hover{filter:brightness(1.12)}
 .tag{font-size:.68rem;line-height:1.15;padding:2px 6px;border-radius:6px;min-height:0;height:20px}
 .card-foot{margin-top:0;padding-top:8px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:flex-start;gap:6px;height:auto;min-height:31px;overflow:visible}
 .source{font-size:.72rem;color:var(--hint);font-weight:500;min-width:0;max-width:42%;overflow-wrap:anywhere;padding:2px 6px;border-radius:6px;background:var(--hover)}
-/* 同来源同标题折叠的 ×N 角标（与来源同排，弱化展示） */
+/* 折叠的 ×N 角标（与来源同排，弱化展示）：同来源同标题 与 同一份 offer（正文层判定）共用 */
 .dups{font-size:.66rem;color:var(--hint);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap;flex:none;font-variant-numeric:tabular-nums}
 .card .card-foot .score{font-size:.72rem;color:var(--hint);white-space:nowrap;margin-left:0;padding-top:0}
 .post-time{font-size:.72rem;color:var(--hint);white-space:nowrap;margin-left:auto;padding:2px 6px}
@@ -146,7 +146,7 @@ html[data-theme=dark] .tag:hover{filter:brightness(1.12)}
       <div class="filter-row"><span class="filter-name">类型</span><div class="rail" id="category-rail"><div id="categories" class="scroller"></div><button class="scroll-next" type="button" aria-label="向右滚动类型选项" data-rail="categories">›</button></div></div>
     </section>
     <div class="summary"><strong>信息列表</strong><span id="result-summary"></span></div>
-    <details class="hint"><summary>时间与匹配度说明</summary><p>匹配度仅代表标题关键词命中，不代表推荐；日期为北京时间。无发布时间的帖子显示收录时间。同一来源下标题相同的重复帖只显示最新一条，角标 ×N 表示折叠条数。</p></details>
+    <details class="hint"><summary>时间与匹配度说明</summary><p>匹配度仅代表标题关键词命中，不代表推荐；日期为北京时间。无发布时间的帖子显示收录时间。同一来源下标题相同的重复帖、以及正文判定为同一份福利的多条帖，都只显示最新一条，角标 ×N 表示折叠条数。</p></details>
     <div id="results" aria-label="筛选结果"></div>
     <div class="more-wrap"><button type="button" class="more" id="more" hidden>查看更多</button></div>
   </main>
@@ -168,9 +168,12 @@ const bjDay=c=>{const n=time(c);return n?new Date(n+8*3600e3).toISOString().slic
 const formatter=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const formatTime=s=>{const n=stamp(s);if(!n)return '时间未知';const parts=Object.fromEntries(formatter.formatToParts(new Date(n)).map(x=>[x.type,x.value]));return `${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`};
 const safeURL=s=>{try{const u=new URL(s);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null}catch{return null}};
-/* 同来源同标题折叠：显示来源 + 标题完全相同的重复帖只渲染最新一张，角标 ×N 标出折叠条数。
-   折叠只发生在渲染层：store 保留每一次重发（合并键 host#id），页面仍是 store 的纯函数。 */
-function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();if(!title){groups.set('\u0000lone'+(lone++),{card:c,n:1});continue}const key=sourceKey(c.source)+'\u0000'+title;const g=groups.get(key);if(!g){groups.set(key,{card:c,n:1})}else{g.n+=1;if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n}):g.card)}
+/* 折叠：两类重复只渲染最新一张，角标 ×N 标出折叠条数。
+   ① 同一份 offer（store 的 offer.key，由正文层判定）—— 不同标题、同一份福利
+      （muse 30 亿被十几个人各发一条，标题条条不同，纯标题折叠一条都折不掉）；
+   ② 同来源 + 同标题（历史行为；没有 offer.key 的行走这条）。
+   折叠只发生在渲染层：store 保留每一行（合并键 host#id），页面仍是 store 的纯函数。 */
+function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&c.offer.key)?('O:'+c.offer.key):null;if(!ok&&!title){groups.set('\u0000lone'+(lone++),{card:c,n:1});continue}const key=ok||('T:'+sourceKey(c.source)+'\u0000'+title);const g=groups.get(key);if(!g){groups.set(key,{card:c,n:1,offer:!!ok})}else{g.n+=1;if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title'}):g.card)}
 const view=foldCards(cards);
 const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
@@ -194,7 +197,7 @@ function makeEntries(){const list=view.filter(c=>(state.source==='all'||sourceKe
 }
 function renderCard(c){const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
- const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<span class="dups" title="同来源同标题共 ${dups} 条，已折叠显示最新一条">×${dups}</span>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
+ const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<span class="dups" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}">×${dups}</span>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
 function sectionLabel(k){if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
 function addBatch(){const total=state.entries.length;let end=Math.min(state.shown+40,total);

@@ -1367,6 +1367,13 @@ def main():
         help="把**预过滤**语料（闸门之前解析出的全部帖子）写到这个文件，供离线规则 A/B。"
         "默认关闭；写进去的是候选全集，不写 store、不参与提交。",
     )
+    ap.add_argument(
+        "--content-limit",
+        type=int,
+        default=60,
+        help="正文层：每轮最多给多少条补判 offer（跨标题的同 offer 折叠靠它，"
+        "如 muse 30 亿被十几个人各发一条）。只影响折叠，不影响入库；0 = 关闭。",
+    )
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
@@ -1639,6 +1646,20 @@ def main():
             f"at {oldest.get('created_at') or oldest.get('fetched_at')}",
             file=sys.stderr,
         )
+
+    # 正文层：给缺 offer 的行抓一次正文、判「这是哪一份 offer」，页面按它折叠跨标题的
+    # 同 offer 刷屏（muse 30 亿实测近 48h 22 条 / 22 个标题，占线上整页 10.3%）。
+    # 预算（每轮条数 / 单源上限）、礼貌间隔、缓存与降级都在 content.annotate 里；
+    # 抓不到就跳过、下轮再试 —— 正文层失败只影响折叠，绝不影响入库。
+    if args.content_limit > 0:
+        try:
+            import content as content_layer
+            content_layer.annotate(
+                [t for _k, t in merged_items], fetch, limit=args.content_limit,
+                log=lambda m: print(m, file=sys.stderr),
+            )
+        except Exception as exc:          # 正文层永不拖垮主链
+            print(f"[content] annotate failed (ignored): {exc!r}", file=sys.stderr)
 
     # Display order: score desc, then created_at desc, then id desc
     def sort_key(t):
