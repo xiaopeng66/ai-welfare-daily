@@ -190,6 +190,86 @@ _, _, label2 = c.amount_of("送 $25 额度，另有 6.5e13 的数字串")
 check(c.amount_of("一串乱数字 " + "9" * 20)[1] <= c.TOKEN_CAP, "token 量有上限（防数字串误抽）")
 check(label2.startswith("$"), "美元与 token 比大小后取大的做标签", label2)
 
+print("\n== 量值：单位边界 / 领取语境 / 价格语境（2026-10-15 审计）==")
+# 8 行库存曾被 `…/i/4JHSM73B` 污染成「730 亿 token」；模型参数、文件大小、限速也都被
+# 当成过额度。左边界 + B/M 需要 token 语境 + 优先取领取语境，三条一起解决。
+for text, want_tok, why in [
+        ("注册领3B token", 3e9, "3B token 是真额度"),
+        ("MUSE token 免费3B TG注册机", 3e9, "token 在附近也算语境"),
+        ("注册链接 https://modeloc.com/i/EXAMPLE73B", 0.0, "URL 邀请码里的 73B 不是额度"),
+        ("可用模型 Qwen3.8 27B", 0.0, "27B 是模型参数规模"),
+        ("下载文件 10MB，版本2.0", 0.0, "10MB 是文件大小"),
+        ("模型延迟 10ms", 0.0, "10ms 是延迟"),
+        ("每分钟10M吞吐", 0.0, "10M 是吞吐指标"),
+        ("欢迎加入10万人社区", None, "人数不生成 token 标签")]:
+    tok = c.amount_of(text)[1]
+    if want_tok is None:
+        check(c.amount_of(text)[2] == "", f"量值标签为空（{why}）", c.amount_of(text))
+    else:
+        check(tok == want_tok, f"token 取数正确（{why}）", (tok, c.amount_of(text)))
+check(c.amount_of("免费领取20美元额度，月费99美元")[0] == 20.0,
+      "领取语境的 20 美元胜过价格语境的 99 美元", c.amount_of("免费领取20美元额度，月费99美元"))
+check(c.amount_of("需买7元套餐")[0] == 0.0, "价格语境的金额不算送的额度", c.amount_of("需买7元套餐"))
+check(c.amount_of("充值送20刀")[0] == 20.0, "价格词后面跟着发放动词的照旧算", c.amount_of("充值送20刀"))
+
+print("\n== 预算按尝试计数（2026-10-15 审计：失败风暴放大请求）==")
+_tmp = tempfile.mkdtemp(dir=os.path.dirname(os.path.abspath(__file__)) or ".")
+_old_cache = c.CACHE_DIR
+c.CACHE_DIR = _tmp
+try:
+    calls = []
+    def _broken(url, timeout=20):
+        calls.append(url)
+        raise OSError("injected outage")
+    rows_fail = [{"id": str(i), "source": "linuxsb_首页", "url": f"https://linux.sb/topic/{i}",
+                  "title": "公益站 送额度", "created_at": "2026-10-15T09:00:00+00:00"} for i in range(1, 5)]
+    n = c.annotate(rows_fail, _broken, limit=1, delay=0, timeout=1, log=lambda _m: None)
+    check(n == 0 and len(set(calls)) == 1 and len(calls) == 2,
+          "limit=1 时只尝试 1 行（失败重试一次），不再横扫全批", (n, len(calls), len(set(calls))))
+
+    calls.clear()
+    rows_cap = [{"id": str(i), "source": "linuxsb_首页", "url": f"https://linux.sb/topic/{i}",
+                 "title": "公益站 送额度", "created_at": "2026-10-15T09:00:00+00:00"}
+                for i in range(1, c.PER_SOURCE_CAP + 3)]
+    c.annotate(rows_cap, _broken, limit=1000, delay=0, timeout=1, log=lambda _m: None)
+    check(len(set(calls)) == c.PER_SOURCE_CAP,
+          "单源上限按尝试计数（失败也占额度）", (len(set(calls)), c.PER_SOURCE_CAP))
+
+    calls.clear()
+    def _unusable(url, timeout=20):
+        calls.append(url)
+        return "<html>challenge page</html>" + " " * 200
+    rows_ld = [{"id": str(i), "source": "linuxdo_welfare", "url": f"https://linux.do/t/topic/{i}",
+                "title": "linux.do 帖", "created_at": "2026-10-15T09:00:00+00:00"} for i in range(1, 6)]
+    c.annotate(rows_ld, lambda *a, **k: (_ for _ in ()).throw(OSError()), limit=0, delay=0,
+               stealth_fetch=_unusable, stealth_limit=1, stealth_delay=0, log=lambda _m: None)
+    check(len(calls) == 1, "隐身通道「200 但正文不可用」也占额度、也计入熔断", len(calls))
+
+    print("\n== offer 过期后会重判（缓存过期不该只让缓存失效）==")
+    import time as _time
+    now = _time.time()
+    rows_exp = [{"id": "1", "source": "linuxsb_首页", "url": "https://linux.sb/topic/900",
+                 "title": "旧行", "created_at": "2026-10-15T09:00:00+00:00",
+                 "offer": {"v": c.OFFER_V, "key": "old.example", "site": "old.example",
+                           "amount": "", "brand": "", "at": int(now - 25 * 3600)}}]
+    calls.clear()
+    def _new_body(url, timeout=20):
+        calls.append(url)
+        return '<div class="post-readability-content">https://new.example/reg 领取测试额度三十天有效。"' + '"' * 0 + "</div>"
+    n = c.annotate(rows_exp, _new_body, limit=5, delay=0, timeout=1, now=now + 1, log=lambda _m: None)
+    check(n == 1 and rows_exp[0]["offer"]["key"] == "new.example",
+          "过期的 offer 会被重判并换成新身份", (n, rows_exp[0]["offer"].get("key")))
+    calls.clear()
+    n2 = c.annotate([{"id": "2", "source": "linuxsb_首页", "url": "https://linux.sb/topic/901",
+                      "title": "新行", "created_at": "2026-10-15T09:00:00+00:00",
+                      "offer": {"v": c.OFFER_V, "key": "fresh.example", "site": "fresh.example",
+                                "amount": "", "brand": "", "at": int(now)}}],
+                    _new_body, limit=5, delay=0, timeout=1, now=now + 1, log=lambda _m: None)
+    check(n2 == 0 and not calls, "没过期的 offer 不重判（否则每天白跑一遍全库）", (n2, calls))
+finally:
+    c.CACHE_DIR = _old_cache
+    shutil.rmtree(_tmp, ignore_errors=True)
+
 print("\n== 落盘：offer 必须活着穿过 store 写盘（字段白名单）==")
 # 2026-10-15 实测踩坑：annotate 报「annotated 25 row(s)」，store 里却 0 行带 offer ——
 # 写盘是按字段白名单重建 dict，新字段没进白名单就被静默丢掉。这里钉死它。
@@ -211,6 +291,7 @@ check(fm._row_changed({"offer": None}, {"offer": {"v": 1}}),
       "offer 的出现算「行变了」（fetched_at 要更新、要有提交）")
 # 列表重抓不能把已判的 offer 弄丢（2026-10-15 实测：v2 行 143 → 85）
 _prev = {"created_at": "2026-10-15T00:00:00+00:00", "published_verified": True,
+         "title": "t", "url": "u",
          "offer": {"v": 2, "key": "t.me/satudigitalbot", "site": "t.me/satudigitalbot"}}
 _fresh = {"id": "1", "title": "t", "url": "u", "source": "linuxsb_首页"}   # 列表行：没有 offer/created_at
 fm.carry_forward(_prev, _fresh)
@@ -221,6 +302,13 @@ check(_fresh.get("created_at") == "2026-10-15T00:00:00+00:00" and _fresh.get("pu
 _own = {"offer": {"v": 2, "key": "new.example"}}
 fm.carry_forward(_prev, _own)
 check(_own["offer"]["key"] == "new.example", "carry_forward：新行自己判出的 offer 不被旧值覆盖")
+# 输入变了（URL 或标题被编辑过）→ 不继承旧身份，留给正文层重判
+_url_changed = {"id": "1", "title": "t", "url": "u2", "source": "linuxsb_首页"}
+fm.carry_forward(_prev, _url_changed)
+check("offer" not in _url_changed, "carry_forward：URL 变了不继承旧 offer（换推广站/改活动）")
+_title_changed = {"id": "1", "title": "t2", "url": "u", "source": "linuxsb_首页"}
+fm.carry_forward(_prev, _title_changed)
+check("offer" not in _title_changed, "carry_forward：标题变了不继承旧 offer")
 
 print("\n== annotate：预算、缓存、失败跳过 ==")
 tmp = tempfile.mkdtemp()

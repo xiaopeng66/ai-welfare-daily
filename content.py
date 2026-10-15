@@ -33,8 +33,8 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 4                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
-                                 # （v4：免费二级域保留全名 + 自身域按域名边界判断；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
+OFFER_V = 5                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+                                 # （v5：量值单位边界与领取语境 + offer 带判定时间戳并会过期重判；v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
                                  #   v2：注册域归一 + 传送/平台宿主排除 + 身份只看站点）
 DEFAULT_TTL_H = 24               # 正文缓存保留时长
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -234,11 +234,22 @@ MONEY = [
     (re.compile(r"(\d+(?:\.\d+)?)\s*元"), 1 / 7.0),
 ]
 TOKENS = [
-    (re.compile(r"(\d+(?:\.\d+)?)\s*亿"), 1e8),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*万"), 1e4),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*[Bb](?![a-zA-Z])"), 1e9),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*[Mm](?![a-zA-Z])"), 1e6),
+    # 左边界 (?<![A-Za-z0-9])：网址里的邀请码 `…/i/4JHSM73B` 曾被当成「73 billion tokens」
+    # = 730 亿（2026-10-15 审计：8 行库存被这一条污染）。B/M 还要额外要求附近有 token
+    # 语境，否则模型参数 `Qwen3.8 27B`、文件大小 `10MB`、限速 `10M` 都会被当成额度。
+    (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*亿"), 1e8),
+    (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*万"), 1e4),
+    (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*[Bb](?![a-zA-Z])"), 1e9),
+    (re.compile(r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*[Mm](?![a-zA-Z])"), 1e6),
 ]
+TOKENS_ASCII_UNITS = {1e9, 1e6}   # B/M 需要 token 语境；亿/万 在中文语料里基本就是数量词
+TOKEN_CONTEXT = re.compile(r"token|词元|额度|算力|积分|credits?", re.I)
+# 「送的额度」优先：紧挨着发放动词的数才是这次要宣传的量（`领取20美元…月费99美元` 取 20）
+GIVEAWAY_NEAR = re.compile(r"(?:送|赠|领|得|给|注册|免费|白嫖|薅|发|兑换|到账)\s*[^\d]{0,6}$")
+MIN_TOKEN_LABEL = 1e6             # 低于 100 万 token 不生成标签：`10万人社区` 这类会被挡掉
+# 价格语境的金额不是「送的额度」（`需买7元套餐`/`月费99美元`）；但 `充值送20刀` 这类
+# 价格词后面跟着发放动词的不能排除 —— 判据就是「紧挨着价格词」这一条。
+PRICE_CONTEXT = re.compile(r"(?:买|购买|售价|价格|仅需|包月|月费|年费|付费)\s*$")
 TOKEN_CAP = 1e11          # 1000 亿：再大基本是数字串误抽（实测 6.5e13 那种）
 
 
@@ -322,27 +333,74 @@ def target_of(body: str, links=()) -> str:
 
 
 def amount_of(body: str) -> tuple[float, float, str]:
-    """(美元额度, token 数, 展示标签)。美元与 token 取折算后更大的那个当标签。"""
-    usd = 0.0
+    """(美元额度, token 数, 展示标签)。
+
+    三条约束（每条都被实测逼出来，见 tests/test_content.py 的注释）：
+      · 单位左边界：不吃 URL/ID 里的数字（`…/73B`）；
+      · B/M 单位要求附近有 token 语境（`3B token` ✓、`Qwen3.8 27B` ✗、`10MB` ✗）；
+      · **优先取领取语境的数**（`领取20美元…月费99美元` 取 20 而不是 99），全篇都很远时
+        才退回最大值（老行为，`50美元的API Key` 这类没有动词的标题还靠它）。
+    """
+    money: list[tuple[float, int]] = []
     for pat, factor in MONEY:
         for m in pat.finditer(body):
             try:
-                usd = max(usd, float(m.group(1)) * factor)
+                value = float(m.group(1)) * factor
             except ValueError:
                 continue
-    tok = 0.0
+            if PRICE_CONTEXT.search(body[max(0, m.start() - 8):m.start()]):
+                continue
+            money.append((value, m.start()))
+    tokens: list[tuple[float, int]] = []
     for pat, mul in TOKENS:
         for m in pat.finditer(body):
             try:
-                tok = max(tok, float(m.group(1)) * mul)
+                value = float(m.group(1)) * mul
             except ValueError:
                 continue
-    tok = min(tok, TOKEN_CAP)
-    if tok / 1e8 >= usd:                    # 1 亿 token ≈ $1 的粗折算（只用于比大小）
-        label = f"{tok / 1e8:g}亿token" if tok else ""
+            if mul in TOKENS_ASCII_UNITS:
+                window = body[max(0, m.start() - 16):m.end() + 16]
+                if not TOKEN_CONTEXT.search(window):
+                    continue
+            tokens.append((value, m.start()))
+
+    def pick(items: list[tuple[float, int]]) -> float:
+        if not items:
+            return 0.0
+        near = [v for v, pos in items if GIVEAWAY_NEAR.search(body[max(0, pos - 12):pos])]
+        return max(near) if near else max(v for v, _ in items)
+
+    usd = pick(money)
+    tok = min(pick(tokens), TOKEN_CAP)
+    if tok >= MIN_TOKEN_LABEL and tok / 1e8 >= usd:   # 1 亿 token ≈ $1 的粗折算（只用于比大小）
+        label = f"{tok / 1e8:g}亿token"
     else:
         label = f"${usd:g}" if usd else ""
     return usd, tok, label
+
+
+GIVEAWAY_SENT = re.compile(r"送|赠|领|得|给|注册|免费|白嫖|薅|发|兑换|到账")
+LEAD_CHARS = 300
+ROUNDUP_CHARS = 600        # 超此长度按「复制来的汇总」处理：只信标题与开头
+
+
+def amount_in_offer(title: str, body: str) -> str:
+    """`offer.amount` 的口径：先信标题，再看正文开头；长文不再往深处取。
+
+    实测（2026-10-15）：9 条 9k–11k 字的长文是复制来的「站点分享」汇总，正文里有几十家
+    站的价格与额度 —— 全篇取最大会把它算成这条帖自己的量（先是 URL 里的 730 亿，改成
+    领取语境后变成汇总里另一家的 $100）。标题是发帖人自己对这份 offer 的报价，最可靠；
+    真正的单帖（正文短）才继续往回找含发放动词的句子。
+    """
+    for text in (title, body[:LEAD_CHARS]):
+        label = amount_of(text)[2]
+        if label:
+            return label
+    if len(body) > ROUNDUP_CHARS:
+        return ""
+    picked = [sent for sent in re.split(r"[。！!？?\n]", body[LEAD_CHARS:])
+              if GIVEAWAY_SENT.search(sent)][:2]
+    return amount_of(" ".join(picked))[2] if picked else ""
 
 
 def offer_of(title: str, body: str, links=()) -> dict:
@@ -355,10 +413,13 @@ def offer_of(title: str, body: str, links=()) -> dict:
     品牌与量值仍照抽，放进 offer.brand / offer.amount 供展示与后续精选用。
     """
     site = target_of(body, links)
-    _, _, amount = amount_of(body)
+    amount = amount_in_offer(title, body)
     m = BRAND.search(title) or BRAND.search(body[:400])
     brand = m.group(0).lower() if m else ""
     return {"v": OFFER_V, "key": (site or None), "site": site, "amount": amount, "brand": brand}
+
+
+# 纯函数到这里为止；`at` 时间戳由 _judge 落笔（offer_of 保持可离线断言）。
 
 
 # ---------------------------------------------------------------- 缓存
@@ -387,15 +448,17 @@ def _cache_save(url: str, body: str, meta: dict) -> None:
 
 
 # ---------------------------------------------------------------- 批量标注（网络部分很薄）
-def _judge(row: dict, body: str, meta: dict) -> bool:
+def _judge(row: dict, body: str, meta: dict, now: float | None = None) -> bool:
     """把**已抽好的正文**判成 offer 写回行里；正文太短（抽不到）返回 False。
 
     注意入参是抽好的正文，不是原始页面：_fetch_with_cache 负责「取 + 抽」，
     这里只判 —— 早期版本在这里又抽了一遍，等于对纯文本再找 HTML 容器，恒为空。
+    `at` 是判定时刻：offer 也会过期（源站改推广链接、活动结束），见 _offer_stale。
     """
     if len(body) < 30:
         return False
     row["offer"] = offer_of(row.get("title") or "", body, (meta or {}).get("links") or ())
+    row["offer"]["at"] = int(time.time() if now is None else now)
     if (meta or {}).get("author"):
         row["offer"]["author"] = meta["author"]
     return True
@@ -429,72 +492,104 @@ def _fetch_with_cache(row: dict, fetcher, cache_url: str, delay: float, timeout:
     return {"body": body, "meta": meta}
 
 
+def _offer_stale(row: dict, ttl_h: float, now: float) -> bool:
+    """这一行的 offer 该不该（重新）判？三种情况：
+
+      · 从没判过、或规则版本落后（OFFER_V 升级）；
+      · 判过但**超过 TTL** —— 缓存会过期，offer 不能比缓存活得久（源站会改推广链接、
+        活动会结束，2026-10-15 审计：正值与 null 都不会重判）；
+      · 没有 `at` 时间戳的旧数据（当陈旧，重判一次把时间戳补上）。
+    """
+    o = row.get("offer") or {}
+    if int(o.get("v") or 0) < OFFER_V:
+        return True
+    at = o.get("at")
+    if not at:
+        return True
+    try:
+        return (now - float(at)) > ttl_h * 3600
+    except (TypeError, ValueError):
+        return True
+
+
 def annotate(rows: list[dict], fetch: Callable[..., str],
              limit: int = 60, delay: float = 0.4, timeout: int = 20,
              ttl_h: float = DEFAULT_TTL_H, now: float | None = None,
              stealth_fetch: Callable[..., str] | None = None, stealth_limit: int = 8,
              stealth_delay: float = 15.0,
              log: Callable[[str], None] | None = None) -> int:
-    """给缺 offer（或 offer 版本落后）的行补判。就地改 rows，返回处理条数。
+    """给缺 offer（过期/版本落后也算）的行补判。就地改 rows，返回判定成功条数。
 
-    两条通道：
-      · 普通：linuxsb / baipiao / nextbuf / nodeloc / vibex —— 每轮最多 limit 条、
-        单一来源最多 PER_SOURCE_CAP 条、请求间隔 delay、失败重试一次即跳过。
-      · 隐身：linux.do（Cloudflare）—— 需要调用方传 stealth_fetch（scrapling 隐身浏览器），
-        每轮最多 stealth_limit 条、每条之间至少 stealth_delay 秒。没传就跳过。
+    预算按**尝试**计数（2026-10-15 审计：原来按成功数计数，一轮失败风暴会把请求放大到
+    限额的数倍 —— limit=1 时 4 条失败候选产生了 8 次抓取调用，单源上限也被绕过）：
+      · 普通通道：每轮最多尝试 limit 条、单一来源最多尝试 PER_SOURCE_CAP 条、
+        请求间隔 delay、失败重试一次即跳过；
+      · 隐身通道：每轮最多尝试 stealth_limit 条、每条之间 ≥ stealth_delay 秒、
+        **「200 但正文不可用」也算失败**（原来不算，熔断形同虚设）、连续两条失败即收手。
     抓不到正文不写 offer（下一轮再试），绝不让正文层拖垮主链。
     """
     say = log or (lambda _m: None)
+    clock = time.time() if now is None else now
     todo = [
         r for r in rows
-        if r.get("source", "").split("_")[0] in EXTRACTORS
-        and int((r.get("offer") or {}).get("v") or 0) < OFFER_V
+        if r.get("source", "").split("_")[0] in EXTRACTORS and _offer_stale(r, ttl_h, clock)
     ]
     if not todo or (limit <= 0 and not stealth_fetch):
         return 0
-    todo.sort(key=lambda r: r.get("created_at") or r.get("fetched_at") or "", reverse=True)
+
+    # 先判没判过的（新帖优先），再按创建时间新的先重判 —— 不这样排，重判会把预算吃光。
+    def _order(r: dict):
+        o = r.get("offer") or {}
+        first_time = int(o.get("v") or 0) < OFFER_V or not o.get("at")
+        return (0 if first_time else 1, r.get("created_at") or r.get("fetched_at") or "")
+
+    todo.sort(key=_order)
 
     normal = [r for r in todo if r["source"].split("_")[0] not in STEALTH_SOURCES]
     stealth = [r for r in todo if r["source"].split("_")[0] in STEALTH_SOURCES]
+    attempted = 0
     done = 0
 
     per_src: dict[str, int] = {}
     for r in normal:
-        if done >= limit:
+        if attempted >= limit:
             break
         src = r["source"].split("_")[0]
         if per_src.get(src, 0) >= PER_SOURCE_CAP or not r.get("url"):
             continue
+        attempted += 1                       # 尝试即计数：失败也占预算
+        per_src[src] = per_src.get(src, 0) + 1
         got = _fetch_with_cache(r, fetch, content_url(src, r["url"]), delay, timeout, ttl_h)
         if got is None:
             continue
-        if _judge(r, got["body"], got["meta"]):
-            per_src[src] = per_src.get(src, 0) + 1
+        if _judge(r, got["body"], got["meta"], clock):
             done += 1
 
     stealth_done = 0
+    stealth_attempted = 0
     if stealth_fetch:
         # linux.do 会限速：实测连着打（每 2-3 秒一条）立刻连续 429，之后连正常请求也一并 429。
-        # 所以这里要么慢、要么停 —— 每条之间 stealth_delay（默认 15s）打底，
-        # 连续两条失败就放弃本轮（下一轮再来），绝不硬打。
+        # 所以这里要么慢、要么停 —— 连续两条失败就放弃本轮（下一轮再来），绝不硬打。
         fails = 0
         for r in stealth:
-            if stealth_done >= stealth_limit or fails >= 2:
+            if stealth_attempted >= stealth_limit or fails >= 2:
                 break
             if not r.get("url"):
                 continue
+            stealth_attempted += 1           # 尝试即计数
             got = _fetch_with_cache(r, stealth_fetch, content_url("linuxdo", r["url"]),
                                     max(delay, stealth_delay), timeout, ttl_h)
-            if got is None:
-                fails += 1
+            if got is None or not _judge(r, got["body"], got["meta"], clock):
+                fails += 1                   # 「200 但正文不可用」也计入熔断
                 time.sleep(max(delay, stealth_delay) * 2)
                 continue
             fails = 0
-            if _judge(r, got["body"], got["meta"]):
-                stealth_done += 1
-                done += 1
+            stealth_done += 1
+            done += 1
 
-    if done:
+    if done or attempted or stealth_attempted:
+        remaining = sum(1 for r in todo if _offer_stale(r, ttl_h, clock))
         say(f"[content] annotated {done} row(s) with offer keys "
-            f"({len(todo) - done} still pending; {stealth_done} via stealth browser)")
+            f"({remaining} still pending; {stealth_done} via stealth browser; "
+            f"tried {attempted + stealth_attempted})")
     return done
