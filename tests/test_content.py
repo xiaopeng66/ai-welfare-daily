@@ -60,8 +60,8 @@ check(c.offer_of("a", "https://console.river.ai/")["key"]
 check(c.offer_of("claude 免费领", "https://dzhsmartai.com/a")["key"]
       == c.offer_of("deepseek 送额度", "https://dzhsmartai.com/b")["key"],
       "身份不含品牌：同一站标题分别写 claude/deepseek 也合并（实测被拆成四份）")
-check(c.normalize_site("developer.amd.com.cn") == "amd.com.cn"
-      and c.normalize_site("free.zynk.bot.cd") == "bot.cd", "两段式后缀（com.cn / *.cd）按注册域取")
+check(c.normalize_site("developer.amd.com.cn") == "amd.com.cn",
+      "两段式后缀（com.cn）按注册域取；*.cd 这类免费二级域见 v4 一节（保留全名）")
 for u, host in [("https://github.com/x/y", "github.com"), ("https://t.co/abc", "t.co"),
                 ("https://www.nodeseek.com/post-1", "nodeseek.com"),
                 ("https://wwbpt.lanzouw.com/xyz", "蓝奏云"), ("https://apps.apple.com/cn/app/x", "App Store"),
@@ -71,8 +71,8 @@ check(c.offer_of("a", "https://a.github.io/x")["key"] != c.offer_of("b", "https:
       "多租户平台保留完整主机名：两个 pages 部署不合并")
 check(c.normalize_site("laisiai.tw.cpolar.io") == "laisiai.tw.cpolar.io",
       "隧道域名（cpolar.io）不算可归一的注册域")
-check(c.offer_of("muse 30亿", "https://t.co/abc 短链 https://satudigital.bot.cd/join 真目标")["site"] == "bot.cd",
-      "短链跳过、取后面的真实目标")
+check(c.offer_of("muse 30亿", "https://t.co/abc 短链 https://satudigital.bot.cd/join 真目标")["site"]
+      == "satudigital.bot.cd", "短链跳过、取后面的真实目标（v4：免费二级域保留全名）")
 
 print("\n== v3 规则：静态资源与自身 CDN 不算目标 ==")
 # 实测（2026-10-15）：Discourse 的 cooked 里图片常包在 <a href="...png"> 里，
@@ -87,6 +87,19 @@ check(c._links_from('<a href="https://ldstatic.com/x.png"><img src="x"></a>') ==
       "容器 href 里的资源 URL 一律丢弃（cooked 的图片包裹链接）")
 check(c._links_from('<a href="https://t.me/somebot?start=1">进群</a>') == ["https://t.me/somebot?start=1"],
       "正常链接照旧保留")
+
+print("\n== v4 规则：免费二级域保留全名 + 自身域按边界判断 ==")
+# 审计（2026-10-15 第二轮）：`bot.cd` 上同时挂着 Zynk API 与另一个 Codex 招募站，
+# 按注册域归一就把两家并成一份；而自身域用子串判断则会把 mylinux.sbsite.com 当论坛自身。
+check(c.normalize_site("zynk.bot.cd") == "zynk.bot.cd"
+      and c.normalize_site("codex.bot.cd") == "codex.bot.cd",
+      "免费二级域（*.bot.cd）保留完整主机名，不同服务不合并")
+check(c.normalize_site("console.river.ai") == "river.ai",
+      "普通域名仍归一到注册域（对照组）")
+check(not c.skipped_host("mylinux.sbsite.com") and not c.skipped_host("notlinux.do.example.com"),
+      "自身域按域名边界判断：只是「含」linux.sb 的域名不算论坛自身")
+check(c.skipped_host("linux.sb") and c.skipped_host("www.linux.sb") and c.skipped_host("api.linux.do"),
+      "论坛自身的各子域照旧跳过")
 
 print("\n== linux.do：隐身通道（v2 新增）==")
 LD = '{"post_stream":{"posts":[{"username":"alice","cooked":"<p>https://station-y.com/reg 送 20 刀</p>"}]}}'

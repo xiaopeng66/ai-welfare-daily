@@ -33,8 +33,8 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 3                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
-                                 # （v3：资源类 URL 不算目标 + linux.do 自家 CDN 计入自身；
+OFFER_V = 4                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+                                 # （v4：免费二级域保留全名 + 自身域按域名边界判断；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
                                  #   v2：注册域归一 + 传送/平台宿主排除 + 身份只看站点）
 DEFAULT_TTL_H = 24               # 正文缓存保留时长
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -215,7 +215,10 @@ SKIP_SUFFIX = ("lanzou", "lanzoux", "lanzouw", "lanzoui", "lanzoup")   # 蓝奏�
 # 实测：`laisiai.tw.cpolar.io`（隧道）、`zoria.up.railway.app`（平台子域）。
 MULTI_TENANT = ("github.io", "pages.dev", "vercel.app", "netlify.app", "workers.dev",
                 "railway.app", "cpolar.io", "trycloudflare.com", "ngrok.io", "ngrok-free.app",
-                "blogspot.com", "notion.site", "gitbook.io", "surge.sh", "replit.app")
+                "blogspot.com", "notion.site", "gitbook.io", "surge.sh", "replit.app",
+                # 免费二级域（谁都能注册子域）：实测 bot.cd 上同时挂着 Zynk API 和另一个
+                # Codex 招募站，按注册域归一就把两家并成了一份 —— 这类必须保留全名。
+                "bot.cd", "cc.cd", "l.cd", "eu.org", "us.kg", "dpdns.org", "rr.nu", "zz.ac")
 # 两段式公共后缀（没有 PSL 依赖，只收常见的）
 MULTI_SUFFIX = ("com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "com.tw", "com.hk",
                 "co.jp", "co.uk", "com.au", "co.kr", "com.sg", "com.br", "co.in")
@@ -246,7 +249,7 @@ def _host_of(url: str) -> tuple[str, str]:
 
 def skipped_host(host: str) -> bool:
     """传送/平台宿主：不能当 offer 身份（论坛自身、群链接、短链、代码托管、网盘、商店、别家论坛）。"""
-    if any(h in host for h in SELF_HOSTS) or any(h in host for h in GROUP_HOSTS):
+    if any(host == h or host.endswith("." + h) for h in SELF_HOSTS + GROUP_HOSTS):
         return True
     if any(host == h or host.endswith("." + h) for h in SKIP_HOSTS):
         return True
