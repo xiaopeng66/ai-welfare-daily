@@ -224,10 +224,13 @@ _FOLD = [
     ('提示文案含正文判定', '正文判定为同一份福利'),
     # 2026-10-15 用户要求：角标更显眼（彩色胶囊）且点开可看该组清单
     ('彩色胶囊样式', '.dups.hot{'),
-    ('清单样式', '.fold-list{'),
-    ('清单构建器', 'function foldListHTML('),
+    ('弹窗遮罩与盒子样式', '.modal-box{'),
+    ('弹窗容器标记', 'id="foldModal"'),
+    ('弹窗内容构建器', 'function foldModalHTML('),
+    ('打开/关闭弹窗', 'function closeFoldModal('),
     ('角标是可点击按钮', 'data-fold="'),
-    ('展开/收起接线', 'b.dataset.fold!==undefined'),
+    ('按钮打开弹窗', 'b.dataset.fold!==undefined'),
+    ('遮罩/✕ 关闭', 'data-fold-close'),
 ]
 for _label, _needle in _FOLD:
     check(_needle in _tpl, 'template: ' + _label, _needle)

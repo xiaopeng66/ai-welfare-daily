@@ -132,7 +132,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldListHTML,sectionLabel,makeEntries,renderCard,state};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,state};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -263,9 +263,9 @@ check(museHtml.includes('class="dups hot"') && museHtml.includes('>▸ ×2<'),
   'offer-fold badge is a colored capsule button with the ▸ glyph', museHtml.match(/<button[^>]*dups[^>]*>[^<]*</)[0]);
 check(museHtml.includes('data-fold="O:muse|t.me/satudigitalbot"') && museHtml.includes('data-n="2"'),
   'the badge carries the fold key and count for the click handler');
-check(museHtml.includes('aria-expanded="false"'), 'the badge starts collapsed (aria-expanded=false)');
-const listHtml = offerBuilt.api.foldListHTML(museKept);
-check(listHtml.includes('该组 2 条（新 → 旧）'), 'the expanded list header shows the group size', listHtml.slice(0, 90));
+check(museHtml.includes('aria-haspopup="dialog"'), 'the badge opens a dialog (aria-haspopup)');
+check(!museHtml.includes('fold-list'), 'the card itself carries no inline list (desktop uses a modal)');
+const listHtml = offerBuilt.api.foldModalHTML(museKept);
 check(listHtml.includes('免费Muse 30亿token') && listHtml.includes('tg bot 把 muse 的价格打下来了'),
   'the list names every folded entry (including the older one)', listHtml.slice(0, 200));
 check((listHtml.match(/class="fold-row"/g) || []).length === 2

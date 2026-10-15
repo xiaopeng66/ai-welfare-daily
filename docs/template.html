@@ -96,9 +96,19 @@ html[data-theme=dark] .tag:hover{filter:brightness(1.12)}
 /* 「同一份 offer」的折叠比「同标题」更值得注意：给彩色胶囊，一眼认出刷屏被合掉了 */
 .dups.hot{background:#eef2ff;border-color:#c9cdf8;color:#4e52c9;font-weight:700}
 .dups.hot:hover{background:#e3e7ff}
-.fold-list{margin-top:9px;border-top:1px dashed var(--line);padding-top:7px;display:flex;flex-direction:column;gap:2px}
-.fold-list-hd{font-size:.68rem;color:var(--hint);padding:0 6px 3px}
-.fold-row{display:flex;gap:10px;align-items:baseline;justify-content:space-between;font-size:.76rem;color:var(--muted);text-decoration:none;padding:4px 6px;border-radius:8px}
+/* 折叠清单弹窗（桌面端不再就地增高卡片）：遮罩 + 居中盒子，卡片本身高度不变 */
+.modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center}
+.modal[hidden]{display:none}
+.modal-mask{position:absolute;inset:0;background:rgba(17,24,39,.45);backdrop-filter:blur(2px)}
+.modal-box{position:relative;width:min(620px,92vw);max-height:min(70vh,680px);display:flex;flex-direction:column;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 18px 60px rgba(15,30,60,.28);overflow:hidden}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px 9px}
+.modal-hd strong{font-size:.95rem}
+.modal-x{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:9px;width:30px;height:30px;cursor:pointer;font-size:.9rem;line-height:1}
+.modal-x:hover{background:var(--hover);color:var(--text)}
+.modal-sub{font-size:.74rem;color:var(--hint);padding:0 14px 10px;border-bottom:1px solid var(--line)}
+.modal-body{overflow:auto;padding:6px 8px 12px}
+.fold-list{display:flex;flex-direction:column;gap:2px}
+.fold-row{display:flex;gap:10px;align-items:baseline;justify-content:space-between;font-size:.78rem;color:var(--muted);text-decoration:none;padding:6px 8px;border-radius:8px}
 .fold-row:hover{background:var(--hover);color:var(--text)}
 .fold-row-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fold-row-time{flex:none;color:var(--hint);font-variant-numeric:tabular-nums}
@@ -188,8 +198,11 @@ const view=foldCards(cards);
 /* 展开清单：该组每条的标题 + 北京时间，点任意一条去原帖。点击不整页重渲染（只挂/摘一个节点），
    展开状态记在 state.expanded —— 切筛选/排序后重新渲染仍保持展开。 */
 const foldMap=new Map();for(const c of view)if(c.dups>1&&c.dupkey)foldMap.set(c.dupkey,c);
-function foldListHTML(c){const rows=(c.dupsList||[]).map(m=>`<a class="fold-row" href="${escapeHTML(m.u||'#')}" target="_blank" rel="noopener noreferrer"><span class="fold-row-t">${escapeHTML(m.t)}</span><time class="fold-row-time">${m.at?formatTime(m.at):'时间未知'}</time></a>`).join('');return `<div class="fold-list"><div class="fold-list-hd">该组 ${(c.dupsList||[]).length} 条（新 → 旧）</div>${rows}</div>`}
-const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:'',expanded:new Set()};
+function foldModalHTML(c){const rows=(c.dupsList||[]).map(m=>`<a class="fold-row" href="${escapeHTML(m.u||'#')}" target="_blank" rel="noopener noreferrer"><span class="fold-row-t">${escapeHTML(m.t)}</span><time class="fold-row-time">${m.at?formatTime(m.at):'时间未知'}</time></a>`).join('');return `<div class="fold-list">${rows}</div>`}
+function openFoldModal(key){const c=foldMap.get(key);if(!c)return;const m=$('#foldModal');const offer=c.dupwhy==='offer';$('#foldModalTitle').textContent=(offer?'同一份福利':'同来源同标题')+' · 共 '+c.dups+' 条';$('#foldModalSub').textContent=(offer?'按正文判定（同一份 offer）':'标题完全相同')+' · 新 → 旧 · 点任意一条打开原帖';$('#foldModalBody').innerHTML=foldModalHTML(c);m.hidden=false;document.documentElement.style.overflow='hidden';const x=m.querySelector('.modal-x');x&&x.focus&&x.focus({preventScroll:true});document.addEventListener('keydown',foldModalEsc)}
+function closeFoldModal(){const m=$('#foldModal');if(!m||m.hidden)return;m.hidden=true;document.documentElement.style.overflow='';$('#foldModalBody').innerHTML='';document.removeEventListener('keydown',foldModalEsc)}
+function foldModalEsc(e){if(e.key==='Escape')closeFoldModal()}
+const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
 function updateRails(){['source','category'].forEach(updateRail)}
 function selected(id,field,val){$$('#'+id+' .chip').forEach(b=>{const on=b.dataset[field]===val;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
@@ -211,7 +224,7 @@ function makeEntries(){const list=view.filter(c=>(state.source==='all'||sourceKe
 }
 function renderCard(c){const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
- const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-expanded="false" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
+ const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
 function sectionLabel(k){if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
 function addBatch(){const total=state.entries.length;let end=Math.min(state.shown+40,total);
@@ -231,7 +244,7 @@ function setCategory(c){clearTimeout(pending);state.query=$('#search').value.tri
 let pending;$('#search').addEventListener('input',e=>{clearTimeout(pending);if(e.isComposing)return;pending=setTimeout(()=>{state.query=$('#search').value.trim().toLocaleLowerCase();refresh()},110)});$('#search').addEventListener('compositionend',()=>{clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();refresh()});
 $('#reset').addEventListener('click',reset);$('#more').addEventListener('click',e=>{const index=state.shown;addBatch();if(e.detail===0||$('#more').hidden){document.querySelectorAll('.card')[index]?.querySelector('.title a[href]')?.focus({preventScroll:true})}});
 $('#theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme==='dark',theme=dark?'light':'dark';document.documentElement.dataset.theme=theme;$('#theme').textContent=dark?'☾ 主题':'☀ 主题';$('#theme').setAttribute('aria-label',dark?'切换深色主题':'切换浅色主题');document.querySelector('meta[name="theme-color"]').content=dark?'#f6f7fa':'#111827';try{localStorage.setItem('promo-theme',theme)}catch{}});
-document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}else if(b.dataset.fold!==undefined){const key=b.dataset.fold,card=b.closest('.card'),open=card&&card.querySelector('.fold-list');if(open){open.remove();state.expanded.delete(key);b.textContent='▸ ×'+b.dataset.n;b.setAttribute('aria-expanded','false')}else{const c=foldMap.get(key);if(c&&card){card.insertAdjacentHTML('beforeend',foldListHTML(c));state.expanded.add(key);b.textContent='▾ ×'+b.dataset.n;b.setAttribute('aria-expanded','true')}}}});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}else if(b.dataset.foldClose!==undefined){closeFoldModal()}else if(b.dataset.fold!==undefined){openFoldModal(b.dataset.fold)}});
 function refreshClock(){if(state.sort==='score'){const signature=state.entries.filter(x=>isRecent(x.c)).map(x=>x.c.id).join('|');if(signature!==state.recentSignature)refresh()}else{for(const [key,el] of state.sections){const label=sectionLabel(key),node=el.querySelector('h2');if(node.textContent!==label)node.textContent=label}}}
 setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshClock()});init();
 
@@ -266,6 +279,15 @@ setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventLis
 })();
 </script>
 <!-- 右下角悬浮按钮：返回顶部 / 刷新 -->
+<div class="modal" id="foldModal" hidden>
+  <div class="modal-mask" data-fold-close></div>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="foldModalTitle">
+    <div class="modal-hd"><strong id="foldModalTitle">折叠清单</strong>
+      <button type="button" class="modal-x" data-fold-close aria-label="关闭">✕</button></div>
+    <div class="modal-sub" id="foldModalSub"></div>
+    <div class="modal-body" id="foldModalBody"></div>
+  </div>
+</div>
 <div class="fab" role="group" aria-label="页面快捷操作">
   <button class="fab-btn top" id="fabTop" type="button" title="返回顶部" aria-label="返回顶部">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
