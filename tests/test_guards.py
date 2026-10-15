@@ -153,6 +153,31 @@ names = source_names()
 check(len(names) >= 5, f'every source function is overridden by the harness: {", ".join(names)}',
       names)
 
+print('\n== 源站把标题改成「（已结束）」后，旧行必须被删掉 ==')
+# 2026-10-15 审计复现：新标题「…（已结束）」在闸门那一层就被滤掉，merge 里只剩旧的
+# 有效标题，于是这一行永远删不掉。修法：用**闸门之前**的抓取集合判 stale。
+_live = topic(1001, 'https://linux.sb/topic/1001', '公益站 A')
+_other = topic(1002, 'https://linux.sb/topic/1002', '公益站 B')
+_ended = topic(1001, 'https://linux.sb/topic/1001', '公益站 A（已结束）')
+_r = run([_live, _other], {'fetch_linuxsb': lambda *a, **k: [_ended]})
+check([x['id'] for x in _r['rows']] == ['1002'],
+      'a fresh ended title removes the stored live row', [x['id'] for x in _r['rows']])
+check('seen only in this round' in _r['log'],
+      'the purge log says it came from this round', _r['log'].strip().splitlines()[-3:])
+
+# 对照：新标题只是过不了闸门（不是「已结束」）时**不能**删行 —— 源站改标题、发问帖
+# 都不代表投放结束，宁可留着等它自己结束。
+_r2 = run([_live, _other], {'fetch_linuxsb': lambda *a, **k: [
+    topic(1001, 'https://linux.sb/topic/1001', '公益站 A 怎么用')]})
+check(sorted(x['id'] for x in _r2['rows']) == ['1001', '1002'],
+      'a non-stale gate failure does NOT delete the stored row', [x['id'] for x in _r2['rows']])
+
+# 已结束的已知行必须能从源站抓取里漏出来（否则永远看不到它结束）
+check(mod.ended_title({'title': '公益站 A（已结束）'}) and mod.ended_title({'title': '[已开奖]公益站 A'}),
+      'ended_title() 认得 stale 词表里的标记')
+check(not mod.ended_title({'title': '【明天结束】CUN.AI 首充 $66 拿 Claude'}),
+      'ended_title() 不误杀「明天结束」这类未来时')
+
 print('\n== partial failure keeps cached rows, and is reported ==')
 store = [topic(1001, 'https://linux.sb/topic/1001', '公益站 A'),
          topic(1002, 'https://linux.sb/topic/1002', '公益站 B')]

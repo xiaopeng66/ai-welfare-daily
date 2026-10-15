@@ -314,7 +314,12 @@ CATEGORY_PATTERNS = {
 #    注意「额度」故意不在这里：它只说明这条帖在讲额度，不说明在送额度 ——
 #    「额度给的太少了」「go的额度也下降了」是抱怨帖，必须走 B 的 AND 判定。
 SELF_SUFFICIENT_KEYWORDS = [
-    "中转站", "公益", "鸡蛋", "体验金", "号池", "放粮", "放糧", "兑换码",
+    "中转站", "公益", "鸡蛋", "体验金", "号池", "放粮", "放糧",
+    # 「兑换码」2026-10-15 移出自足词：它是**发放形式**，不是 AI 证据 ——
+    # `[国庆快乐] Spot Authenticator，给兄弟们送 3 个月 Pro 兑换码`（2FA 工具）
+    # 靠它免检进了库存。移出后走 AND 判定（AI 领域词 ∧ 发放信号），实测：
+    # 现网掉 2 条（Spot ×2 行 + 烧饼换积分）、10-06 旧语料掉 2 条，都是非 AI 兑换/交易帖；
+    # 带 公益/中转站/CDK+域名 的真帖不受影响（`【dure公益站】100$公益站CDK兑换码` 仍收）。
 ]
 
 # B-1. AI / 额度领域词。用 ASCII 前后瞻而不是 \b：Python 里中文也算 \w，
@@ -441,6 +446,12 @@ _NOT_FREEBIE_KEYWORDS = [
     # 这两个都排在自足词之后，所以自带 中转站/公益/鸡蛋 等强特征的真货不受影响
     # （实测：加词后只有这 2 条被剔，另外 4 条含「方法/教程」的真货照常保留）。
     "测评", "求教",
+    # 2026-10-15 审计：标题**否定**了福利却照样过闸（`GPT不免费送100刀`、
+    # `GPT不再免费`、`现在是不是不能注册白嫖api了`）；`解决方案` 收编排障教程
+    # （baipiao/694 的 codex 工具缺失解决方案，正文只有排障步骤）。
+    # 都排在自足词之后：带 公益/中转站/鸡蛋 的真帖不受影响。
+    r"不(?:再)?免费|不送|不白嫖|不能(?:注册|领|用|白嫖)|无法(?:注册|领|使用)",
+    "停止发放", "取消发放", "假的", "解决方案",
     # 2026-10-05 复审补的第三批意图否决，每条都在语料里点到 1 条真噪音、0 误伤
     # （「没有」类的索要帖：自足词在它之前判定，含 中转站/公益/鸡蛋 的真货不受影响）：
     #   问句结尾   `codex订阅100$还是200$还是500$？` —— 金额形状放开后，问价帖会靠
@@ -505,14 +516,22 @@ _NONAI_TARGET_KEYWORDS = [
     #   京东(?!云) 电商活动 x1（负向断言保住「京东云的 Coding plan」这类 AI
     #   侧标题）；(?:ai 手机|手机体验) 消费电子资讯 x1（比裸「手机」精确，
     #   避免误伤「手机也能领」式真帖）；源码 工具源码分享 x1。
-    "住宅", "成品号", "日抛", "刀卡", r"京东(?!云)", r"(?:ai\s*手机|手机体验)", "源码",
+    # 住宅/源码/自动签到 收窄成形状：裸词会误杀「住宅IP不限」这类描述句
+    # （2026-10-15 复核探针），而广告的写法是 `住宅代理`/`双 ISP 住宅`。
+    # 不收 `住宅IP`：`住宅IP不限` 是描述句（复核探针），广告写的是
+    # `静态住宅`/`双 ISP 住宅`/`住宅代理`。
+    r"(?:动态|静态|双\s*ISP)\s*住宅|住宅(?:代理|带宽|宽带|节点|流量)",
+    r"(?:插件|脚本|工具|项目|面板).{0,8}源码|源码.{0,6}(?:分享|下载|自取|拿走)",
+    "成品号", "日抛", "刀卡", r"京东(?!云)", r"(?:ai\s*手机|手机体验)",
 ]
 
 # B-5. 已结束的帖子：福利已开奖/领完/失效，留着就是死信息。
 #     实测库里积了 24 条（`[已开奖]…`、`爽蹬$1000刀(已完)`、`…（已无）`）。
 #     判定是纯函数，所以闸门和「下一轮删除」用的是同一张表。
 _STALE_KEYWORDS = [
-    "已开奖", "已流抽", "已结束", "已赠送", "已领完", "已失效", "已完", "已无",
+    "已开奖", "已流抽", "已结束", "已赠送", "已领完", "已失效",
+    # `已完(?!成)` / `已无(?!法)`：裸词会吃掉「已完成升级」「已无法注册」（复核探针复现）。
+    r"已完(?![成全整善])", r"已无(?![法])",
     # 「无了」是源站自己标的「已发完」——《【无了】国庆节快乐 GPT6系列 速蹬》明显不可领。
     "无了",
     # 「已送出」：`送个L站青春版邀请码（已送出）`、`【阶跃星辰】送点阶跃星辰token（已送出）`
@@ -532,6 +551,19 @@ _STALE_KEYWORDS = [
 _MEMBERSHIP_RE = re.compile(r"会员|svip|年费|月费", re.I)
 _PRICE_RE = re.compile(r"折|首充|充值|返利|优惠|特价|低价|倍率|羊毛", re.I)
 
+def ended_title(t: dict) -> bool:
+    """标题自带「已结束」标记（纯函数，stale 词表是唯一判据）。
+
+    两处必须共用同一个判据：
+      · main() 的清库：store 里的旧标题、以及**本轮新抓到的标题** —— 后者是关键，
+        源站把标题改成「…（已结束）」时，闸门会先把这条新标题滤掉（is_relevant 不过），
+        merge 里只剩旧的有效标题，于是那一行永远删不掉（2026-10-15 审计复现）；
+      · 源站抓取对「已知行」的跳过例外 —— 已知行也要让「已结束」的新标题漏出来，
+        否则我们永远看不到它已经结束。
+    """
+    return bool(_STALE_RE.search((t.get("title") or "").lower()))
+
+
 _DOMAIN_RE = re.compile("|".join(DOMAIN_KEYWORDS), re.I)
 # 词 + 形状：形状只补 OFFER 一侧（领域的「形状」会误伤太多，没有需要）。
 _OFFER_RE = re.compile("|".join(list(OFFER_KEYWORDS) + list(OFFER_PATTERNS)), re.I)
@@ -545,8 +577,15 @@ _STALE_RE = re.compile("|".join(_STALE_KEYWORDS), re.I)
 # vibex/6690. Keep generic 方法/教程 handling below the strong-offer shortcut.
 _REQUEST_RE = re.compile(
     r"^(?:求|收(?:一个|个)|帮忙推荐|有佬有)|有没有|问个问题|我能不能"
-    # 2026-10-15 实测补入的问句/索要式（各自点到 1-3 条过闸噪音、0 误伤）：
-    r"|是不是|有什么推荐|有哪些|选哪个|什么情况|谁有|谁能给|求助"
+    # 2026-10-15 实测补入的问句/索要式（各自点到 1-3 条过闸噪音、0 误伤）。
+    # 「是不是」收窄成「是不是+状态/否定词」：裸「是不是」会把「是不是很良心」这类
+    # 修辞式夸奖也否决（复核探针复现）；`是不是又完了`/`是不是不能注册` 仍被拦。
+    r"|是不是(?:又|不|还|真的|也|已经)|有什么推荐|有哪些|选哪个|什么情况|谁有|谁能给|求助"
+    # 「能领吗」这类是在**问能不能领**，不是投放：它带发放动词，会绕过问句收尾的
+    # 保护集判定（`GPT免费额度能领吗？` 实测被收），所以单独列出。
+    # 刻意不收「怎么领/如何领」：`zcode又发臭鸡蛋了，但是怎么领取不了` 是抱怨帖，
+    # 但同一个形状也出现在「怎么领取额度」这类真帖里，误杀成本更高（夹具抓到过）。
+    r"|能领吗|可以领吗|能白嫖吗|领得到吗"
     # 句中标点后的「求」；排除「求扩散/转发/关注/点赞/三连/支持/带走/
     # 好评/收藏」这类挂在真福利帖尾巴上的传播语（否则「免费送100刀，
     # 求扩散」会被误杀；`佬，求助谷歌邮箱…` 是真的在求助，仍被剔）。
@@ -560,12 +599,12 @@ _RHETORICAL_OFFER_RE = re.compile(
     r"(?:我(?:来|给大家)?|本站)?(?:免费)?(?:送|赠)\s*\d+(?:\.\d+)?\s*"
     r"(?:刀|元|额度|tokens?|credits?)(?:[！!。.]|$)", re.I)
 _NON_OFFER_RE = re.compile(
-    r"自动签到面板|自动签到|抽奖功能测试|对免费用户下手|免费模型缩水"
+    r"自动签到面板|自动签到(?:脚本|助手|工具|插件)|(?:助手|脚本|工具|插件).{0,8}自动签到|抽奖功能测试|对免费用户下手|免费模型缩水"
     # 2026-10-15 逐条实测补入（各点到 1-2 条过闸噪音、0 误伤）：
     #   统计/充斥着 盘点与讨论帖；已开源 工具分享；融资 行业新闻。
     #   这四条必须排在自足词**之前**：`统计倒闭失联中转站（公益或收费）`
     #   自带 中转站/公益，排在自足词后面会被短路救回来。
-    r"|统计|充斥着|已开源|融资", re.I)
+    r"|^统计|统计一下|盘点|充斥着|已开源|融资", re.I)
 
 
 def is_relevant_title(title: str) -> bool:
@@ -880,7 +919,9 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
                     pass
 
     # Drop topics we already have; they will be merged back from the store.
-    all_topics = [t for t in all_topics if t["id"] not in known_ids]
+    # 例外：标题带「已结束」标记的已知行必须放行 —— 不放行就永远看不到它已经结束
+    # （审计 2026-10-15：源站改标题后旧行一直挂在榜上）。
+    all_topics = [t for t in all_topics if t["id"] not in known_ids or ended_title(t)]
 
     for t in all_topics:
         # created_at already holds the listing timestamp; overwrite it only with
@@ -1308,9 +1349,13 @@ def fetch_nextbuf(known_ids: set | None = None) -> list:
             break
         if page_num == 1:
             note_empty_source("nextbuf", len(rows))
-        fresh = [t for t in rows if t["id"] not in known_ids]
-        print(f"[fetch] nextbuf page {page_num}: {len(rows)} topics, {len(fresh)} new",
-              file=sys.stderr)
+        # 同 linuxsb：已结束的已知行要放行（否则删不掉旧行）。行数据来自同一页列表，
+        # 不额外发请求；已知行只有在「已结束」时才回到本轮的 fetched_pre。
+        fresh = [t for t in rows if t["id"] not in known_ids or ended_title(t)]
+        new_count = sum(1 for t in fresh if t["id"] not in known_ids)
+        extra = len(fresh) - new_count
+        print(f"[fetch] nextbuf page {page_num}: {len(rows)} topics, {new_count} new"
+              + (f", {extra} ended-known" if extra else ""), file=sys.stderr)
         all_topics.extend(fresh)
         if not rows:
             break
@@ -1333,7 +1378,12 @@ def carry_forward(prev: dict, t: dict) -> None:
     if not t.get("created_at") and prev.get("created_at"):
         t["created_at"] = prev["created_at"]
         t["published_verified"] = prev.get("published_verified", False)
-    if not t.get("offer") and prev.get("offer"):
+    # offer 只在**输入没变**时继承：URL 或标题改了说明这条帖被编辑过（换了推广站、
+    # 改了活动），旧身份不一定还对得上 —— 交给正文层重判（2026-10-15 审计复现：
+    # 改 URL 后仍带旧 key/旧 brand，正文 0 次请求）。
+    same_inputs = (t.get("url") or "") == (prev.get("url") or "") \
+        and (t.get("title") or "") == (prev.get("title") or "")
+    if not t.get("offer") and prev.get("offer") and same_inputs:
         t["offer"] = prev["offer"]
 
 
@@ -1587,15 +1637,18 @@ def main():
     #   (a) 标题带结束标记 —— 纯函数判定、不花请求，每轮都能清（实测积了 24 条）；
     #   (b) 源站这一轮看成了、这行却已不在列表里，且探到 404/410。
     # 源站失败的轮次绝不走 (b)：那时「不在列表里」只说明我们没看到，不说明帖子没了。
-    stale_keys = [
-        k for k, t in merged.items() if _STALE_RE.search((t.get("title") or "").lower())
-    ]
+    stale_keys = [k for k, t in merged.items() if ended_title(t)]
+    # 本轮**新抓到的**已结束标题同样要能删掉旧行：它们被闸门滤在 merge 之前，
+    # 只有拿闸门前的 fetched_pre 才看得到（2026-10-15 审计复现的"过期帖永不刷新"）。
+    fresh_stale = [k for k, t in ((topic_key(t), t) for t in fetched_pre) if ended_title(t)]
+    from_fresh = [k for k in dict.fromkeys(fresh_stale) if k in merged and k not in stale_keys]
+    stale_keys = stale_keys + from_fresh
     for k in stale_keys:
         merged.pop(k, None)
     if stale_keys:
         print(
             f"[purge] {len(stale_keys)} ended post(s) removed "
-            "([已开奖] / 已完 / 已无 ...)",
+            f"([已开奖] / 已完 / 已无 ...; {len(from_fresh)} seen only in this round)",
             file=sys.stderr,
         )
 

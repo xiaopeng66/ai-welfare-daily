@@ -54,6 +54,27 @@ check(rows[0]['created_at'] and rows[1]['created_at']
       'each row keeps its own time', [r['created_at'] for r in rows])
 check(rows[0]['url'] == f'{mod.BASE_LINUXSB}/topic/111', 'url built from the id', rows[0]['url'])
 
+print('\n== 已知行里「已结束」的标题必须放行（否则旧行永远删不掉）==')
+# 2026-10-15 审计：源站把标题改成「…（已结束）」后，已知行被整行跳过 → main 看不到它
+# → store 里那一行留着旧的有效标题。这里钉住源级例外。
+_lsb_page = (
+    '<div class="post-title-row"><a class="post-title" href="/topic/701">公益站 A</a></div>'
+    '<span data-performance-time="1700000000">刚刚</span>'
+    '<div class="post-title-row"><a class="post-title" href="/topic/702">公益站 B（已结束）</a></div>'
+    '<span data-performance-time="1700000001">刚刚</span>'
+)
+_known = {'701', '702'}
+_real_fetch = mod.fetch
+mod.fetch = lambda *a, **k: _lsb_page
+try:
+    _kept = mod.fetch_linuxsb(_known)
+finally:
+    mod.fetch = _real_fetch
+_ids = sorted({t['id'] for t in _kept})
+check(_ids == ['702'],
+      '只有已结束的已知行漏出来（活跃的已知行照旧跳过、省请求）', _ids)
+check(all(mod.ended_title(t) for t in _kept), '漏出来的行确实都带结束标记', [t['title'] for t in _kept])
+
 print('\n== a row that lost its <span> must not eat its neighbour ==')
 # Regression: the old whole-page regex used `.*?` across row boundaries, so this
 # page yielded ONE row (222 with 111's timestamp stolen) instead of two.
@@ -703,6 +724,28 @@ for title in ['仅需1分钟即可完成', '仅需1步', '仅需30秒']:
 # --------------------------------------------------------------------------
 from datetime import datetime, timezone  # noqa: E402  (本段自足，见文件头说明)
 from urllib.error import URLError  # noqa: E402
+
+print('\n== 词表收窄（2026-10-15 审计：裸词两头都出错）==')
+# 一侧：**裸否决词误杀真投放** —— 附属功能/描述句不该否决投放本身。
+for title in ['公益站注册送10刀 支持自动签到',
+              '公益站注册送10刀 提供用量统计',
+              '公益站注册送10刀 附源码',
+              '公益站注册送10刀 住宅IP不限',
+              '公益站注册送10刀 是不是很良心']:
+    check(relevant(title), '附属功能/修辞不会否决投放', title)
+check(relevant('系统已完成升级，注册送额度'),
+      '已完(?!成) 不再吃掉「已完成升级」')
+# 另一侧：**否定与真问句**要拦住（旧行为全收）。
+for title in ['GPT不免费送100刀', 'GPT不再免费', 'GPT免费额度能领吗？']:
+    check(not relevant(title), '否定/问能不能领的标题被拦', title)
+check(not relevant('统计倒闭失联中转站（公益或收费）'), '盘点帖仍被拦（收敛后不失守）')
+# 「兑换码」不再自足：它是发放形式，不是 AI 证据。
+check(not relevant('[国庆快乐] Spot Authenticator，给兄弟们送 3 个月 Pro 兑换码'),
+      '非 AI 的 Pro 兑换码不再免检（2FA 工具，实测库存 2 行）')
+check(relevant('【dure公益站】100$公益站CDK兑换码,限量10位'),
+      '对照：带公益站的 CDK 兑换码照收')
+check(not relevant('ccswitch连接白嫖站的codex工具缺失解决方案'),
+      '排障/解决方案帖被拦（baipiao/694）')
 
 print('\n== nextbuf 列表：剥徽章、只认该行自己的发帖时间 ==')
 
