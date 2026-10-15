@@ -337,7 +337,7 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
 
 | 管道 | 入口 | 特点 |
 |------|------|------|
-| **Windows 计划任务**（主） | `\hermes-merged-publish` → `run-merged-publish.ps1`（WSL 跑 `merge_publish.py`） | 住宅 IP，**包含 linux.do**；每 30 分钟触发，并行跑主站+推荐页两条腿后**合并为一次提交**。推荐页每轮都跑（30 分钟）；主站腿只在**固定窗口**跑（整点后第 37 分 ±6 分）→ 主站固定每小时更新一次 |
+| **Windows 计划任务**（主） | `\hermes-merged-publish` → `run-merged-publish.ps1`（WSL 跑 `merge_publish.py`） | 住宅 IP，**包含 linux.do**；每 30 分钟触发，并行跑主站+推荐页两条腿后**合并为一次提交**。**两条腿每轮都跑** → 两站同节奏更新（2026-10-16 用户口径；此前主站腿被固定窗口 `:37 ±6` 压在每小时，回退配方见 `merge_publish.py` 的 `main_leg_due()`） |
 | **Hermes cron**（兜底） | `~/.hermes/scripts/linuxsb-daily-update.sh` → 同一个 `merge_publish.py` | 开机但无登录会话时接替计划任务；每小时 :30，`--max-age-minutes` 门避免与计划任务重复 |
 | **GitHub Actions**（兜底） | `.github/workflows/daily-update.yml` | 不依赖本机开机，但**跳过 linux.do**（数据中心 IP 被拒 429） |
 
@@ -352,25 +352,33 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
 实例：2026-10-01 08:00 那次丢失，Windows 07:49 开机、11:50 首次登录，任务日志显示上次运行 09-30 23:36、下次 10-02 08:00。
 Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 Windows 脚本。
 
-**频率与错峰**（2026-10-05 起）：
+**频率与错峰**（2026-10-05 起；2026-10-16 调整节奏）：
 
-- Windows 任务与 Hermes cron 都是**每小时**，但**错开半小时**（任务整点、Hermes 半点）。
-  错开而不是同时，是为了让兜底真正成立：同时触发时弱的一方只会撞上 mutex 空手退出，等于没有兜底。
-- **Hermes cron 侧有新鲜度闸门**：`run-update.ps1` 成功结束会写 `data/.last_run`；Hermes 侧脚本发现它在 50 分钟内就跳过这一轮。
-  于是「Windows 刚跑过 → Hermes 跳过」与「Windows 被丢弃 → Hermes 抓」两条路径都正确，不会同一小时抓两遍。
-- GitHub Actions 保持低频（每 6 小时）。它抓不到 linux.do，提到每小时只是重复抓四源并增加并发冲突；
+- Windows 任务每 **30 分钟**触发（:07/:37），**主站+推荐页两条腿每轮都跑**（用户 2026-10-16：两站同节奏。
+  此前主站腿被 `merge_publish.py` 的固定窗口 `:37 ±6` 压在每小时一档——理由曾是"内容按小时变 + 论坛抓取重"，
+  现在窗口门退役、旧判据原样保留在 `_legacy_hourly_window()` 供降频回退）。
+- Hermes cron **每小时**（:30）纯兜底，与任务错开半小时：错开而不是同时，是为了让兜底真正成立 ——
+  同时触发时弱的一方只会撞上 mutex 空手退出，等于没有兜底。
+- **Hermes cron 侧有新鲜度闸门**：`run-update.ps1` 成功结束会写 `data/.last_run`；Hermes 侧脚本发现它
+  在 45 分钟内就跳过这一轮（健康节奏下它在 :30 看到的 age ≈ 23 分钟 → 恒为 no-op）。
+  于是「Windows 刚跑过 → Hermes 跳过」与「Windows 被丢弃 → Hermes 抓整轮」两条路径都正确。
+- GitHub Actions 保持低频（每 6 小时）。它抓不到 linux.do，提到高频只是重复抓四源并增加并发冲突；
   它的价值是**这台 Windows 机器长期离线时仍有新数据**。
 
 **关于限流**：
 
 - 每小时不会触发 GitHub 风控：仓库是 PUBLIC，Actions 额度无限、不计费。
 - 真正的限额在对面的站点：linux.do 已在 Cloudflare 后且对数据中心 IP 返 429（这就是 CI 里 `LINUXDO_ENABLED=0` 的原因）。
-  住宅 IP 侧每小时 2 页 ≈ 48 请求/天，仍是低频；但它**是唯一一个真被限过的源**，若日后返 429，先降 Windows 侧频率。
+  住宅 IP 侧 **2026-10-16 起每 30 分钟 2 页 ≈ 96 请求/天**（节奏与推荐页对齐前的量是每小时 ≈ 48/天）。
+  它**是唯一一个真被限过的源**，若日后返 429 变频繁：先把 `merge_publish.py` 的 `main_leg_due()`
+  改回 `_legacy_hourly_window()` 降频（恢复到"主站每小时、副站每 30 分钟"），再考虑别的。
 - 改抓取频率要**同时改三处**，漏一处就会出现两套节奏打架：workflow 的 `cron:`、Windows 计划任务的 `RepetitionInterval`、Hermes cron 的 `schedule`。
+  （2026-10-16 的"两站同节奏"只改了 `merge_publish.py` 内部的腿节流，没有动这三个触发器——
+  计划任务仍是 `PT30M`、cron 仍是每小时 :30、Actions 仍是 6 小时。）
   Windows 任务的重建脚本在本仓库部署根的 `temp\register-linuxsb-tasks.ps1`（部署根 = 仓库上一级目录）；改完**必须用 `Export-ScheduledTask` 看 XML 确认**
   `<Repetition><Interval>` —— `Get-ScheduledTask` 显示的 `duration=` 是空的，光看它分不清「永久重复」还是「只跑一次」。
 - **CI 不会准点跑**（实测）：早先的 `0 0,12 * * *` 连续多日落在 ~03:45–03:57Z 与 ~17:30–17:55Z，比计划晚 3h45m–5h30m（GitHub 调度队列积压）。
-  所以主节奏放在家宽侧，用「每小时」换时效性时不能建立在一个会漂移几小时的调度器上。
+  所以主节奏放在家宽侧，用「30 分钟」换时效性时不能建立在一个会漂移几小时的调度器上。
 
 **并发与冲突兜底**（两个 runner 行为一致）：
 
