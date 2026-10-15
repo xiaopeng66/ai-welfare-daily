@@ -180,3 +180,42 @@ check("sourceFilter==='linuxsb'" not in h2 and "sourceFilter==='nodeloc'" not in
       'the per-source if-chain is gone', None)
 
 
+
+
+print('\n== 右下角悬浮按钮（返回顶部 / 刷新）==')
+# 与 ai-welfare-promo-health.html 用同一套实现。模板是唯一真源，产物由 generate.py
+# 渲染，所以两边都要盯：只查产物的话，模板丢了 fab 要等下次重新生成才暴露；
+# 只查模板的话，占位符替换出错也会漏掉。
+_tpl = open(os.path.join(ROOT, 'docs', 'template.html'), encoding='utf-8').read()
+_FAB = [
+    ('返回顶部按钮存在', 'id="fabTop"'),
+    ('刷新按钮存在', 'id="fabReload"'),
+    ('两个按钮在同一个容器里', 'class="fab" role="group"'),
+    ('容器竖排', 'flex-direction:column'),
+    ('固定在视口右下', 'position:fixed'),
+    ('阴影走主题变量（深色模式自动跟随）', 'var(--fab-shadow)'),
+    ('返回顶部默认是收起的', '.fab-btn.top{opacity:0'),
+    ('刷新点击时图标转圈', '@keyframes fabspin'),
+    ('初始化等 DOM 解析完（同步取元素会静默失效）', 'DOMContentLoaded'),
+    ('窄屏适配', 'max-width:600px'),
+]
+for _label, _needle in _FAB:
+    check(_needle in _tpl, 'template: ' + _label, _needle)
+    check(_needle in _site_html, 'rendered: ' + _label, _needle)
+# 浅色 + 深色两套都要有 --fab-shadow，漏一个暗色下按钮就没阴影
+check(_tpl.count('--fab-shadow:') == 2,
+      '两套主题都定义了 --fab-shadow（浅色 + 深色）', _tpl.count('--fab-shadow'))
+# 返回顶部与刷新必须在同一行 HTML 里相邻（竖排顺序：上返回顶部、下刷新）
+check(_tpl.index('id="fabTop"') < _tpl.index('id="fabReload"'),
+      '竖排顺序：返回顶部在上、刷新在下', None)
+
+
+# 退出码：CI（.github/workflows/tests.yml 的 run:）和本地管道（run-update.ps1 step 2.5）
+# 都靠它判断是否放行。2026-10-15 之前这里只往 results 里塞、从不检查，于是 FAIL
+# 只打印不阻断、套件永远 exit 0 —— RULES.md 说的"不一致就红"在实现上从未生效，
+# run-update.ps1 里那句 "refusing to commit" 也永远不会触发。补上。
+_failed = results.count(False)
+print("\n%d/%d checks passed%s" % (
+    len(results) - _failed, len(results),
+    ("，%d FAILED" % _failed) if _failed else ""))
+sys.exit(1 if _failed else 0)

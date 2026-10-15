@@ -13,8 +13,8 @@
 <title>AI 福利日报 - 中转站/兑换码/公益站/额度/鸡蛋</title>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('promo-theme')==='dark'?'dark':'light'}catch{}</script>
 <style>
-:root{color-scheme:light;--bg:#f6f7fa;--surface:#fff;--text:#1c2736;--muted:#516079;--hint:#69788c;--line:#e3e9f0;--primary:#4e52c9;--soft:#eff0ff;--shadow:0 10px 32px rgba(25,45,80,.06);--hover:#f6f7fb;--focus:#6366f1;--radius:16px;--primary-ink:#fff;--glow:rgba(78,82,201,.30);--ring:rgba(78,82,201,.22);--ring0:rgba(78,82,201,0);--shine:rgba(78,82,201,.34)}
-html[data-theme=dark]{color-scheme:dark;--bg:#111827;--surface:#1b2636;--text:#f3f5f9;--muted:#b8c4d5;--hint:#9cacc0;--line:#354256;--primary:#b2b5ff;--soft:#303457;--shadow:0 10px 32px rgba(0,0,0,.12);--hover:#263448;--focus:#aaa9ff;--primary-ink:#171d3a;--glow:rgba(178,181,255,.34);--ring:rgba(178,181,255,.26);--ring0:rgba(178,181,255,0);--shine:rgba(178,181,255,.28)}
+:root{color-scheme:light;--bg:#f6f7fa;--surface:#fff;--text:#1c2736;--muted:#516079;--hint:#69788c;--line:#e3e9f0;--primary:#4e52c9;--soft:#eff0ff;--shadow:0 10px 32px rgba(25,45,80,.06);--hover:#f6f7fb;--focus:#6366f1;--radius:16px;--primary-ink:#fff;--glow:rgba(78,82,201,.30);--ring:rgba(78,82,201,.22);--ring0:rgba(78,82,201,0);--shine:rgba(78,82,201,.34);--fab-shadow:0 2px 6px rgba(23,43,77,.10),0 12px 28px -10px rgba(23,43,77,.30)}
+html[data-theme=dark]{color-scheme:dark;--bg:#111827;--surface:#1b2636;--text:#f3f5f9;--muted:#b8c4d5;--hint:#9cacc0;--line:#354256;--primary:#b2b5ff;--soft:#303457;--shadow:0 10px 32px rgba(0,0,0,.12);--hover:#263448;--focus:#aaa9ff;--primary-ink:#171d3a;--glow:rgba(178,181,255,.34);--ring:rgba(178,181,255,.26);--ring0:rgba(178,181,255,0);--shine:rgba(178,181,255,.28);--fab-shadow:0 2px 8px rgba(0,0,0,.35),0 14px 30px -10px rgba(0,0,0,.5)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
 button,input{font:inherit}button{cursor:pointer}a{color:inherit}button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:3px solid var(--focus);outline-offset:3px}
@@ -102,6 +102,28 @@ html[data-theme=dark] .tag:hover{filter:brightness(1.12)}
   .source{max-width:42%}
 }
 @media(max-width:360px){.card{padding:11px}.tag{font-size:.64rem;padding-left:5px;padding-right:5px}.source,.score,.post-time{font-size:.66rem}}
+/* ---- 右下角悬浮按钮（返回顶部 / 刷新）----
+   与 ai-welfare-promo-health.html 同一套实现，两个页面观感一致。
+   竖排、position:fixed 贴视口右下；返回顶部滚过 240px 才淡入、到顶自动淡出；
+   刷新常驻。颜色走主题变量，深色模式自动跟随。 */
+.fab{position:fixed;z-index:60;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px}
+.fab-btn{width:46px;height:46px;padding:0;border-radius:50%;border:1px solid var(--line);
+  background:var(--surface);color:var(--hint);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;box-shadow:var(--fab-shadow);
+  transition:transform .16s ease,color .16s ease,border-color .16s ease,opacity .22s ease}
+.fab-btn svg{width:21px;height:21px;display:block}
+.fab-btn:hover{color:var(--primary);border-color:var(--primary);transform:translateY(-2px)}
+.fab-btn:active{transform:translateY(0) scale(.95)}
+.fab-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.fab-btn.top{opacity:0;transform:translateY(10px);pointer-events:none}
+.fab-btn.top.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.fab-btn.reload.spin svg{animation:fabspin .42s ease}
+@keyframes fabspin{to{transform:rotate(360deg)}}
+@media (max-width:600px){.fab{right:14px;bottom:14px;gap:8px}
+  .fab-btn{width:42px;height:42px}.fab-btn svg{width:19px;height:19px}}
+@media (prefers-reduced-motion:reduce){.fab-btn,.fab-btn.top{transition:none}
+  .fab-btn.reload.spin svg{animation:none}}
+
 </style>
 </head>
 <!-- v6 template: cards/labels/tones/order are injected by generate.py -->
@@ -189,5 +211,44 @@ $('#theme').addEventListener('click',()=>{const dark=document.documentElement.da
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}});
 function refreshClock(){if(state.sort==='score'){const signature=state.entries.filter(x=>isRecent(x.c)).map(x=>x.c.id).join('|');if(signature!==state.recentSignature)refresh()}else{for(const [key,el] of state.sections){const label=sectionLabel(key),node=el.querySelector('h2');if(node.textContent!==label)node.textContent=label}}}
 setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshClock()});init();
+
+/* 右下角悬浮按钮：返回顶部 / 刷新。
+   ⚠ 必须等 DOM 解析完再取元素：本脚本排在 <div class="fab"> **之前**，同步执行时
+   按钮还没解析出来，getElementById 返回 null，功能会静默失效（不报错、不打日志，
+   只有"点了没反应"）。2026-10-15 在推广页踩过这个坑，这里直接按正确姿势写。 */
+(function(){
+  function fabInit(){
+    var top=document.getElementById('fabTop'), reload=document.getElementById('fabReload');
+    if(!top||!reload) return;
+    var tick=false;
+    function onScroll(){
+      if(tick) return;
+      tick=true;
+      requestAnimationFrame(function(){ top.classList.toggle('show', window.scrollY>240); tick=false; });
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+    onScroll();
+    top.addEventListener('click', function(){
+      var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({top:0, behavior: reduce?'auto':'smooth'});
+    });
+    reload.addEventListener('click', function(){
+      if(reload.classList.contains('spin')) return;
+      reload.classList.add('spin');
+      setTimeout(function(){ location.reload(); }, 380);
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', fabInit);
+  else fabInit();
+})();
 </script>
+<!-- 右下角悬浮按钮：返回顶部 / 刷新 -->
+<div class="fab" role="group" aria-label="页面快捷操作">
+  <button class="fab-btn top" id="fabTop" type="button" title="返回顶部" aria-label="返回顶部">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+  </button>
+  <button class="fab-btn reload" id="fabReload" type="button" title="刷新页面" aria-label="刷新页面">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 3.5V9H15"/></svg>
+  </button>
+</div>
 </body></html>
