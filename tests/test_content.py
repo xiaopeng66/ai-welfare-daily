@@ -117,6 +117,26 @@ _, _, label2 = c.amount_of("送 $25 额度，另有 6.5e13 的数字串")
 check(c.amount_of("一串乱数字 " + "9" * 20)[1] <= c.TOKEN_CAP, "token 量有上限（防数字串误抽）")
 check(label2.startswith("$"), "美元与 token 比大小后取大的做标签", label2)
 
+print("\n== 落盘：offer 必须活着穿过 store 写盘（字段白名单）==")
+# 2026-10-15 实测踩坑：annotate 报「annotated 25 row(s)」，store 里却 0 行带 offer ——
+# 写盘是按字段白名单重建 dict，新字段没进白名单就被静默丢掉。这里钉死它。
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("fetch_for_row", os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fetch.py"))
+fm = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(fm)
+_row = {"id": "1", "title": "t", "url": "u", "tags": ["额度"], "score": 1, "source": "linuxsb_首页",
+        "created_at": "2026-10-15T00:00:00+00:00", "published_verified": True,
+        "offer": {"v": 1, "key": "muse|t.me/satudigitalbot", "site": "t.me/satudigitalbot", "amount": "30亿token"}}
+out_row = fm.store_row(_row, "2026-10-15T01:00:00+00:00")
+check(out_row.get("offer", {}).get("key") == "muse|t.me/satudigitalbot",
+      "store_row 保留 offer（字段白名单里有它）", out_row.get("offer"))
+_row2 = dict(_row); _row2.pop("offer")
+check("offer" not in fm.store_row(_row2, "2026-10-15T01:00:00+00:00"),
+      "没有 offer 的行不写这个键（保持逐字节不变）")
+check(fm._row_changed({"offer": None}, {"offer": {"v": 1}}),
+      "offer 的出现算「行变了」（fetched_at 要更新、要有提交）")
+
 print("\n== annotate：预算、缓存、失败跳过 ==")
 tmp = tempfile.mkdtemp()
 old_cache = c.CACHE_DIR

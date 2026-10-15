@@ -1322,6 +1322,25 @@ def fetch_nextbuf(known_ids: set | None = None) -> list:
 _ROW_FIELDS = ("title", "url", "source", "created_at")
 
 
+def store_row(t: dict, fetched_at: str) -> dict:
+    """把一行整理成落盘形状。**这是字段白名单**：库里的行经过它之后只剩这些键，
+    新加的字段（如正文层的 offer）不写进来就会在下一轮被静默丢掉 —— 2026-10-15
+    实测踩过：annotate 报「annotated 25 row(s)」，store 里却是 0 行带 offer。
+    没有 offer 的行不写这个键（保持逐字节不变，没新闻的一轮不产生提交）。"""
+    return {
+        "id": t["id"],
+        "title": t["title"],
+        "url": t["url"],
+        "tags": t.get("tags", []),
+        "score": t.get("score", 0),
+        "source": t.get("source", ""),
+        "fetched_at": fetched_at,
+        "created_at": t.get("created_at"),
+        "published_verified": bool(t.get("published_verified")),
+        **({"offer": t["offer"]} if t.get("offer") else {}),
+    }
+
+
 def _row_changed(prev: dict, t: dict) -> bool:
     """True when a freshly fetched row differs from the stored one in anything
     the site shows.
@@ -1336,6 +1355,13 @@ def _row_changed(prev: dict, t: dict) -> bool:
     if list(t.get("tags") or []) != list(prev.get("tags") or []):
         return True
     if int(t.get("score") or 0) != int(prev.get("score") or 0):
+        return True
+    # 正文层的 offer：比较「新旧 key」。注意 merged 与 existing 是同一批 dict 对象
+    # （浅拷贝），annotate 就地写 offer 时 prev 也同时被改，所以「只补了 offer」的行
+    # 在这里看不出变化、fetched_at 保持不变 —— 与 tags 重算是同一个约定（派生字段的
+    # 更新不算「最近收录」变化）。这行比较是给「offer 真的变了」（OFFER_V 升级、
+    # key 从 A 变 B）留的出口。
+    if (t.get("offer") or None) != (prev.get("offer") or None):
         return True
     return bool(t.get("published_verified")) != bool(prev.get("published_verified"))
 
@@ -1683,17 +1709,7 @@ def main():
         else:
             fetched_at = now_iso
             updated += 1
-        out.append({
-            "id": t["id"],
-            "title": t["title"],
-            "url": t["url"],
-            "tags": t.get("tags", []),
-            "score": t.get("score", 0),
-            "source": t.get("source", ""),
-            "fetched_at": fetched_at,
-            "created_at": t.get("created_at"),
-            "published_verified": bool(t.get("published_verified")),
-        })
+        out.append(store_row(t, fetched_at))
 
     store_changed = _write_if_changed(
         args.output,

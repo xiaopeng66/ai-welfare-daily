@@ -34,7 +34,8 @@ OFFER_V = 1                      # offer 规则版本：改了判定就把 +1，
 DEFAULT_TTL_H = 24               # 正文缓存保留时长
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(HERE, "data", "cache", "content")
-PER_SOURCE_CAP = 40              # 单轮里单一来源最多抓这么多条（防一家吃满预算）
+PER_SOURCE_CAP = 80              # 单轮里单一来源最多抓这么多条（防一家吃满预算）
+                                 # 稳态每轮只需 5-20 条，这个数只在清积压时起作用
 
 
 # ---------------------------------------------------------------- 正文解析（纯函数）
