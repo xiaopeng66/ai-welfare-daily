@@ -121,6 +121,20 @@ check(mod.topic_key(rows[0]) == mod.topic_key(
     {'id': '777', 'url': 'https://baipiao.org/bbs/d/777'}),
     'fallback row and API row share one merge key')
 
+print('\n== HTML 回退解析：锚点文本可能分多次回调（换行前缀 / 内嵌 span）==')
+# 审计用合法 HTML 复现过两个形状：旧写法只认第一个 handle_data ——
+# 前导换行让整条丢失；内嵌 <span>（已结束）</span> 让后缀丢、失效帖被当有效收。
+_rows = mod.parse_topics('<a href="/bbs/d/777">\n  求一个中转站\n</a>', mod.BaipiaoHTMLParser)
+check(len(_rows) == 1 and _rows[0]['title'] == '求一个中转站',
+      '前导换行的锚点不再整条丢失', [r['title'] for r in _rows])
+_rows2 = mod.parse_topics('<a href="/t/topic/999">公益站 体验金<span>（已结束）</span></a>', mod.NodeLocHTMLParser)
+check(len(_rows2) == 1 and _rows2[0]['title'] == '公益站 体验金（已结束）',
+      '内嵌 span 的后缀不再被截断（（已结束）要能被 stale 判据看到）', [r['title'] for r in _rows2])
+_rows3 = mod.parse_topics('<a href="/bbs/d/778">鸡蛋 大放送</a><a href="/bbs/d/779"><span>x</span></a>',
+                          mod.BaipiaoHTMLParser)
+check([r['id'] for r in _rows3] == ['778'],
+      '相邻锚点互不串味（短文本锚点照旧被 >2 字门槛挡住）', [r['id'] for r in _rows3])
+
 print('\n== nodeloc listing urls ==')
 rows = mod.parse_topics('<a href="/t/topic/999">公益站 体验金</a>', mod.NodeLocHTMLParser)
 check(len(rows) == 1 and rows[0]['url'] == f'{mod.BASE_NODELOC}/t/topic/999',

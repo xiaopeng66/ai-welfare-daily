@@ -661,70 +661,72 @@ RELEVANCE_KEYWORDS = SELF_SUFFICIENT_KEYWORDS + [
 ]
 
 
-class BaipiaoHTMLParser(HTMLParser):
+class _AnchorTitleParser(HTMLParser):
+    """把 <a href> 里的**全部**文本攒成一个标题，在 </a> 时提交。
+
+    为什么不能只认第一个 handle_data：锚点文本经常被拆成多次回调 ——
+      · 前导换行：`<a href="/bbs/d/1">
+  标题</a>`（换行先来一次回调）
+      · 内嵌标签：`<a href="/bbs/d/1">标题<span>（已结束）</span></a>`
+    旧写法在第一次回调后就清掉 _in_link，于是「前导换行 → 整条丢」「内嵌 span →
+    标题被截断、`（已结束）` 后缀丢」（2026-10-15 审计用合法 HTML 复现，后者会让
+    已结束的帖子继续被当有效收）。子类只声明 href_re 与 url_template。
+    """
+
+    href_re = re.compile(r"/topic/(\d+)")        # 子类覆盖
+    url_template = "{base}"                       # 子类覆盖
+
+    def __init__(self):
+        super().__init__()
+        self.topics = []
+        self._current_href = None
+        self._buf: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "a":
+            return
+        href = dict(attrs).get("href") or ""
+        m = self.href_re.search(href)
+        if m:
+            self._flush()                          # 上一个锚点没闭合也不丢
+            self._current_href = m.group(1)
+            self._buf = []
+
+    def handle_data(self, data):
+        if self._current_href:
+            self._buf.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a":
+            self._flush()
+
+    def _flush(self):
+        if not self._current_href:
+            return
+        title = re.sub(r"\s+", " ", "".join(self._buf)).strip()
+        if len(title) > 2:
+            self.topics.append({
+                "id": self._current_href,
+                "title": title,
+                "url": self.url_template.format(id=self._current_href),
+                "created_at": None,
+            })
+        self._current_href = None
+        self._buf = []
+
+
+class BaipiaoHTMLParser(_AnchorTitleParser):
     """Fallback parser for baipiao.org HTML listings."""
 
-    def __init__(self):
-        super().__init__()
-        self.topics = []
-        self._current_href = None
-        self._in_link = False
-
-    def handle_starttag(self, tag, attrs):
-        if tag != "a":
-            return
-        attrs_dict = dict(attrs)
-        href = attrs_dict.get("href") or ""
-        m = re.search(r'/bbs/d/(\d+)', href)
-        if m:
-            self._current_href = m.group(1)
-            self._in_link = True
-
-    def handle_data(self, data):
-        if self._in_link and self._current_href:
-            title = data.strip()
-            if title and len(title) > 2:
-                self.topics.append({
-                    "id": self._current_href,
-                    "title": title,
-                    "url": f"{BASE_BAIPIAO}/bbs/d/{self._current_href}",
-                    "created_at": None,
-                })
-            self._in_link = False
-            self._current_href = None
+    href_re = re.compile(r"/bbs/d/(\d+)")
+    url_template = BASE_BAIPIAO + "/bbs/d/{id}"
 
 
-class NodeLocHTMLParser(HTMLParser):
+class NodeLocHTMLParser(_AnchorTitleParser):
     """Extract /t/topic/N links from nodeloc.com listing pages."""
 
-    def __init__(self):
-        super().__init__()
-        self.topics = []
-        self._current_href = None
-        self._in_link = False
-
-    def handle_starttag(self, tag, attrs):
-        if tag != "a":
-            return
-        attrs_dict = dict(attrs)
-        href = attrs_dict.get("href") or ""
-        m = re.search(r"/t/topic/(\d+)", href)
-        if m:
-            self._current_href = m.group(1)
-            self._in_link = True
-
-    def handle_data(self, data):
-        if self._in_link and self._current_href:
-            title = data.strip()
-            if title and len(title) > 2:
-                self.topics.append({
-                    "id": self._current_href,
-                    "title": title,
-                    "url": f"{BASE_NODELOC}/t/topic/{self._current_href}",
-                    "created_at": None,
-                })
-            self._in_link = False
-            self._current_href = None
+    href_re = re.compile(r"/t/topic/(\d+)")
+    url_template = BASE_NODELOC + "/t/topic/{id}"
 
 
 def parse_topics(html: str, parser_class) -> list:
@@ -1770,7 +1772,7 @@ def main():
                 try:
                     from scrapling import StealthyFetcher
 
-                    def stealth_fetch(url: str, timeout: int = 90) -> str:
+                    def stealth_fetch(url: str, timeout: int = 60) -> str:
                         page = StealthyFetcher.fetch(url, headless=True, timeout=timeout * 1000)
                         raw = page.body if isinstance(page.body, str) else page.body.decode("utf-8", "replace")
                         if page.status != 200 or len(raw) < 200:

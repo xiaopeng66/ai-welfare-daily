@@ -33,7 +33,7 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 6                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+OFFER_V = 7                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
                                  # （v6：正文声明隐藏内容时只认入口形状的 URL；v5：量值单位边界 + offer 会过期重判；v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
                                  #   v2：注册域归一 + 传送/平台宿主排除 + 身份只看站点）
 DEFAULT_TTL_H = 24               # 正文缓存保留时长
@@ -218,7 +218,10 @@ MULTI_TENANT = ("github.io", "pages.dev", "vercel.app", "netlify.app", "workers.
                 "blogspot.com", "notion.site", "gitbook.io", "surge.sh", "replit.app",
                 # 免费二级域（谁都能注册子域）：实测 bot.cd 上同时挂着 Zynk API 和另一个
                 # Codex 招募站，按注册域归一就把两家并成了一份 —— 这类必须保留全名。
-                "bot.cd", "cc.cd", "l.cd", "eu.org", "us.kg", "dpdns.org", "rr.nu", "zz.ac")
+                "bot.cd", "cc.cd", "l.cd", "eu.org", "us.kg", "dpdns.org", "rr.nu", "zz.ac",
+                # qzz.io 同上（身份审计：ai.loveyy.qzz.io 与 freeapi.qzz.io 两条单站正文
+                # 回放时都会归一成 qzz.io）。
+                "qzz.io")
 # 两段式公共后缀（没有 PSL 依赖，只收常见的）
 MULTI_SUFFIX = ("com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "com.tw", "com.hk",
                 "co.jp", "co.uk", "com.au", "co.kr", "com.sg", "com.br", "co.in")
@@ -538,7 +541,7 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
              limit: int = 60, delay: float = 0.4, timeout: int = 20,
              ttl_h: float = DEFAULT_TTL_H, now: float | None = None,
              stealth_fetch: Callable[..., str] | None = None, stealth_limit: int = 8,
-             stealth_delay: float = 15.0,
+             stealth_delay: float = 15.0, stealth_timeout: int = 60,
              log: Callable[[str], None] | None = None) -> int:
     """给缺 offer（过期/版本落后也算）的行补判。就地改 rows，返回判定成功条数。
 
@@ -600,7 +603,7 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
                 continue
             stealth_attempted += 1           # 尝试即计数
             got = _fetch_with_cache(r, stealth_fetch, content_url("linuxdo", r["url"]),
-                                    max(delay, stealth_delay), timeout, ttl_h)
+                                    max(delay, stealth_delay), stealth_timeout, ttl_h)
             if got is None or not _judge(r, got["body"], got["meta"], clock):
                 fails += 1                   # 「200 但正文不可用」也计入熔断
                 time.sleep(max(delay, stealth_delay) * 2)
