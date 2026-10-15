@@ -231,6 +231,8 @@ _FOLD = [
     ('角标是可点击按钮', 'data-fold="'),
     ('按钮打开弹窗', 'b.dataset.fold!==undefined'),
     ('遮罩/✕ 关闭', 'data-fold-close'),
+    # 遮罩是 div、✕ 是 button：点击代理必须先认 [data-fold-close]，只认 button 会吞掉点遮罩
+    ('点遮罩关闭的接线', "closest('[data-fold-close]')"),
 ]
 for _label, _needle in _FOLD:
     check(_needle in _tpl, 'template: ' + _label, _needle)
