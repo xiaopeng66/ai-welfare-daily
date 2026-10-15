@@ -132,7 +132,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,sectionLabel,makeEntries,renderCard,state};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldListHTML,sectionLabel,makeEntries,renderCard,state};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -257,6 +257,26 @@ check(!offerBuilt.api.renderCard(offerView.find((c) => c.id === '303')).includes
   'an unfolded card carries no badge');
 check(String(byId('total').textContent) === '4',
   'the header count uses the offer-folded total', byId('total').textContent);
+
+// 角标改成「彩色胶囊 + ▸」按钮，点开列出该组清单（2026-10-15 用户要求"更显眼、能展开"）。
+check(museHtml.includes('class="dups hot"') && museHtml.includes('>▸ ×2<'),
+  'offer-fold badge is a colored capsule button with the ▸ glyph', museHtml.match(/<button[^>]*dups[^>]*>[^<]*</)[0]);
+check(museHtml.includes('data-fold="O:muse|t.me/satudigitalbot"') && museHtml.includes('data-n="2"'),
+  'the badge carries the fold key and count for the click handler');
+check(museHtml.includes('aria-expanded="false"'), 'the badge starts collapsed (aria-expanded=false)');
+const listHtml = offerBuilt.api.foldListHTML(museKept);
+check(listHtml.includes('该组 2 条（新 → 旧）'), 'the expanded list header shows the group size', listHtml.slice(0, 90));
+check(listHtml.includes('免费Muse 30亿token') && listHtml.includes('tg bot 把 muse 的价格打下来了'),
+  'the list names every folded entry (including the older one)', listHtml.slice(0, 200));
+check((listHtml.match(/class="fold-row"/g) || []).length === 2
+      && /<time class="fold-row-time">\d{2}-\d{2} \d{2}:\d{2}<\/time>/.test(listHtml),
+  'each row links out with a Beijing-time stamp', listHtml.slice(0, 240));
+check(listHtml.indexOf('tg bot 把 muse') < listHtml.indexOf('免费Muse 30亿token'),
+  'rows are newest-first');
+const titleFoldHtml = foldedBuilt.api.renderCard(kept);
+check(titleFoldHtml.includes('class="dups"') && !titleFoldHtml.includes('dups hot'),
+  'a same-title fold keeps the neutral (non-colored) badge', titleFoldHtml.match(/<button[^>]*dups[^>]*>/)[0]);
+check(titleFoldHtml.includes('data-fold="T:linuxsb'), 'title folds are expandable too (key prefixed T:)');
 
 console.log('\n== a malformed row cannot blank the page or inject markup ==');
 const nasty = [

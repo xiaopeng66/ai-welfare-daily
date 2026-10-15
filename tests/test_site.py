@@ -218,6 +218,16 @@ _FOLD = [
     ('折叠结果喂给渲染', 'const view=foldCards(cards)'),
     ('角标样式存在', '.dups{'),
     ('角标标题文案', '已折叠显示最新一条'),
+    # 2026-10-15 正文层：同一份 offer（offer.key）也参与折叠
+    ('offer 折叠分支', '(c.offer&&c.offer.key)'),
+    ('offer 角标文案', '同一份福利共'),
+    ('提示文案含正文判定', '正文判定为同一份福利'),
+    # 2026-10-15 用户要求：角标更显眼（彩色胶囊）且点开可看该组清单
+    ('彩色胶囊样式', '.dups.hot{'),
+    ('清单样式', '.fold-list{'),
+    ('清单构建器', 'function foldListHTML('),
+    ('角标是可点击按钮', 'data-fold="'),
+    ('展开/收起接线', 'b.dataset.fold!==undefined'),
 ]
 for _label, _needle in _FOLD:
     check(_needle in _tpl, 'template: ' + _label, _needle)
