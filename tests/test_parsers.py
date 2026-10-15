@@ -619,6 +619,80 @@ check(not relevant('stokey免费送'), 'tokey typo rule has quantity and ASCII b
 check('体验金' in mod.score_topic({'title': 'Lovable Pro 200 Credits 免费额度'})['tags'],
       'Credits case is normalized without modifying the title')
 
+# ⑱ 2026-10-15 三语料复核（现网 store 272 唯一标题 + 冻结尾页语料 526 + 项目自带
+#    10-06 语料 507）后的 19 处增量，逐条量过边际效果；旧语料 0 误伤。
+#    拒错侧：已结束却还挂在榜上的（新 stale 词一次点到 4 类写法）。
+for title in ['[已蹬完]🪜订阅快到期了，留给有缘人',
+              '火山Agent Plan 蹬不完了，分享出来 佬们速蹬【已蹬完】',
+              'opencode-go速蹬-还剩2h（结束）',
+              '[已解决]render部署要绑卡1刀验证了']:
+    check(not relevant(title), 'a finished post still on the board is rejected (2026-10-15)', title)
+# 意图侧：问句/索要/盘点/工具/新闻（各点到 1-3 条过闸噪音、0 误伤）。
+# 盘点是「自足词也拦得住」的用例：`统计倒闭失联中转站（公益或收费）` 自带
+# 中转站/公益，这两类词必须排在自足捷径**之前**才拦得住。
+for title in ['领导感觉有了AI人人都是全栈工程师了',                 # 领(?!导)
+              '抢注自己喜欢的grok bot邮箱ID',                       # 抢(?!注)
+              'gemini有低价渠道吗',                                 # 吗/呢 收尾
+              '在DN42里开公益中转站应该安全吧',                      # 吧 收尾
+              '统计倒闭失联中转站（公益或收费）',                    # 盘点
+              '近期，社区充斥着大量的muse邀请码的帖子及相关tg群的帖子',
+              '有什么推荐的AI公益站吗，感谢分享。',
+              '每月100刀预算，性价比token配置求助！',
+              '公益站这个回复是什么情况啊。',
+              'LINUX.SB助手自动签到、回复抽奖贴和红包贴 基于 Evanders版本开发']:
+    check(not relevant(title), 'question/roundup/tool intent is rejected (2026-10-15)', title)
+# 标的物侧：代理/卡商品/电商/消费电子。
+for title in ['疯狂星期四 | 海量免费 CDK 放送 双 ISP 住宅 静态 动态',
+              '辣椒 HTTP｜海外住宅代理，送动态流量CDK',
+              '招行万事达开卡礼+微信全球支付有礼0.6薅20steam余额(大概?)',
+              'GPT 克劳德 Muse成品号 通通七折出售',
+              '【低价体验·付费】OpenAI 普通号 1.44 元、Plus 日抛 22 元，小预算 AI 清单',
+              '京东双十一续费plus，赠送12+24积分+3次视频月卡（可兑换家政快递等）',
+              '霸王茶姬后续，再赠送买一送一']:
+    check(not relevant(title), 'a non-AI target is rejected (2026-10-15)', title)
+# 守卫不能误伤真帖：负面消息词排在自足捷径之后，自带强特征的真帖照常收。
+for title in ['公益站被封，新地址继续送100刀', '中转站被封，老板继续送额度']:
+    check(relevant(title), 'a negative-news word does not kill a post with a strong signal', title)
+check(not relevant('https://api.sld.lol 通过sb帖子注册的直接被封了，因为超过25个注册账号。')
+      and not relevant('MLH的cursor Pro各位应该是领不到了'),
+      'bare bad news (no strong signal) is still dropped')
+# 直接钉住两个负向断言的边界（整句断言钉不住：`京东云…` 本就没有 offer，会「因为
+# 错误的理由」通过）。京东(?!云) 保住 AI 侧标题，手机收窄成 ai手机/手机体验。
+check(mod._NONAI_TARGET_RE.search('京东云的 Coding plan 没了') is None,
+      '京东(?!云) does not match the AI-side 京东云 title')
+check(mod._NONAI_TARGET_RE.search('京东双十一续费plus，赠送积分') is not None,
+      'bare 京东 (e-commerce) is still a non-AI target')
+check(mod._NONAI_TARGET_RE.search('OPPO 与 Manus 合作推 Agent AI 手机体验') is not None
+      and mod._NONAI_TARGET_RE.search('手机也能白嫖的免费额度') is None,
+      '手机 is narrowed to ai手机/手机体验 (no bare-手机 blanket drop)')
+# 发/领 的守卫：开发/转发 不是发放动作，导 不是领取动作。
+for title in ['分享自己ai开发修改的Nextcloud 精简版',
+              '难道deepseek真的会转发到claude吗？',
+              'Apple中国大陆开发者账号账号没有 Maps IDs 和 MapKit JS Private Key 的创建入口吗？']:
+    check(not relevant(title), '开发/转发 does not count as a giveaway verb', title)
+# 「，求」的传播尾巴守卫：真投放帖求扩散不能被当成索要帖误杀。
+check(relevant('免费送100刀，求扩散') and not relevant('佬，求助谷歌邮箱怎么能自己长期使用？'),
+      'the comma-求 veto protects CTA tails but still drops real requests')
+
+# 打标签侧的 2026-10-15 增量：`万token` 单数（形状原先只认 Tokens 复数）、
+# 限免/放送（免费放粮）、美元（额度）、充值券/仅需N（优惠渠道）、抽N个/抽TOKEN（抽奖）。
+for title, want in [('【最后一弹】deepseek-v4.1-flash 6666万token', '额度'),
+                    ('50美元的API Key', '额度'),
+                    ('Workbuddy step-5-preview 模型限免了', '免费放粮'),
+                    ('kimi3.1放送，直接发key', '免费放粮'),
+                    ('gpt充值仅需110', '优惠渠道'),
+                    ('gpt充值仅需110元', '优惠渠道'),
+                    ('【推广｜评论送福利】每周四免费抽奖：35份额度与充值券，AI会员¥99起', '优惠渠道'),
+                    ('抽5个Workbuddy自建站的1亿额度', '抽奖'),
+                    ('继续抽一个muse.ai 账号已过验证 自己要不了那么多 用完扔掉就行-23', '抽奖'),
+                    ('【主帖】【404API】国模之家，大肥鲸杀手...每日抽TOKEN', '抽奖')]:
+    check(want in mod.score_topic({'title': title})['tags'],
+          'a tag the old tables could not produce is now applied (2026-10-15)', f'{title} -> {want}')
+# 仅需 必须带行尾锚：时长/步骤描述不是报价（复核实测 5 个假阳性形状）。
+for title in ['仅需1分钟即可完成', '仅需1步', '仅需30秒']:
+    check('优惠渠道' not in mod.score_topic({'title': title})['tags'],
+          'a duration/step phrase (仅需1分钟) is not a price tag', title)
+
 # --------------------------------------------------------------------------
 # NextBuf (NB 社区, www.nextbuf.com) listing.
 #
