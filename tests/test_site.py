@@ -99,7 +99,7 @@ check('unchanged' in p2.stderr or 'up to date' in p2.stderr,
 print('\n== payload integrity ==')
 html = open(out, encoding='utf-8').read()
 cards, payload = cards_of(html)
-check(len(cards) == 3, 'every stored row is rendered', len(cards))
+check(len(cards) == 3, 'every stored row is embedded in the payload (fold is render-time)', len(cards))
 check(all(c['id'] for c in cards), 'no row lost its id')
 check('<' not in payload,
       'the embedded JSON contains no raw < (a scraped "</script>" cannot break out)')
@@ -208,6 +208,20 @@ check(_tpl.count('--fab-shadow:') == 2,
 # 返回顶部与刷新必须在同一行 HTML 里相邻（竖排顺序：上返回顶部、下刷新）
 check(_tpl.index('id="fabTop"') < _tpl.index('id="fabReload"'),
       '竖排顺序：返回顶部在上、刷新在下', None)
+
+print('\n== 同来源同标题折叠（渲染层）==')
+# 折叠发生在页面 JS（store 不动、payload 仍是全量，见 payload integrity）。模板是
+# 唯一真源，产物由 generate.py 渲染 —— 两边都必须带上折叠函数、×N 角标与说明文案，
+# 否则「模板改了但页面没重生成」（只查产物会漏）或「占位符替换出错」（只查模板会漏）。
+_FOLD = [
+    ('折叠函数存在', 'function foldCards('),
+    ('折叠结果喂给渲染', 'const view=foldCards(cards)'),
+    ('角标样式存在', '.dups{'),
+    ('角标标题文案', '已折叠显示最新一条'),
+]
+for _label, _needle in _FOLD:
+    check(_needle in _tpl, 'template: ' + _label, _needle)
+    check(_needle in _site_html, 'rendered: ' + _label, _needle)
 
 
 # 退出码：CI（.github/workflows/tests.yml 的 run:）和本地管道（run-update.ps1 step 2.5）

@@ -132,7 +132,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,sectionLabel,makeEntries,renderCard,state};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,sectionLabel,makeEntries,renderCard,state};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -195,6 +195,35 @@ api.refresh();
 check(byId('results').innerHTML.includes('没有找到匹配的信息'),
   'the no-results state renders', byId('results').innerHTML.slice(0, 100));
 check(byId('count').textContent.includes('0 /'), 'the counter reads 0', byId('count').textContent);
+
+console.log('\n== same-source same-title folding (×N) ==');
+// The fold keys on the DISPLAYED source (sourceKey), so two boards of the same
+// site (linuxsb_我要推广 vs linuxsb_首页) count as one source; a different site
+// with the same title must stay a separate card. The newest row survives.
+const dupCards = [
+  { ...row('101', '重复标题甲', iso(t - 3 * HOUR), iso(t - 3 * HOUR)), source: 'linuxsb_我要推广' },
+  { ...row('102', '重复标题甲', iso(t - 2 * HOUR), iso(t - 2 * HOUR)), source: 'linuxsb_首页' },
+  { ...row('103', '重复标题甲', iso(t - 1 * HOUR), iso(t - 1 * HOUR)), source: 'nodeloc_p1' },
+  { ...row('104', '独有标题', iso(t - 4 * HOUR), iso(t - 4 * HOUR)), source: 'linuxsb_我要推广' },
+];
+const foldedBuilt = build(inlineJs.replace(payload, JSON.stringify(dupCards)));
+const folded = foldedBuilt.api.getView();
+check(folded.length === 3, 'same-source duplicates fold into one card', folded.length);
+const kept = folded.find((c) => c.source === 'linuxsb_首页');
+check(kept && kept.id === '102' && kept.dups === 2,
+  'the newest duplicate survives and carries dups=2', kept && `${kept.id}/${kept.dups}`);
+check(!folded.some((c) => c.id === '101'), 'the older duplicate is gone from the view');
+check(folded.some((c) => c.id === '103') && !folded.find((c) => c.id === '103').dups,
+  'a same-title post from another site is NOT folded');
+check(folded.find((c) => c.id === '104') && !folded.find((c) => c.id === '104').dups,
+  'a unique title is untouched');
+const keptHtml = foldedBuilt.api.renderCard(kept);
+check(keptHtml.includes('×2') && keptHtml.includes('已折叠显示最新一条'),
+  'the ×N badge renders with its tooltip', keptHtml.slice(0, 200));
+check(!foldedBuilt.api.renderCard(folded.find((c) => c.id === '103')).includes('class="dups"'),
+  'an unfolded card carries no badge');
+check(String(byId('total').textContent) === '3',
+  'the header count shows the folded total', byId('total').textContent);
 
 console.log('\n== a malformed row cannot blank the page or inject markup ==');
 const nasty = [
