@@ -88,6 +88,22 @@ check(c._links_from('<a href="https://ldstatic.com/x.png"><img src="x"></a>') ==
 check(c._links_from('<a href="https://t.me/somebot?start=1">进群</a>') == ["https://t.me/somebot?start=1"],
       "正常链接照旧保留")
 
+print("\n== v6 规则：正文声明「回复可见」时只认入口形状的 URL ==")
+# 实测（身份审计）：linux.sb/23823（Zynk）正文写「链接🔗：🔒 回复后可见」，可见外链只有
+# `modeloc.com/r/…` 与一份检测报告 → 被并进了 modeloc 组（3 行）。真链接被藏起来时，
+# 只认「入口形状」的 URL（根路径 /v1|/api / register|sign-up|invite / t.me），
+# 报表、推广位这类顺带提到的链接不做身份。
+_zynk = c.offer_of("【Zynk API】平价优惠站点免费发福利",
+                   "链接🔗： 🔒 回复后可见 回复本主题后即可查看这部分内容。 倍率 "
+                   "https://modeloc.com/r/abc123 检测报告 https://mozhenzhen.com/reports/MZ1?from=verify", [])
+check(_zynk["key"] is None, "隐藏正文 + 只有报表/推广位链接 → 不判身份（不再误并 modeloc 组）", _zynk)
+check(c.target_of("api地址 https://sub.lunarfox.cn/v1  key 🔒 回复后可见", []) == "lunarfox.cn",
+      "对照：/v1 端点是入口形状，仍是身份（6 条 key 分享帖靠它）", None)
+check(c.target_of("base url: https://laisiai.tw.cpolar.io/v1 key: 回复后可见", []) == "laisiai.tw.cpolar.io",
+      "对照：同站不同子域的 /v1 各自成身份（cpolar 多租户保留全名）", None)
+check(c.target_of("注册 https://a.example.com/register?aff=x 送10刀", []) == "example.com",
+      "对照：普通登记链接照旧", None)
+
 print("\n== v4 规则：免费二级域保留全名 + 自身域按边界判断 ==")
 # 审计（2026-10-15 第二轮）：`bot.cd` 上同时挂着 Zynk API 与另一个 Codex 招募站，
 # 按注册域归一就把两家并成一份；而自身域用子串判断则会把 mylinux.sbsite.com 当论坛自身。

@@ -33,8 +33,8 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 5                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
-                                 # （v5：量值单位边界与领取语境 + offer 带判定时间戳并会过期重判；v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
+OFFER_V = 6                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+                                 # （v6：正文声明隐藏内容时只认入口形状的 URL；v5：量值单位边界 + offer 会过期重判；v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
                                  #   v2：注册域归一 + 传送/平台宿主排除 + 身份只看站点）
 DEFAULT_TTL_H = 24               # 正文缓存保留时长
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -289,6 +289,24 @@ def normalize_site(host: str) -> str:
     return ".".join(parts[-2:])
 
 
+# 正文声明「回复/登录可见」时，真正的登记链接是藏起来的：这时只认**入口形状**的 URL
+# （根路径、/v1|/api 端点、register/sign-up/invite 等、t.me），否则会把正文里顺带提到的
+# 报表/推广位链接当成身份。实测（2026-10-15 身份审计）：linux.sb/23823（Zynk）正文写着
+# 「链接🔗：🔒 回复后可见」，可见外链只有 `modeloc.com/r/…` 与一份检测报告，
+# 于是这条 Zynk 帖被并进了 modeloc 组（3 行）；规则改后只这一行失去身份，
+# 其余 6 条「base url: …/v1」的分享帖身份保持不变。
+HIDDEN_TARGET = re.compile(r"回复后可见|回复可见|登录后可见|登录可见|注册后可见|需回复|隐藏内容")
+ENTRY_URL = re.compile(
+    r"/(?:register|sign-?up|invite|join|portal|login|auth|v1|api|openai|chat|i)\b|t\.me/", re.I)
+
+
+def _is_entry_url(u: str) -> bool:
+    m = re.match(r"https?://([^/?#]+)([^?#]*)", u or "", re.I)
+    if not m:
+        return False
+    return m.group(2) in ("", "/") or bool(ENTRY_URL.search(u))
+
+
 def _target_from_urls(urls) -> str:
     """从 explicit 链接列表里取推广目标（容器 href 比正文文字可靠，见 _links_from）。"""
     for u in urls:
@@ -315,10 +333,14 @@ def target_of(body: str, links=()) -> str:
     先看容器里抓到的 href（可靠），没有再看正文文字里的裸 URL（Discourse cooked
     与 markdown 正文里链接常常只以文字形式出现）。
     """
-    from_links = _target_from_urls(links)
+    hidden = bool(HIDDEN_TARGET.search(body))
+    pool = [u for u in links if _is_entry_url(u)] if hidden else list(links)
+    from_links = _target_from_urls(pool)
     if from_links:
         return from_links
     for m in LINK_RE.finditer(body):
+        if hidden and not _is_entry_url(m.group(0)):
+            continue
         host = m.group(1).lower().split("?")[0].split("#")[0].rstrip(".")
         path = m.group(2)
         if not host or skipped_host(host) or ASSET_RE.search(m.group(0)):
