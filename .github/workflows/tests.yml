@@ -49,6 +49,11 @@ jobs:
       - name: Guard tests - rules A/B report
         run: python3 tests/test_ab_rules.py
 
+      # 正文层（content.py）：offer 判定 / 量值抽取 / 预算与缓存生命周期。
+      # 2026-10-15 审计发现它此前不被任何守卫覆盖 —— 正文层回归不会拦发布。
+      - name: Guard tests - content layer
+        run: python3 tests/test_content.py
+
       # The "近 24 小时" split and the card clock live in the page's own JS, so a
       # Python test cannot reach them.
       # NOTE: the version input is what actually pins anything - setup-node

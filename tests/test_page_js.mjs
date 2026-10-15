@@ -225,6 +225,43 @@ check(!foldedBuilt.api.renderCard(folded.find((c) => c.id === '103')).includes('
 check(String(byId('total').textContent) === '3',
   'the header count shows the folded total', byId('total').textContent);
 
+console.log('\n== 折叠不得藏住成员：筛选/搜索要能找到组里的每一条（2026-10-15 审计）==');
+// 折叠组：旧帖属 linuxsb/抽奖、标题含独有词；新帖属 nodeloc/额度。折叠后按旧帖的
+// 来源/类型/关键词筛选曾全部为空（成员被藏了），来源按钮还会消失。
+const memberCards = [
+  { ...row('401', '公益站 独有词 抽奖', iso(t - 3 * HOUR), iso(t - 3 * HOUR)), source: 'linuxsb_抽奖',
+    tags: ['抽奖'], offer: { v: 5, key: 'same.example', site: 'same.example' } },
+  { ...row('402', '公益站 另一条', iso(t - 1 * HOUR), iso(t - 1 * HOUR)), source: 'nodeloc_p1',
+    tags: ['额度'], offer: { v: 5, key: 'same.example', site: 'same.example' } },
+];
+const memberBuilt = build(inlineJs.replace(payload, JSON.stringify(memberCards)));
+const memberDoc = memberBuilt.doc;
+// shim 的 querySelectorAll 恒空：直接读按钮容器的 innerHTML（init 用赋值写进去的）。
+const sourcesHtml = byId('sources').innerHTML;
+const categoriesHtml = byId('categories').innerHTML;
+check(sourcesHtml.includes('linux.sb') && sourcesHtml.includes('nodeloc'),
+  '来源按钮包含只出现在被折成员上的来源', sourcesHtml);
+check(categoriesHtml.includes('抽奖') && categoriesHtml.includes('额度'),
+  '类型按钮包含只出现在被折成员上的类型', categoriesHtml);
+memberBuilt.api.state.category = '抽奖';
+check(memberBuilt.api.makeEntries().length === 1,
+  '按成员独有的类型筛选能筛到该组', memberBuilt.api.makeEntries().length);
+memberBuilt.api.state.category = 'all';
+memberBuilt.api.state.source = 'nodeloc';
+check(memberBuilt.api.makeEntries().length === 1,
+  '按成员独有的来源筛选能筛到该组', memberBuilt.api.makeEntries().length);
+memberBuilt.api.state.source = 'all';
+memberBuilt.api.state.query = '独有词';
+const hit = memberBuilt.api.makeEntries();
+check(hit.length === 1 && hit[0].c.id === '401',
+  '搜索被折成员的独有标题直接命中那一条', hit.map((x) => x.c.id));
+memberBuilt.api.state.query = '';
+
+console.log('\n== 折叠键不含 NUL（HTML 属性解析会把它变成 U+FFFD）==');
+const keyProbe = memberBuilt.api.foldCards(memberCards);
+check(keyProbe.every((c) => !String(c.dupkey || '').includes(' ')),
+  'offer/标题折叠键里没有 NUL', keyProbe.map((c) => c.dupkey));
+
 console.log('\n== same-offer folding (offer.key, 正文层判定) ==');
 // 2026-10-15 muse 30 亿：近 48h 22 条、22 个不同标题、全部指向同一个 TG 机器人
 // （各带各的 ref 推广号）—— 标题级折叠一条都折不掉，身份只能来自正文层写进 store 的 offer.key。

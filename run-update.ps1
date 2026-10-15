@@ -254,7 +254,8 @@ if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }
 # Running them here turns an hour of red CI plus a mail into a local, loud,
 # zero-side-effect refusal.
 #
-# All four suites run, not just test_site.py: the parsers encode the markup
+# All five suites run, not just test_site.py（test_content.py 2026-10-15 接入：
+# 正文层的 offer 判定此前不被任何守卫覆盖）: the parsers encode the markup
 # anomalies that silently dropped rows, and test_guards injects each failure
 # mode. Before 2026-10-12 this step ran test_site.py alone, so a parser
 # regression was only caught by CI (or by hand) -- the local pipeline could
@@ -264,7 +265,8 @@ if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }
 # enough to run on every trigger.
 Log 'step 2.5/3 guard suites (parsers / guards / site / ab-rules)'
 foreach ($suite in @('tests/test_guards.py', 'tests/test_parsers.py',
-                     'tests/test_site.py', 'tests/test_ab_rules.py')) {
+                     'tests/test_site.py', 'tests/test_ab_rules.py',
+                     'tests/test_content.py')) {
     $rc = Run-Py -Label $suite -PyArgs @($suite)
     if ($rc -ne 0) {
         Log "FAIL $suite exit=$rc - refusing to commit: the generated page does not match the store/generator"

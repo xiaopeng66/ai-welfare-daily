@@ -192,21 +192,24 @@ const safeURL=s=>{try{const u=new URL(s);return (u.protocol==='https:'||u.protoc
    ① 同一份 offer（store 的 offer.key，由正文层判定）—— 不同标题、同一份福利
       （muse 30 亿被十几个人各发一条，标题条条不同，纯标题折叠一条都折不掉）；
    ② 同来源 + 同标题（历史行为；没有 offer.key 的行走这条）。
-   折叠只发生在渲染层：store 保留每一行（合并键 host#id），页面仍是 store 的纯函数。 */
-function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&c.offer.key)?('O:'+c.offer.key):null;if(!ok&&!title){groups.set('\u0000lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'\u0000'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
+   折叠只发生在渲染层：store 保留每一行（合并键 host#id），页面仍是 store 的纯函数。
+   分隔符**不能用 NUL**：它写进 data-fold 属性后按 HTML5 规则会变成 U+FFFD，
+   点击角标时查不到分组、弹窗打不开（2026-10-15 审计复现 1 组）。用 '|#|' 这种可打印串。 */
+function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&c.offer.key)?('O:'+c.offer.key):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
 const view=foldCards(cards);
 /* 展开清单：该组每条的标题 + 北京时间，点任意一条去原帖。点击不整页重渲染（只挂/摘一个节点），
    展开状态记在 state.expanded —— 切筛选/排序后重新渲染仍保持展开。 */
 const foldMap=new Map();for(const c of view)if(c.dups>1&&c.dupkey)foldMap.set(c.dupkey,c);
 function foldModalHTML(c){const rows=(c.dupsList||[]).map(m=>`<a class="fold-row" href="${escapeHTML(m.u||'#')}" target="_blank" rel="noopener noreferrer"><span class="fold-row-t">${escapeHTML(m.t)}</span><time class="fold-row-time">${m.at?formatTime(m.at):'时间未知'}</time></a>`).join('');return `<div class="fold-list">${rows}</div>`}
-function openFoldModal(key){const c=foldMap.get(key);if(!c)return;const m=$('#foldModal');const offer=c.dupwhy==='offer';$('#foldModalTitle').textContent=(offer?'同一份福利':'同来源同标题')+' · 共 '+c.dups+' 条';$('#foldModalSub').textContent=(offer?'按正文判定（同一份 offer）':'标题完全相同')+' · 新 → 旧 · 点任意一条打开原帖';$('#foldModalBody').innerHTML=foldModalHTML(c);m.hidden=false;document.documentElement.style.overflow='hidden';const x=m.querySelector('.modal-x');x&&x.focus&&x.focus({preventScroll:true});document.addEventListener('keydown',foldModalEsc)}
+const cardByKey=new Map();
+function openFoldModal(key){const c=cardByKey.get(key)||foldMap.get(key);if(!c)return;const m=$('#foldModal');const offer=c.dupwhy==='offer';$('#foldModalTitle').textContent=(offer?'同一份福利':'同来源同标题')+' · 共 '+c.dups+' 条';$('#foldModalSub').textContent=(offer?'按正文判定（同一份 offer）':'标题完全相同')+' · 新 → 旧 · 点任意一条打开原帖';$('#foldModalBody').innerHTML=foldModalHTML(c);m.hidden=false;document.documentElement.style.overflow='hidden';const x=m.querySelector('.modal-x');x&&x.focus&&x.focus({preventScroll:true});document.addEventListener('keydown',foldModalEsc)}
 function closeFoldModal(){const m=$('#foldModal');if(!m||m.hidden)return;m.hidden=true;document.documentElement.style.overflow='';$('#foldModalBody').innerHTML='';document.removeEventListener('keydown',foldModalEsc)}
 function foldModalEsc(e){if(e.key==='Escape')closeFoldModal()}
 const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
 function updateRails(){['source','category'].forEach(updateRail)}
 function selected(id,field,val){$$('#'+id+' .chip').forEach(b=>{const on=b.dataset[field]===val;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
-function init(){const sources=[...new Set(view.map(c=>sourceKey(c.source)).filter(Boolean))];const present=[...new Set(view.flatMap(c=>Array.isArray(c.tags)?c.tags:[]))];const categories=[...order.filter(c=>present.includes(c)),...present.filter(c=>!order.includes(c))];
+function init(){const sources=[...new Set(cards.map(c=>sourceKey(c.source)).filter(Boolean))];const present=[...new Set(cards.flatMap(c=>Array.isArray(c.tags)?c.tags:[]))];const categories=[...order.filter(c=>present.includes(c)),...present.filter(c=>!order.includes(c))];
  $('#sources').innerHTML='<button type="button" class="chip" data-source="all">全部来源</button>'+sources.map(s=>`<button type="button" class="chip" data-source="${escapeHTML(s)}">${escapeHTML(labels[s]||s)}</button>`).join('');
  $('#categories').innerHTML='<button type="button" class="chip" data-category="all">全部类型</button>'+categories.map(c=>`<button type="button" class="chip" data-category="${escapeHTML(c)}" ${tones[c]?`data-tone="${tones[c]}"`:''}>${escapeHTML(c)}</button>`).join('');
  selected('sorts','sort','latest');selected('sources','source','all');selected('categories','category','all');
@@ -217,7 +220,10 @@ function init(){const sources=[...new Set(view.map(c=>sourceKey(c.source)).filte
  refresh();
 }
 function isRecent(c){const t=time(c),delta=Date.now()-t;return !!t&&delta>=0&&delta<864e5}
-function makeEntries(){const list=view.filter(c=>(state.source==='all'||sourceKey(c.source)===state.source)&&(state.category==='all'||(Array.isArray(c.tags)?c.tags:[]).includes(state.category))&&(!state.query||String(c.title||'').toLocaleLowerCase().includes(state.query)));
+/* 筛选与搜索都在**原始行**上做，再折叠命中的子集：折叠组里的成员（代表行之外的）
+   也要能被来源/类型/关键词找到（2026-10-15 审计：9 条成员筛不到、来源按钮还会消失）。 */
+function matches(c){return (state.source==='all'||sourceKey(c.source)===state.source)&&(state.category==='all'||(Array.isArray(c.tags)?c.tags:[]).includes(state.category))&&(!state.query||String(c.title||'').toLocaleLowerCase().includes(state.query))}
+function makeEntries(){const list=foldCards(cards.filter(matches));
  list.sort((a,b)=>state.sort==='score'?((Number(b.score)||0)-(Number(a.score)||0)||stamp(b.fetched_at)-stamp(a.fetched_at)):time(b)-time(a));
  const enriched=list.map(c=>({c,key:state.sort==='score'?(isRecent(c)?'recent':'earlier'):bjDay(c)}));
  return state.sort==='score'?[...enriched.filter(x=>x.key==='recent'),...enriched.filter(x=>x.key==='earlier')]:enriched;
@@ -232,7 +238,7 @@ function addBatch(){const total=state.entries.length;let end=Math.min(state.show
   if(vis%2===1&&hidden>=1)end++}
  for(let i=state.shown;i<end;){const key=state.entries[i].key;let j=i+1;while(j<end&&state.entries[j].key===key)j++;let section=state.sections.get(key);
  if(!section){section=document.createElement('section');section.className='group';section.dataset.key=key;section.innerHTML=`<div class="group-head"><h2>${escapeHTML(sectionLabel(key))}</h2><div class="line"></div><span class="portion"></span></div><div class="cards"></div>`;$('#results').append(section);state.sections.set(key,section)}
- section.querySelector('.cards').insertAdjacentHTML('beforeend',state.entries.slice(i,j).map(x=>renderCard(x.c)).join(''));section.querySelector('.portion').textContent=`显示 ${section.querySelectorAll('.card').length} / ${state.totals.get(key)} 条`;i=j}
+ const batch=state.entries.slice(i,j);for(const x of batch)if(x.c.dups>1&&x.c.dupkey)cardByKey.set(x.c.dupkey,x.c);section.querySelector('.cards').insertAdjacentHTML('beforeend',batch.map(x=>renderCard(x.c)).join(''));section.querySelector('.portion').textContent=`显示 ${section.querySelectorAll('.card').length} / ${state.totals.get(key)} 条`;i=j}
  state.shown=end;$('#more').hidden=end>=state.entries.length;$('#more').textContent=`继续查看 · 剩余 ${state.entries.length-end} 条`;$('#result-summary').textContent=`显示 ${end} / ${state.entries.length} 条`;$('#count').textContent=`${state.entries.length} / ${view.length} 条`;
 }
 function refresh(){state.entries=makeEntries();state.shown=0;state.sections=new Map();state.totals=new Map();for(const x of state.entries)state.totals.set(x.key,(state.totals.get(x.key)||0)+1);state.recentSignature=state.sort==='score'?state.entries.filter(x=>x.key==='recent').map(x=>x.c.id).join('|'):'';

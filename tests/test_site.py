@@ -233,6 +233,11 @@ _FOLD = [
     ('遮罩/✕ 关闭', 'data-fold-close'),
     # 遮罩是 div、✕ 是 button：点击代理必须先认 [data-fold-close]，只认 button 会吞掉点遮罩
     ('点遮罩关闭的接线', "closest('[data-fold-close]')"),
+    # 2026-10-15 审计：折叠键不能含 NUL（HTML 属性解析换成 U+FFFD，点击查不到组）；
+    # 筛选/搜索要在原始行上做（被折掉的成员才搜得到）；弹窗按当前渲染的那张卡取组员。
+    ('折叠键无 NUL', "'|#|'"),
+    ('筛选用原始行', 'function matches(c){'),
+    ('弹窗读当前渲染卡', 'cardByKey'),
 ]
 for _label, _needle in _FOLD:
     check(_needle in _tpl, 'template: ' + _label, _needle)
