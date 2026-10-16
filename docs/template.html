@@ -286,6 +286,9 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
   border-radius:999px;padding:3px 7px}
 .pk-nav-btn:hover .n{background:var(--primary-ink);color:var(--primary)}
 .pk-nav-btn .t-s{display:none}
+/* 当前板块的按钮实心：滚动/跳转后一眼看出自己在哪（highlightPickNav 维护） */
+.pk-nav-btn.active{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.pk-nav-btn.active .n{background:var(--primary-ink);color:var(--primary)}
 /* 精选视图：板块上下距离收紧（默认 17px → 13px；用户嫌"三个板块上下间隔太长"） */
 #results.pick-mode .group{margin-top:13px}
 #results.pick-mode .group-head{margin-bottom:8px}
@@ -369,9 +372,18 @@ const PICK_BAKED_AT=__FEATURED_BAKED_AT__;
 const PICK_KINDS = ['gift','lottery','free'];        /* 板块顺序：赠送 → 抽奖 → 免费 */
 const PICK_EXPIRED = new Set();                      /* 到点下架过的，重渲染不再冒出来 */
 
+function pickMatches(c, q){
+  if (state.source !== 'all' && sourceKey(c.source) !== state.source) return false;
+  if (state.category !== 'all' && !(Array.isArray(c.tags) ? c.tags : []).includes(state.category)) return false;
+  if (!q) return true;
+  /* 精选卡的"是什么"大半不在标题里（站点名/额度/摘要行）——搜索时一并纳入 */
+  const hay = (String(c.title || '') + ' ' + c.f.name + ' ' + c.f.amount + ' ' + (c.f.lines || []).join(' ')).toLocaleLowerCase();
+  return hay.includes(q);
+}
 function pickEntries(){
+  const q = state.query;
   return PICK_KINDS.flatMap(k => FEATURED
-    .filter(c => c.f.kind === k && !PICK_EXPIRED.has(c.dupkey) && matches(c))
+    .filter(c => c.f.kind === k && !PICK_EXPIRED.has(c.dupkey) && pickMatches(c, q))
     .map(c => ({c, key: 'pick:' + k})));
 }
 function pickCount(){ return new Set([...document.querySelectorAll('.pick-card')].map(c => c.dataset.pickKey)).size }
@@ -423,7 +435,12 @@ function tickPickCountdowns(){
     el.classList.toggle('urgent', ms < 3600e3);
   });
 }
-if (typeof setInterval === 'function') setInterval(() => { if (!document.hidden) tickPickCountdowns(); }, 1000);
+if (typeof setInterval === 'function') setInterval(() => {
+  if (document.hidden) return;
+  tickPickCountdowns();
+  if (state.sort === 'pick') highlightPickNav();     // 限流环境里 scroll 事件不派发时的兜底
+}, 1000);
+window.addEventListener('scroll', highlightPickNav, {passive: true});   // 正常浏览器里实时跟随
 
 /* 数字高亮：先按"金额/额度"切段、再逐段转义（反过来会把 &quot; 里的 39 当成数字） */
 const HL_RE = /((?:[$￥¥])\s?\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:亿|万|刀|美刀|美元|元|token|词元))/g;
@@ -441,7 +458,7 @@ function pickNavButtons(){
   return secs.map(sec => {
     const h = sec.querySelector('h2').textContent;
     const short = h.split(' · ')[0];        /* 手机端只显示"赠送/抽奖/免费"，让吸顶条保持一行 */
-    return '<button type="button" class="pk-nav-btn" data-pk-jump="' + escapeHTML(h) + '">'
+    return '<button type="button" class="pk-nav-btn" data-pk-jump="' + escapeHTML(h) + '" data-pk-key="' + escapeHTML(sec.dataset.key) + '">'
       + '<span class="t">' + escapeHTML(h) + '</span><span class="t-s">' + escapeHTML(short) + '</span>'
       + '<span class="n">' + sec.querySelectorAll('.pick-card').length + '</span></button>';
   }).join('');
@@ -449,6 +466,7 @@ function pickNavButtons(){
 function insertPickNav(){
   const res = document.getElementById('results'), html = pickNavButtons();
   if (res && html) res.insertAdjacentHTML('afterbegin', '<div class="pk-nav" id="pk-nav">' + html + '</div>');
+  highlightPickNav();
 }
 /* 到点下架之后：条数会变、板块可能整块消失，就地换掉那一行按钮（板块没了就把导航也撤掉） */
 function syncPickNav(){
@@ -457,6 +475,22 @@ function syncPickNav(){
   const html = pickNavButtons();
   if (!html) { nav.remove(); return }
   nav.innerHTML = html;
+  highlightPickNav();
+}
+/* 高亮当前板块：吸顶条下缘压着哪个 .group，就点亮哪个按钮。
+   触发点互为兜底：窗口 scroll（正常浏览器实时）+ 1s 定时器顺带刷（限流环境里
+   scroll 事件可能根本不派发，见推广页那类坑）+ 跳转/重渲染后即时刷。 */
+function highlightPickNav(){
+  const nav = document.getElementById('pk-nav'), res = document.getElementById('results');
+  if (!nav || !res || !res.classList.contains('pick-mode')) return;
+  const y = innerHeight * 0.4;      // 视口 40% 高度处压着的板块 = 当前板块（滚动监听的标准语义）
+  let cur = '';
+  document.querySelectorAll('#results .group').forEach(function(sec){
+    if (sec.getBoundingClientRect().top <= y) cur = sec.dataset.key;
+  });
+  nav.querySelectorAll('.pk-nav-btn').forEach(function(b){
+    b.classList.toggle('active', b.dataset.pkKey === cur);   // 按 key 匹配（pk-jump 存的是标题）
+  });
 }
 /* 跳转必须"真的到位"：页面有 html{scroll-behavior:smooth}，连 scrollTo(0,X) 的瞬移写法也会被它
    变成平滑滚动 —— 而后台/被限流的标签页里平滑滚动不推进（实测 scrollY 一动不动，同推广页那类坑）。
@@ -480,6 +514,7 @@ function pickJump(btn){
   if (document.hidden || matchMedia('(prefers-reduced-motion:reduce)').matches) { force(); return }
   window.scrollTo({top: top, behavior: 'smooth'});
   setTimeout(() => { if (Math.abs(window.scrollY - before) < 4) force(); }, 350);
+  highlightPickNav();                                // 跳完立刻点亮目标板块（不等平滑滚完）
 }
 
 function pickCardHTML(c){
@@ -519,10 +554,10 @@ const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
 function updateRails(){['source','category'].forEach(updateRail)}
 function selected(id,field,val){$$('#'+id+' .chip').forEach(b=>{const on=b.dataset[field]===val;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
-function init(){const sources=[...new Set(cards.map(c=>sourceKey(c.source)).filter(Boolean))];const present=[...new Set(cards.flatMap(c=>Array.isArray(c.tags)?c.tags:[]))];const categories=[...order.filter(c=>present.includes(c)),...present.filter(c=>!order.includes(c))];
+function init(){try{if(new URLSearchParams(location.search).get('sort')==='pick')state.sort='pick'}catch{}const sources=[...new Set(cards.map(c=>sourceKey(c.source)).filter(Boolean))];const present=[...new Set(cards.flatMap(c=>Array.isArray(c.tags)?c.tags:[]))];const categories=[...order.filter(c=>present.includes(c)),...present.filter(c=>!order.includes(c))];
  $('#sources').innerHTML='<button type="button" class="chip" data-source="all">全部来源</button>'+sources.map(s=>`<button type="button" class="chip" data-source="${escapeHTML(s)}">${escapeHTML(labels[s]||s)}</button>`).join('');
  $('#categories').innerHTML='<button type="button" class="chip" data-category="all">全部类型</button>'+categories.map(c=>`<button type="button" class="chip" data-category="${escapeHTML(c)}" ${tones[c]?`data-tone="${tones[c]}"`:''}>${escapeHTML(c)}</button>`).join('');
- selected('sorts','sort','latest');selected('sources','source','all');selected('categories','category','all');
+ selected('sorts','sort',state.sort);selected('sources','source','all');selected('categories','category','all');
  $('#total').textContent=view.length;const updated=Math.max(0,...cards.map(c=>stamp(c.fetched_at)));$('#updated').textContent=updated?'最近收录 '+formatTime(new Date(updated).toISOString()):'收录时间未知';
  const dark=document.documentElement.dataset.theme==='dark';$('#theme').textContent=dark?'☀ 主题':'☾ 主题';$('#theme').setAttribute('aria-label',dark?'切换浅色主题':'切换深色主题');
  document.querySelector('meta[name="theme-color"]').content=dark?'#111827':'#f6f7fa';requestAnimationFrame(updateRails);if('ResizeObserver' in window){const ro=new ResizeObserver(updateRails);['sources','categories'].forEach(id=>ro.observe($('#'+id)))}else window.addEventListener('resize',updateRails);
@@ -555,7 +590,8 @@ function addBatch(){const total=state.entries.length;let end=Math.min(state.show
 function refresh(){state.entries=makeEntries();state.shown=0;state.sections=new Map();state.totals=new Map();for(const x of state.entries)state.totals.set(x.key,(state.totals.get(x.key)||0)+1);state.recentSignature=state.sort==='score'?state.entries.filter(x=>x.key==='recent').map(x=>x.c.id).join('|'):'';
  $('#results').replaceChildren();
  if(state.sort==='pick'){$('#results').classList.add('pick-mode');} else {$('#results').classList.remove('pick-mode');}if(!state.entries.length){$('#results').innerHTML='<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else{addBatch();insertPickNav()}
- $('#reset').classList.toggle('dirty',state.query!==''||state.source!=='all'||state.category!=='all'||state.sort!=='latest')
+ $('#reset').classList.toggle('dirty',state.query!==''||state.source!=='all'||state.category!=='all'||state.sort!=='latest');
+ try{history.replaceState(null,'',state.sort==='pick'?'?sort=pick':location.pathname)}catch{}
 }
 function reset(){clearTimeout(pending);state.sort='latest';state.source='all';state.category='all';state.query='';$('#search').value='';selected('sorts','sort','latest');selected('sources','source','all');selected('categories','category','all');refresh()}
 function setCategory(c){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.category=c;selected('categories','category',c);refresh();const b=$$('#categories .chip').find(x=>x.dataset.category===c);b?.scrollIntoView({block:'nearest',inline:'nearest'})}

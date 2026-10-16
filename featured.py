@@ -73,6 +73,7 @@ def update(rows, cache_or_dir, state_path, now: datetime | None = None):
     cache = cache_or_dir if isinstance(cache_or_dir, dict) else load_cache(cache_or_dir)
     fresh = build_items(rows, cache, now)
     board, stats = merge_board(load_state(state_path), fresh, now, PASSED)
+    stats["candidates"] = len(PASSED) + len(REJECT_REASON)
     save_state(state_path, board)
     payload = [{k: v for k, v in it.items() if k not in STATE_KEYS} for it in board]
     return payload, stats
@@ -451,9 +452,11 @@ def pick_entry(key: str, site: str, links: list[str]) -> str:
 
 
 PASSED: dict[str, bool] = {}      # 本轮里每个活动键是否过门槛（供旧条目重判用）
+REJECT_REASON: dict[str, str] = {}   # 每个被拒键的原因（健康度日报用，P3）
 
 
 def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
+    REJECT_REASON.clear()                            # 每轮重置（健康度日报读它）
     cut = now - timedelta(days=WINDOW_DAYS)
     groups: dict[str, list[dict]] = {}
     for r in rows:
@@ -475,6 +478,7 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         champ_body = (cache.get(champ["url"]) or {}).get("body") or ""
         if len(champ_links) >= 12 or champ_body.count("http") >= 6:
             PASSED[key] = False
+            REJECT_REASON[key] = "合集帖"
             continue                                   # 汇总/合集帖：额度属于别家站点，不当一张卡
         body = (cache.get(champ["url"]) or {}).get("body") or ""
         links = list((cache.get(champ["url"]) or {}).get("meta", {}).get("links") or [])
@@ -498,15 +502,19 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
                                      text))
         if hard:
             PASSED[key] = False
+            REJECT_REASON[key] = "需首充"
             continue                                   # 需充值才能拿的不算"鸡蛋"（那是优惠渠道，另有所属）
         if not gift_evidence:                          # 正文/标题里没有任何发放语境 → 广告或倍率表
             PASSED[key] = False
+            REJECT_REASON[key] = "无发放语境"
             continue
         if not amount and not free:                    # 连"免费"都没写、又没数字 → 站点推广，不当鸡蛋
             PASSED[key] = False
+            REJECT_REASON[key] = "无额度无免费"
             continue
         if paid_verify and not amount:                 # 先掏钱验证才给用的"免费"不是鸡蛋
             PASSED[key] = False
+            REJECT_REASON[key] = "付费验证"
             continue                                   # （t.me 实测：可能需要0.1刀的验证）
 
         title_lot = bool(re.search(r"抽奖|开奖|抽码", str(champ.get("title") or "")))
@@ -547,16 +555,20 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
             rich = valid >= 150 or (valid >= 60 and strong_free)
             if not (entry and gift_evidence and concrete and rich):
                 PASSED[key] = False
+                REJECT_REASON[key] = "免费门槛"
                 continue
         elif total < MIN_SCORE:
             PASSED[key] = False
+            REJECT_REASON[key] = "总分不足"
             continue
         PASSED[key] = True
         champ_time = when(champ) or now
         left = LIFE_DAYS - (now.date() - champ_time.date()).days
         if left <= 0:
+            REJECT_REASON[key] = "15天到期"
             continue
         if cd_deadline and cd_deadline <= now.timestamp():
+            REJECT_REASON[key] = "限时已过"
             continue                                   # 限时已过 → 到点下架（用户口径）
         item = {
             "key": key,

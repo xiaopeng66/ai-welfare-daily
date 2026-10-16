@@ -129,6 +129,20 @@ def render(topics, featured_payload=None, featured_baked_at=0):
     return html
 
 
+FEATURED_REPORT = Path(__file__).resolve().parent / "data" / "featured-report.jsonl"
+
+
+def _append_featured_report(row):
+    """精选健康度日报（P3）：每轮一行追加。只在板子有变化或跨天时记，否则一天 48 行重复。"""
+    lines = FEATURED_REPORT.read_text(encoding="utf-8").splitlines() if FEATURED_REPORT.exists() else []
+    last = json.loads(lines[-1]) if lines else {}
+    changed = any(row.get(k, 0) for k in ("added", "updated", "dropped", "pruned"))
+    if lines and not changed and last.get("ts", "")[:10] == row["ts"][:10]:
+        return                                       # 无变化且当天已记 → 不追加
+    with FEATURED_REPORT.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
 def build_featured(topics):
     """精选板：读 store+正文缓存 → 过门槛 → 合并状态 → 返回 (payload, baked_at)。
 
@@ -140,6 +154,21 @@ def build_featured(topics):
         payload, stats = featured.update(topics, FEATURED_CACHE, FEATURED_STATE)
         print("[featured] {} 项（新增 {added} / 刷新 {updated} / 沿用 {kept} / 下架 {dropped}，其中复核下架 {pruned}）".format(
             len(payload), **stats), file=sys.stderr)
+        try:
+            report = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S+08:00", time.gmtime(time.time() + 8 * 3600)),
+                      "board": len(payload), "candidates": stats.get("candidates", 0),
+                      "added": stats.get("added", 0), "updated": stats.get("updated", 0),
+                      "kept": stats.get("kept", 0), "dropped": stats.get("dropped", 0),
+                      "pruned": stats.get("pruned", 0), "by_kind": {}, "reject_top3": {}}
+            for it in payload:
+                k = (it.get("f") or {}).get("kind") or "?"
+                report["by_kind"][k] = report["by_kind"].get(k, 0) + 1
+            for why in getattr(featured, "REJECT_REASON", {}).values():
+                report["reject_top3"][why] = report["reject_top3"].get(why, 0) + 1
+            report["reject_top3"] = dict(sorted(report["reject_top3"].items(), key=lambda kv: -kv[1])[:3])
+            _append_featured_report(report)
+        except Exception as _re:                       # noqa: BLE001 —— 日报失败不拖停页面
+            print(f"[featured-report] 跳过（{_re.__class__.__name__}: {_re}）", file=sys.stderr)
         return payload, time.time()
     except Exception as exc:                      # noqa: BLE001 —— 明确兜住，不能拖停主站
         print(f"[featured] 跳过（{type(exc).__name__}: {exc}）—— 页面照常生成，精选区置空", file=sys.stderr)
