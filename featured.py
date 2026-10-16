@@ -122,14 +122,19 @@ def when(r: dict) -> datetime | None:
 
 # ---------------------------------------------------------------- 额度（只在送礼语境里算数）
 GIFT_WORD = re.compile(r"送|赠|领|得|返|注册|试用|免费|白嫖|名额|先到|最高|合计|到手|补贴|福利|限时|回复后可见|兑换码|兑换|换|口令|号池|key|丢|蹬|放出|白送|无偿|鸡蛋|补偿")
+# token 量纲族：每项带「到亿系数」——内部统一为亿，显示统一为 B(十亿)/M(百万)/K(千)。
+# B/M/K 裸写（无 token 后缀）靠发放语境窗口防误伤（"送5M"=5M token，圈子默认写法）；
+# "5km""10MB" 这类由字母边界 (?![a-zA-Z]) 排除。
 AMOUNT_PATTERNS = (
-    (re.compile(r"(?:[$￥¥])\s?(\d+(?:\.\d+)?)"), "usd"),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*[$￥¥]"), "usd"),          # 2$ / 2￥（数字在前，实测常写）
-    (re.compile(r"(\d+(?:\.\d+)?)\s*[wW]\s*(?:token|词元|额度)"), "wan_token"),   # 3000wtoken
-    (re.compile(r"(\d+(?:\.\d+)?)\s*(?:刀|美刀|美元|usd)", re.I), "usd"),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*元"), "cny"),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*亿"), "token"),
-    (re.compile(r"(\d+(?:\.\d+)?)\s*万\s*(?:token|词元|额度)"), "wan_token"),
+    (re.compile(r"(?:[$￥¥])\s?(\d+(?:\.\d+)?)"), "usd", None),
+    (re.compile(r"(\d+(?:\.\d+)?)\s*[$￥¥]"), "usd", None),          # 2$ / 2￥（数字在前，实测常写）
+    (re.compile(r"(\d+(?:\.\d+)?)\s*(?:刀|美刀|美元|usd)", re.I), "usd", None),
+    (re.compile(r"(\d+(?:\.\d+)?)\s*元"), "cny", None),
+    (re.compile(r"(\d+(?:\.\d+)?)\s*亿"), "token", 1.0),                              # N亿 → N 亿
+    (re.compile(r"(\d+(?:\.\d+)?)\s*[bB](?![a-zA-Z])"), "token", 10.0),               # NB → N×10 亿
+    (re.compile(r"(\d+(?:\.\d+)?)\s*[mM](?![a-zA-Z])"), "token", 0.01),               # NM → N×0.01 亿（=N百万）
+    (re.compile(r"(\d+(?:\.\d+)?)\s*[kK](?![a-zA-Z])"), "token", 0.0001),             # NK → N×0.0001 亿（=N千）
+    (re.compile(r"(\d+(?:\.\d+)?)\s*(?:万|w|W)\s*(?:token|词元|额度)"), "token", 0.0001),  # N万token
 )
 LINE_SPLIT = re.compile(r"[\n\r]+|(?<=[。！!？?;；])\s*")
 # 上限词：只看数字**前面**的窗口——「最高可🉐300亿」的 300亿 是上限；
@@ -137,8 +142,10 @@ LINE_SPLIT = re.compile(r"[\n\r]+|(?<=[。！!？?;；])\s*")
 # 数字后面的「封顶/为止」另算（也封这一个数字）。
 CAP_HINT = re.compile(r"最高|至多|可🉐|上限|不超过|最大")
 CAP_AFTER = re.compile(r"封顶|为止")
+# token 语境词：token 候选（B/M/K/亿/万）的窗口凭它自证是"额度"而非别处的数字
+TOKEN_CTX = re.compile(r"token|词元|算力|模型|额度|积分|api|key|接口", re.I)
 # 价格/门槛语境：数字附近出现这些词说明它是售价或消费门槛，不是发放额度
-PRICE_CTX = re.compile(r"起|折|倍率|门槛|满|消费|付款|付费|购买|套餐|会员|订阅|价格")
+PRICE_CTX = re.compile(r"起|折|倍率|门槛|满|消费|付款|付费|购买|套餐|会员|订阅|价格|售价|原价|月费|年费|续费")
 
 
 def _band_usd(v: float) -> float:
@@ -154,6 +161,23 @@ def _display_amount(raw: str) -> str:
     return s.replace("美元", "$").replace("美刀", "$").replace("刀", "$").replace("元", "￥")
 
 
+def _near(pattern, window: str, anchor: int):
+    """窗口内 pattern 各命中点离 anchor 的最短距离；无命中返回 None。"""
+    hits = [mm.start() for mm in pattern.finditer(window)]
+    return min((abs(h - anchor) for h in hits), default=None)
+
+
+def _display_token(v_yi: float) -> str:
+    """token 量显示统一为 B(十亿)/M(百万)/K(千)：30亿→3B、500万→5M、2000→2K。低于 1000 → 裸数。"""
+    if v_yi >= 10:
+        return f"{v_yi / 10:g}B"
+    if v_yi >= 0.01:
+        return f"{v_yi * 100:g}M"
+    if v_yi >= 0.0001:
+        return f"{v_yi * 10000:g}K"
+    return f"{v_yi * 1e8:g}"
+
+
 def amount_of(text: str) -> tuple[float, str, str, float | None]:
     """(排序分, 展示文本, 单位, 折算美元值)。展示统一为 数字+单位符号（R6：刀/美元→$，元→￥）。
     额度必须出现在"发放语境"±10 字内。
@@ -164,16 +188,29 @@ def amount_of(text: str) -> tuple[float, str, str, float | None]:
     没有任何发放词，仍然拦得住。
     """
     t = CLEAN_URL.sub(" ", text or "")
-    best = (0.0, "", "", None)        # 全体候选（含上限值）的最大分
-    best_plain = None                 # 非"上限值"候选里分数最高的
-    for pat, unit in AMOUNT_PATTERNS:
+    best = (0.0, "", "", None)        # 全体候选（含上限值/拉新值）的最大分
+    best_plain = None                 # 非"上限值"、非"拉新值"候选里分数最高的
+    best_ref = None                   # 拉新语境候选（「拉新一人可领120刀」——要拉人才拿得到，显示降权）
+    for pat, unit, yi in AMOUNT_PATTERNS:
         for m in pat.finditer(t):
             # 发放词必须**紧贴**数字（±10 字）：±40 那种宽窗口会把奖励表里的
             # "消费 $200 固定返 $10" 当成"送 $200"（nexotoken 实测踩过）。
-            window = t[max(0, m.start() - 10):m.end() + 10]
-            if not GIFT_WORD.search(window):
+            w_start = max(0, m.start() - 10)
+            window = t[w_start:m.end() + 10]
+            anchor = m.start() - w_start
+            # token 候选（B/M/K/亿/万token）的语境自带自证：数字旁边就有 Tokens/词元 字样
+            # （omnirush 实测：「解锁 额外 (5M) Tokens 邀请奖励」±10 字内没有发放词，
+            #  按 GIFT_WORD 会被否决，只剩带「最高」的 500M 幸存 → 整卡被带偏）。
+            gift_d = _near(GIFT_WORD, window, anchor)
+            ok_ctx = bool(GIFT_WORD.search(window)) or (
+                unit == "token" and TOKEN_CTX.search(window))
+            if not ok_ctx:
                 continue
-            if PRICE_CTX.search(t[max(0, m.start() - 6):m.end() + 6]):
+            # 价格否决用「最近语境」判定：窗口里可能同时有发放词和价格词
+            # （实测：「免费领取20美元额度，月费99美元」——20美元 的 ±6 窗口
+            #  会够到邻居的「月费」，把合法额度误杀）。离数字更近的语境说了算。
+            price_d = _near(PRICE_CTX, window, anchor)
+            if price_d is not None and (gift_d is None or price_d < gift_d):
                 continue                                     # 售价 / 消费门槛，不是发放额度
             v = float(m.group(1))
             usd = None
@@ -183,18 +220,25 @@ def amount_of(text: str) -> tuple[float, str, str, float | None]:
             elif unit == "cny":
                 score = _band_usd(v / CNY_PER_USD)
                 usd = v / CNY_PER_USD
-            elif unit == "token":
-                score = _band_usd(v / 10.0) if v >= 10 else (1.5 if v >= 3 else 1.0)
-            else:  # 万 token → 折到亿
-                score = _band_usd(v / 100000.0)
-            cand = (score, _display_amount(m.group(0).strip()), unit, usd)
+            else:  # token 量纲族：按系数折到亿，显示统一 B/M/K
+                v_yi = v * yi
+                score = _band_usd(v_yi / 10.0) if v_yi >= 10 else (1.5 if v_yi >= 3 else 1.0)
+            display = _display_token(v_yi) if unit == "token" else _display_amount(m.group(0).strip())
+            cand = (score, display, unit, usd)
             if score > best[0]:
                 best = cand
-            capped = bool(CAP_HINT.search(t[max(0, m.start() - 10):m.start()])) or bool(CAP_AFTER.search(t[m.end():m.end() + 6]))
-            if not capped and (best_plain is None or score > best_plain[0]):
+            capped = bool(CAP_HINT.search(t[max(0, m.start() - 16):m.start()])) or bool(CAP_AFTER.search(t[m.end():m.end() + 6]))
+            # 拉新词要看数字**前面**的窗口（「拉新一人可领120刀」）——「注册送10刀，拉新一人再送100刀」
+            # 里的 10刀 是无条件的，不能被后面的拉新词拖累
+            referral = bool(re.search(r"拉新|拉人|邀请好友", t[max(0, m.start() - 8):m.start()]))
+            if not capped and not referral and (best_plain is None or score > best_plain[0]):
                 best_plain = cand
-    if best_plain is not None and best_plain[2] == best[2]:
-        return (best[0], best_plain[1], best_plain[2], best_plain[3])
+            if referral and (best_ref is None or score > best_ref[0]):
+                best_ref = cand
+    # 显示优先级：确定值 > 拉新值 > 上限值（分数一律取全体最大，板位不掉）
+    pick = best_plain or best_ref
+    if pick is not None and pick[2] == best[2]:
+        return (best[0], pick[1], pick[2], pick[3])
     return best
 
 
@@ -552,7 +596,7 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
                 amt_win = t_clean[max(0, pos - 10):pos + len(amount) + 10]
         # 窗口里既没有抽奖、也没有发放动词（如 nexotoken 的奖品表「奖品 名额 有效期 $10」），
         # 而全帖在聊抽奖 → 仍按抽奖（保守）。
-        has_grant = bool(re.search(r"赠|送|领|注册|体验|试用|免费", amt_win))
+        has_grant = bool(re.search(r"赠|送|领|注册|体验|试用|免费|解锁", amt_win))
         kind = ("lottery" if (amount and (re.search(r"抽奖|开奖|抽码", amt_win) or (lucky and not has_grant)))
                 else "gift" if amount
                 else "lottery" if (cd_label == "开奖" or title_lot)

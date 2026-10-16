@@ -25,9 +25,9 @@ def check(ok, msg, extra=None):
 
 # ---------------------------------------------------------------- R1 上限值口径
 muse = featured.amount_of("回到你的muse即可看到30亿token , 最高可🉐300亿")
-check(muse[1] == "30亿", "R1 上限词不抢显示：显示确定发放的 30亿", muse)
+check(muse[1] == "3B", "R1 上限词不抢显示：显示确定发放的 30亿（R7 统一为 3B）", muse)
 check(muse[0] == 4.0, "R1 分数仍按上限值计（板位不掉）", muse)
-check(featured.amount_of("最高可🉐300亿")[1] == "300亿", "R1 只有上限值时照抄上限")
+check(featured.amount_of("最高可🉐300亿")[1] == "30B", "R1 只有上限值时照抄上限（R7 统一为 30B）")
 check(featured.amount_of("注册送20刀，最高可🉐100刀")[1] == "20$", "R1 确定值优先于上限值（显示统一）")
 check(featured.amount_of("免费领取20美元额度，月费99美元") == (4.0, "20$", "usd", 20.0),
       "R1 不影响既有价格语境判定（99美元 是价格、20美元 是发放）")
