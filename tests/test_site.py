@@ -86,15 +86,41 @@ rows = [row(1, '额度 A', '2026-09-30T10:00:00Z', '2026-10-01T12:00:00Z'),
         row(2, '抽奖 </script><img src=x onerror=alert(1)>', '2026-10-01T10:00:00Z',
             '2026-10-01T12:00:00Z'),
         row(3, '体验金 C', None, '2026-10-01T12:00:00Z')]
+PICK_BAKE = re.compile(rb'const PICK_BAKED_AT=(\d+);')
+
+
+def flatten_bake(b):
+    """抹平精选倒计时的基准时刻（PICK_BAKED_AT）。
+
+    这是页面上唯一一个**有意**来自时钟的值（倒计时用"生成时刻 + 已开时长"当 now，
+    不信访客的设备时间），两次渲染隔不到一秒也可能跨秒。2026-10-16 之前这里直接比
+    整份字节，属于"偶尔红一次"的假失败；抹平它之后其余（含整份 FEATURED 数据）仍是
+    逐字节比较，令牌本身另外验一次"确实是刚生成的时钟值"。
+    """
+    return PICK_BAKE.sub(b'const PICK_BAKED_AT=0;', b)
+
+
+def bake_of(b):
+    m = PICK_BAKE.search(b)
+    return int(m.group(1)) if m else None
+
+
 p1 = build(rows, out, store)
 first = open(out, 'rb').read()
 mtime = os.path.getmtime(out)
 p2 = build(rows, out, store)
 second = open(out, 'rb').read()
-check(digest(first) == digest(second), 'byte-identical output', f'{digest(first)} vs {digest(second)}')
-check(os.path.getmtime(out) == mtime, 'the file is not even rewritten')
-check('unchanged' in p2.stderr or 'up to date' in p2.stderr,
-      'the log says the page did not change', p2.stderr.strip().splitlines()[-1:])
+check(flatten_bake(first) == flatten_bake(second), 'byte-identical output（抹平倒计时基准后）',
+      f'{digest(flatten_bake(first))} vs {digest(flatten_bake(second))}')
+b1, b2 = bake_of(first), bake_of(second)
+check(b1 is not None and b2 is not None and 0 <= b2 - b1 <= 5,
+      '倒计时基准是当次生成写入的时钟值（两次渲染相差 ≤5 秒）', f'{b1} vs {b2}')
+if first == second:
+    check(os.path.getmtime(out) == mtime, 'the file is not even rewritten')
+    check('unchanged' in p2.stderr or 'up to date' in p2.stderr,
+          'the log says the page did not change', p2.stderr.strip().splitlines()[-1:])
+else:
+    print('      （两次渲染只差倒计时基准那一秒：页面被重写一次，属预期）')
 
 print('\n== payload integrity ==')
 html = open(out, encoding='utf-8').read()

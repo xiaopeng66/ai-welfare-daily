@@ -382,9 +382,30 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
 限时倒计时的基准**不用访客的绝对时钟**，用"烘焙时刻（`PICK_BAKED_AT`）+ 页面已开时长"；
 到点下架在前端每秒检查（`setInterval`，不用 rAF —— 见 §8 的限流坑）。
 
+**货架可发现性（2026-10-16 用户要求"滑条要显眼、让人知道右边还有"）**：货架横滑本身不带任何提示，
+用户实测看不出能拖，所以叠了四层，都只在**真的溢出**时出现（`data-rail-more`，`syncPickRail()` 量
+`scrollWidth/clientWidth`）：
+① 加粗着色的滚动条（标准属性 `scrollbar-color:var(--primary) var(--hover)`，跟随主题变量）；
+② 右缘渐隐（`.rail-fade`，滚到尽头 `data-rail-end=true` 时收起）；
+③ 圆形翻页钮 `›`（`pickRailStep`：一屏 = **整数张卡片**，点一下翻一屏，到头翻成 `‹` 往回一屏——
+与"来源/类型"两行的 `›/‹` 同一套行为，不是跳回开头）；
+④ 板块标题行的 `↔ 左右拖动看更多`（本板块拖过一次就收起，把位置让回"显示 x/y 条"；
+重渲染后凭 `PICK_RAIL_SEEN` 记住，不再重复弹）。手机端（`max-width:760px`）隐藏①②的滑条、
+渐隐铺到卡片底、提示在时先让出 `.portion`——手机上横向滑是原生习惯，不跟系统浮层滚动条抢戏。
+
+**四个坑（都在 2026-10-16 实拍，别再踩）**：
+- **翻页步长必须对齐 `scroll-snap` 的吸附点**：步长 120px 改 `scrollLeft` → 立刻被吸附拉回 0（货架是
+  `x proximity` + 卡片 `snap-align:start`），看起来"点了没反应"。所以按"卡片宽 + gap"的整数倍走。
+- **不要用 `behavior:'smooth'`**：被限流的标签页 / 后台会话里动画帧不推进，`scrollLeft` 会一直卡在 0
+  （和 §8 里 rAF、scroll 事件、`scroll-behavior:smooth` 是同一类坑）。瞬时到位最可靠。
+- **写了 `scrollbar-color` 就别再写 `::-webkit-scrollbar`**：Chromium 看到标准属性就整套忽略 webkit
+  伪元素（实测 Chrome 146：写标准属性 → 平台滚动条 15px；去掉 → 伪元素生效 14px），写了纯属死代码。
+- 相应地**不做滚轮劫持**（曾经写过）：竖向滚轮推货架会被吸附反复拉回，还会挡掉触控板原生横滑。
+
 **门禁**：`tests/test_site.py` 检查"页面 = 当前 store 的纯函数"时会把 `PICK_BAKED_AT` 抹平再逐字节比较
-（倒计时基准每次烘焙都不一样）；`tests/test_page_js.mjs` 的 DOM shim 必须带 `classList.contains`
-（页面悬浮按钮用它控制显示，缺了会整段脚本报错）。
+（倒计时基准每次烘焙都不一样；**两次渲染的比对也要抹平**，否则跨秒就是一次假红，另配一条
+"基准是当次写入的时钟值、两次相差 ≤5 秒"）；`tests/test_page_js.mjs` 的 DOM shim 必须带
+`classList.contains`（页面悬浮按钮用它控制显示，缺了会整段脚本报错）。
 
 ## 6. 更新管道与并发
 
