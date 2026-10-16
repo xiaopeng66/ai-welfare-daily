@@ -529,6 +529,13 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         champ = champion_of(members, cache)
         if champ is None:
             continue
+        if champ["url"] not in cache:
+            # 正文不在缓存里（CI 兜底只抓得到四源，linux.do 的正文它看不到）→ 无法评判。
+            # 键保持不在 PASSED：merge 走快照保留路径。绝不能用标题-only 的证据去重判
+            # 本地管道维护的条目——f6236b9 实测：CI 兜底一轮把 22 条剪到 9 条。
+            REJECT_REASON[key] = "正文缓存缺失"
+            continue
+
         champ_links = (cache.get(champ["url"]) or {}).get("meta", {}).get("links") or []
         champ_body = (cache.get(champ["url"]) or {}).get("body") or ""
         if len(champ_links) >= 12 or champ_body.count("http") >= 6:
