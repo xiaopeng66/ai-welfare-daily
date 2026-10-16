@@ -138,12 +138,24 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
     tmp = os.path.join(d, 'committed.html')
     subprocess.run([sys.executable, GEN_PY, '-i', STORE, '-o', tmp], capture_output=True, text=True)
     a, b = open(tmp, 'rb').read(), open(PAGE, 'rb').read()
-    # 精选板块的倒计时基准是"烘焙时刻"，每次生成都不一样 —— 比较前抹平这一个数字，
-    # 其余（含整份 FEATURED 数据）仍然是逐字节比较。
-    import re as _re
-    flat = lambda x: _re.sub(rb'const PICK_BAKED_AT=\d+;', b'const PICK_BAKED_AT=0;', x)
-    check(flat(a) == flat(b), 'docs/index.html is up to date with data/topics.jsonl（时间戳抹平后）',
+    # 抹平两类"非 store 输入"后再逐字节比较：
+    #   ① PICK_BAKED_AT：倒计时基准，每次生成都不同；
+    #   ② FEATURED：精选板依赖 data/cache/content 的正文缓存（gitignored，§5.5）。
+    #      CI 检出仓库后没有缓存，load_cache 抛错 → 精选区置空，与本地（有缓存、
+    #      新鲜重建）天然不同。它的内容正确性由本地管道提交前的同一道门禁
+    #      （有缓存）与 test_content 覆盖；这里只验证注入点还在、结构合法。
+    flat = lambda x: re.sub(rb'const FEATURED=\[[^\n]*', b'const FEATURED=0;',
+                            re.sub(rb'const PICK_BAKED_AT=\d+;', b'const PICK_BAKED_AT=0;', x))
+    check(flat(a) == flat(b), 'docs/index.html is up to date with data/topics.jsonl（时间戳与精选板抹平后）',
           f'{digest(a)} != {digest(b)} - regenerate and commit the page')
+    # 精选板结构：注入点在、非空、每张卡都有合法 kind（内容对错由有缓存的本地门禁管）
+    m = re.search(rb'const FEATURED=(\[[^\n]*\]);', b)
+    check(m is not None, 'the featured payload is embedded in the committed page', None)
+    if m:
+        feat = json.loads(m.group(1).decode('utf-8'))
+        check(isinstance(feat, list) and len(feat) > 0, 'the featured payload is a non-empty list', len(feat))
+        bad = [c.get('f', {}).get('name') for c in feat if c.get('f', {}).get('kind') not in ('gift', 'lottery', 'free')]
+        check(not bad, 'every featured card carries a valid kind', bad[:3])
 else:
     check(False, 'store and page are present in the repo')
 
