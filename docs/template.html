@@ -271,16 +271,31 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
    原先每区一行货架、横向拖；用户要求改成"卡片正常平铺 + 一行跳转按钮"：
    板块一多会把下面的板块顶到几屏之外，点一下就能到那一区，也不用拖横向滑条。
    卡片走页面默认的 .cards 双列网格（手机一列），所以这里只有导航条自己的样式。 */
-.pk-nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.pk-nav-btn{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:750;padding:6px 11px;
-  border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
-.pk-nav-btn:hover{border-color:var(--primary);color:var(--primary)}
-.pk-nav-btn .n{font-size:.68rem;font-weight:800;color:var(--primary);background:var(--soft);border-radius:999px;
-  padding:1px 6px}
+/* 吸顶浮条：卡片会从底下滚过，底色必须不透明（--soft/--surface 都是实色）；
+   左侧 4px 主色竖条与 .pick-card 的强调竖条同一套语言。z-index 6 < 弹窗/悬浮按钮的 60。 */
+.pk-nav{position:sticky;top:8px;z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:0 0 12px;padding:8px 10px 8px 14px;border-radius:14px;
+  background:linear-gradient(135deg,var(--soft) 0%,var(--surface) 72%);
+  border:1px solid var(--ring);box-shadow:0 12px 28px -16px var(--glow)}
+.pk-nav:before{content:"";position:absolute;left:5px;top:9px;bottom:9px;width:4px;border-radius:99px;
+  background:linear-gradient(180deg,var(--primary),#9d7bff)}
+.pk-nav-btn{display:inline-flex;align-items:center;gap:7px;font-size:.79rem;font-weight:800;line-height:1;
+  padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--primary)}
+.pk-nav-btn:hover{border-color:var(--primary);background:var(--primary);color:var(--primary-ink)}
+.pk-nav-btn .n{font-size:.7rem;font-weight:800;line-height:1;color:var(--primary-ink);background:var(--primary);
+  border-radius:999px;padding:3px 7px}
+.pk-nav-btn:hover .n{background:var(--primary-ink);color:var(--primary)}
+.pk-nav-btn .t-s{display:none}
 /* 精选视图：板块上下距离收紧（默认 17px → 13px；用户嫌"三个板块上下间隔太长"） */
 #results.pick-mode .group{margin-top:13px}
 #results.pick-mode .group-head{margin-bottom:8px}
-@media(max-width:760px){.pk-nav{margin-bottom:8px}.pk-nav-btn{font-size:.78rem;min-height:38px;padding:0 12px}}
+@media(max-width:760px){
+  /* 手机上一行放不下全名（赠送 · 送到账…）会让吸顶条变两行、吃掉 90px 视口，所以换短名 */
+  .pk-nav{top:6px;gap:6px;margin-bottom:9px;padding:7px 9px 7px 13px}
+  .pk-nav-btn{font-size:.78rem;min-height:38px;padding:0 11px}
+  .pk-nav-btn .t{display:none}
+  .pk-nav-btn .t-s{display:inline}
+}
 
 /* 手机端：排序行右侧的"199 / 199 条"会挤住（甚至盖住）排序按钮 —— 隐藏。
    信息列表上方已有"显示 N / N 条"（#result-summary），这里不丢信息。
@@ -425,7 +440,9 @@ function pickNavButtons(){
   if (state.sort !== 'pick' || !secs.length) return '';
   return secs.map(sec => {
     const h = sec.querySelector('h2').textContent;
-    return '<button type="button" class="pk-nav-btn" data-pk-jump="' + escapeHTML(h) + '">' + escapeHTML(h)
+    const short = h.split(' · ')[0];        /* 手机端只显示"赠送/抽奖/免费"，让吸顶条保持一行 */
+    return '<button type="button" class="pk-nav-btn" data-pk-jump="' + escapeHTML(h) + '">'
+      + '<span class="t">' + escapeHTML(h) + '</span><span class="t-s">' + escapeHTML(short) + '</span>'
       + '<span class="n">' + sec.querySelectorAll('.pick-card').length + '</span></button>';
   }).join('');
 }
@@ -448,7 +465,11 @@ function pickJump(btn){
   const name = btn.dataset.pkJump;
   const sec = [...document.querySelectorAll('#results .group')].find(g => g.querySelector('h2').textContent === name);
   if (!sec) return;
-  const top = Math.round(sec.getBoundingClientRect().top + window.scrollY - 70);
+  /* 偏移量按**实测**的吸顶条高度算（手机上是一行短名、桌面上是全名，高度不同），
+     写完死数字会有一部分设备被吸顶条盖住标题 */
+  const bar = document.getElementById('pk-nav');
+  const off = (bar ? bar.getBoundingClientRect().height : 0) + 18;
+  const top = Math.round(sec.getBoundingClientRect().top + window.scrollY - off);
   const before = window.scrollY;
   const force = () => {
     const root = document.documentElement, prev = root.style.scrollBehavior;
