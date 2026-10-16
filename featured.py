@@ -130,6 +130,11 @@ AMOUNT_PATTERNS = (
     (re.compile(r"(\d+(?:\.\d+)?)\s*万\s*(?:token|词元|额度)"), "wan_token"),
 )
 LINE_SPLIT = re.compile(r"[\n\r]+|(?<=[。！!？?;；])\s*")
+# 上限词：只看数字**前面**的窗口——「最高可🉐300亿」的 300亿 是上限；
+# 「30亿token，最高可🉐300亿」里的最高管的是后面的 300亿，不关 30亿 的事。
+# 数字后面的「封顶/为止」另算（也封这一个数字）。
+CAP_HINT = re.compile(r"最高|至多|可🉐|上限|不超过|最大")
+CAP_AFTER = re.compile(r"封顶|为止")
 # 价格/门槛语境：数字附近出现这些词说明它是售价或消费门槛，不是发放额度
 PRICE_CTX = re.compile(r"起|折|倍率|门槛|满|消费|付款|付费|购买|套餐|会员|订阅|价格")
 
@@ -150,7 +155,8 @@ def amount_of(text: str) -> tuple[float, str, str]:
     没有任何发放词，仍然拦得住。
     """
     t = CLEAN_URL.sub(" ", text or "")
-    best = (0.0, "", "")
+    best = (0.0, "", "")              # 全体候选（含上限值）的最大分
+    best_plain = None                 # 非"上限值"候选里分数最高的
     for pat, unit in AMOUNT_PATTERNS:
         for m in pat.finditer(t):
             # 发放词必须**紧贴**数字（±10 字）：±40 那种宽窗口会把奖励表里的
@@ -169,8 +175,14 @@ def amount_of(text: str) -> tuple[float, str, str]:
                 score = _band_usd(v / 10.0) if v >= 10 else (1.5 if v >= 3 else 1.0)
             else:  # 万 token → 折到亿
                 score = _band_usd(v / 100000.0)
+            cand = (score, m.group(0).strip(), unit)
             if score > best[0]:
-                best = (score, m.group(0).strip(), unit)
+                best = cand
+            capped = bool(CAP_HINT.search(t[max(0, m.start() - 10):m.start()])) or bool(CAP_AFTER.search(t[m.end():m.end() + 6]))
+            if not capped and (best_plain is None or score > best_plain[0]):
+                best_plain = cand
+    if best_plain is not None and best_plain[2] == best[2]:
+        return (best[0], best_plain[1], best_plain[2])
     return best
 
 
@@ -341,6 +353,26 @@ def _foreign_host(line: str, entry: str) -> bool:
     return False
 
 
+CONCRETE_RE = re.compile(r"claude|gpt|gemini|grok|deepseek|glm|qwen|kimi|llama|opus|sonnet|haiku"
+                         r"|token|词元|额度|次数|分组|倍率|签到|试用|积分|兑换"
+                         r"|图像|视频|生图|画图|模型|接口|api|key|号池|每日|每周", re.I)
+
+
+def relevant_len(body: str) -> int:
+    """与主题相关的正文字数：只统计含中文、≥10 字、且命中福利/模型词表的行。
+
+    免费门槛的"内容丰富"原本看全文字数——omnirush 实测：一整段个人简历把字数堆过线，
+    正文真正说福利的就两行。灌水行不含任何模型/额度词，这里直接不计。
+    """
+    total = 0
+    for ln in clean_lines(body):
+        if len(ln) < 10 or not re.search(r"[\u4e00-\u9fff]", ln):
+            continue
+        if KEY_HINT.search(ln) or CONCRETE_RE.search(ln):
+            total += len(ln)
+    return total
+
+
 def summarize(body: str, title: str, entry: str = "") -> tuple[list[str], str]:
     lines = clean_lines(body)
     if not lines:
@@ -457,10 +489,9 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         gift_evidence = bool(GIFT_WORD.search(CLEAN_URL.sub(" ", text)))
         # 免费类的专门门槛（用户：尤其免费福利要仔细甄别）：说得清"能拿到什么"才算
         # "具体可得"词表：模型名 + 图像/视频/生图 + 额度/次数/接口 这类能核对的实物
-        concrete = bool(re.search(r"claude|gpt|gemini|grok|deepseek|glm|qwen|kimi|llama|opus|sonnet|haiku"
-                                  r"|token|词元|额度|次数|分组|倍率|签到|试用|积分|兑换"
-                                  r"|图像|视频|生图|画图|模型|接口|api|key|号池|每日|每周", text, re.I))
+        concrete = bool(CONCRETE_RE.search(text))
         strong_free = bool(re.search(r"免费试用|限时免费|白嫖|0\s*倍率|0倍率|免费使用|免费领|注册即送|无需付费", text))
+        valid = relevant_len(body)          # 所有种类都进 ev 快照（复核要用），不只免费类
         hard = "需首充" in tags
         lucky = "需运气" in tags
         paid_verify = bool(re.search(r"[\d.]{1,6}\s*(?:刀|美元|美刀|\$|￥|元)\s*的?\s*(?:验证|押金|保证金|激活)",
@@ -513,7 +544,7 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         total = score + ease + evidence + recency
         if kind == "free":
             # 免费类：必须有入口、有发放语境，且"具体可得"（正文≥150 字，或 ≥60 字 + 强发放词）
-            rich = len(body) >= 150 or (len(body) >= 60 and strong_free)
+            rich = valid >= 150 or (valid >= 60 and strong_free)
             if not (entry and gift_evidence and concrete and rich):
                 PASSED[key] = False
                 continue
@@ -578,7 +609,8 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
             "amt_main": str(item["amount"])[3:] if str(item["amount"]).startswith("抽奖 ") else item["amount"],
             "left": item["left"], "n": item["n"], "src": item["summary_src"],
             # 证据快照：帖子出了 3 天窗口后，靠它复核（否则只能干等到 15 天）
-            "ev": {"body": len(body), "concrete": concrete, "strong_free": strong_free, "entry": entry},
+            "ev": {"body": len(body), "valid": valid, "concrete": concrete,
+                   "strong_free": strong_free, "entry": entry},
         }
         items.append(item)
     items.sort(key=lambda x: -x["t"])
@@ -621,7 +653,8 @@ def merge_board(state: dict, fresh: list[dict], now: datetime,
                 continue
             if kind_old == "free":
                 if ev:
-                    rich_old = ev.get("body", 0) >= 150 or (ev.get("body", 0) >= 60 and ev.get("strong_free"))
+                    body_len = ev["valid"] if "valid" in ev else ev.get("body", 0)
+                    rich_old = body_len >= 150 or (body_len >= 60 and ev.get("strong_free"))
                     if not (ev.get("entry") and ev.get("concrete") and rich_old):
                         stats["dropped"] += 1
                         stats["pruned"] += 1

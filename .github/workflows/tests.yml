@@ -54,6 +54,11 @@ jobs:
       - name: Guard tests - content layer
         run: python3 tests/test_content.py
 
+      # 精选规则（featured.py）：双份 build_items 事故（2026-10-16，三个修复打了死代码上、
+      # 潜伏两天）的直接教训——精选规则此前没有任何直接单测。
+      - name: Guard tests - featured rules
+        run: python3 tests/test_featured.py
+
       # The "近 24 小时" split and the card clock live in the page's own JS, so a
       # Python test cannot reach them.
       # NOTE: the version input is what actually pins anything - setup-node
