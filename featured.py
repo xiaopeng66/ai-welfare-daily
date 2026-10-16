@@ -119,7 +119,7 @@ def when(r: dict) -> datetime | None:
 
 
 # ---------------------------------------------------------------- 额度（只在送礼语境里算数）
-GIFT_WORD = re.compile(r"送|赠|领|注册|试用|免费|白嫖|名额|先到|最高|合计|到手|补贴|福利|限时|回复后可见|兑换码|口令|号池|key|丢|蹬|放出|白送|无偿")
+GIFT_WORD = re.compile(r"送|赠|领|得|返|注册|试用|免费|白嫖|名额|先到|最高|合计|到手|补贴|福利|限时|回复后可见|兑换码|兑换|换|口令|号池|key|丢|蹬|放出|白送|无偿|鸡蛋|补偿")
 AMOUNT_PATTERNS = (
     (re.compile(r"(?:[$￥¥])\s?(\d+(?:\.\d+)?)"), "usd"),
     (re.compile(r"(\d+(?:\.\d+)?)\s*[$￥¥]"), "usd"),          # 2$ / 2￥（数字在前，实测常写）
@@ -130,6 +130,8 @@ AMOUNT_PATTERNS = (
     (re.compile(r"(\d+(?:\.\d+)?)\s*万\s*(?:token|词元|额度)"), "wan_token"),
 )
 LINE_SPLIT = re.compile(r"[\n\r]+|(?<=[。！!？?;；])\s*")
+# 价格/门槛语境：数字附近出现这些词说明它是售价或消费门槛，不是发放额度
+PRICE_CTX = re.compile(r"起|折|倍率|门槛|满|消费|付款|付费|购买|套餐|会员|订阅|价格")
 
 
 def _band_usd(v: float) -> float:
@@ -151,9 +153,13 @@ def amount_of(text: str) -> tuple[float, str, str]:
     best = (0.0, "", "")
     for pat, unit in AMOUNT_PATTERNS:
         for m in pat.finditer(t):
-            window = t[max(0, m.start() - 40):m.end() + 40]
+            # 发放词必须**紧贴**数字（±10 字）：±40 那种宽窗口会把奖励表里的
+            # "消费 $200 固定返 $10" 当成"送 $200"（nexotoken 实测踩过）。
+            window = t[max(0, m.start() - 10):m.end() + 10]
             if not GIFT_WORD.search(window):
                 continue
+            if PRICE_CTX.search(t[max(0, m.start() - 6):m.end() + 6]):
+                continue                                     # 售价 / 消费门槛，不是发放额度
             v = float(m.group(1))
             if unit == "usd":
                 score = _band_usd(v)
@@ -306,11 +312,44 @@ def clean_lines(body: str) -> list[str]:
     return out
 
 
-def summarize(body: str, title: str) -> tuple[list[str], str]:
+DOMAIN_RE = re.compile(r"[a-z0-9-]+\.(?:com|cn|net|ai|io|eu|cc|top|xyz|vip|org|me|dev|pro|surf|tech)", re.I)
+
+
+def _bare_domain(line: str) -> bool:
+    """整行就是个裸域名（或域名+时间戳之类），没有信息量，不该当摘要。"""
+    stripped = (line or "").strip().strip("·|-—…。:：")
+    return bool(stripped) and len(stripped) < 24 and bool(DOMAIN_RE.fullmatch(stripped))
+
+
+def _foreign_host(line: str, entry: str) -> bool:
+    """这一行提到了别家域名吗（与卡片入口不同的站点）。
+
+    两个不算"别家"的情况：邮箱地址（undyingapi@gmail.com 里的域名）、
+    同品牌不同后缀（logicc.ai 与 logicc.com 是同一家）。
+    """
+    text = re.sub(r"[\w.+-]+@[\w.-]+", " ", line or "")
+    entry_host = (entry or "").split("/")[0].lower()
+    entry_label = entry_host.split(".")[0]
+    for host in DOMAIN_RE.findall(text):
+        host = host.lower()
+        if not entry_host:
+            return True
+        if entry_host not in host and host not in entry_host and host.split(".")[0] != entry_label:
+            return True
+    return False
+
+
+def summarize(body: str, title: str, entry: str = "") -> tuple[list[str], str]:
     lines = clean_lines(body)
     if not lines:
         return ([title.strip()] if title else []), "title"
-    ranked = sorted(range(len(lines)), key=lambda i: (-len(KEY_HINT.findall(lines[i])), len(lines[i])))
+    # 提到别家域名的行降权：宁可换一句，也别让摘要里的站跟卡片标题对不上
+    lines = [ln for ln in lines if not _bare_domain(ln)]
+    if not lines:
+        return ([title.strip()] if title else []), "title"
+    ranked = sorted(range(len(lines)),
+                    key=lambda i: (-len(KEY_HINT.findall(lines[i])) - (3 if _foreign_host(lines[i], entry) else 0),
+                                   len(lines[i])))
     out, total = [], 0
     for i in sorted(ranked[:2]):
         s = lines[i]
@@ -401,9 +440,10 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         score, amount, unit = amount_of(text)
         tags, free = steps_of(text)
         expiry = expiry_of(text)
-        lines, src = summarize(body, champ.get("title", ""))
+        entry_pre = pick_entry(key, (champ.get("offer") or {}).get("site") or "", links)
+        lines, src = summarize(body, champ.get("title", ""), entry_pre)
         cd_label, cd_deadline = deadline_of(text, champ_time_for_cd := (when(champ) or now))
-        entry = pick_entry(key, (champ.get("offer") or {}).get("site") or "", links)
+        entry = entry_pre
         gift_evidence = bool(GIFT_WORD.search(CLEAN_URL.sub(" ", text)))
         # 免费类的专门门槛（用户：尤其免费福利要仔细甄别）：说得清"能拿到什么"才算
         # "具体可得"词表：模型名 + 图像/视频/生图 + 额度/次数/接口 这类能核对的实物
@@ -420,12 +460,15 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         if not amount and not free:                    # 连"免费"都没写、又没数字 → 站点推广，不当鸡蛋
             continue
 
-        kind_pre = ("lottery" if ((amount and lucky) or cd_label == "开奖") else "gift" if amount else "free")
+        title_lot = bool(re.search(r"抽奖|开奖|抽码", str(champ.get("title") or "")))
+        kind_pre = ("lottery" if ((amount and lucky) or cd_label == "开奖" or title_lot)
+                    else "gift" if amount else "free")
         ease = 2.0 if (free and not hard) else (1.0 if not hard else -3.0)
         ease -= 0.5 * len([t for t in tags if t in ("需回复", "需邀请码", "需拉人", "需签到", "需外网", "限量")])
         ease -= 0.5 * len([t for t in tags if t in ("需邮箱", "需手机号", "需绑TG")])
-        if lucky and kind_pre == "lottery":     # "免费使用 + 顺手抽奖"不该按抽奖降权
-            ease -= 1.5
+        if lucky and kind_pre == "lottery":
+            # 免费参与的抽奖只轻打；需要先充值/消费才抽的重罚（原来看齐 -1.5 误伤了免费抽奖）
+            ease -= 1.5 if hard else 0.5
         ease = max(-4.0, ease)
         evidence = (1.0 if len(body) >= 200 else 0.0) + (1.0 if len(body) >= 600 else 0.0) + (1.0 if entry else 0.0)
         if len(body) < 40:
@@ -454,7 +497,9 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         item = {
             "key": key,
             "brand": (champ.get("offer") or {}).get("brand") or "",
-            "amount": ("抽奖 " + amount if (amount and lucky) else amount) or ("限时免费" if "限时" in expiry else "免费试用" if "试用" in expiry else "免费福利"),
+            "amount": ("抽奖 " + amount if (amount and lucky) else amount)
+                       or ("抽奖" if ((amount and lucky) or cd_label == "开奖" or title_lot) else
+                           "限时免费" if "限时" in expiry else "免费试用" if "试用" in expiry else "免费福利"),
             "kind": ("lottery" if ((amount and lucky) or cd_label == "开奖") else "gift" if amount else "free"),
             "unit": unit,
             "score": round(total, 1),
