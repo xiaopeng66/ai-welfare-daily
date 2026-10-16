@@ -262,17 +262,32 @@ setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventLis
   function fabInit(){
     var top=document.getElementById('fabTop'), reload=document.getElementById('fabReload');
     if(!top||!reload) return;
-    var tick=false;
+    /* 出现/收起：同步比较 + 只在跨阈值时改类名，再加一条 400ms 兜底轮询。
+       不用 requestAnimationFrame 节流、也不依赖 scroll 事件 —— 被限流的会话里
+       rAF 回调不执行、scroll 事件甚至根本不派发（2026-10-16 实测：scrollTo 改了
+       scrollY 而事件计数恒为 0），按钮就会"滚下去不出现"。 */
     function onScroll(){
-      if(tick) return;
-      tick=true;
-      requestAnimationFrame(function(){ top.classList.toggle('show', window.scrollY>240); tick=false; });
+      var show=window.scrollY>240;
+      if(show!==top.classList.contains('show')) top.classList.toggle('show', show);
     }
     window.addEventListener('scroll', onScroll, {passive:true});
+    setInterval(onScroll, 400);
     onScroll();
     top.addEventListener('click', function(){
+      /* 回顶也必须"真的到位"：本页 html{scroll-behavior:smooth}，连 scrollTo(0,0)
+         的瞬移写法也会被它变成平滑滚动，而后台/限流标签页里平滑滚动不推进。
+         所以：可见且未要求减动效时走平滑；否则（或 350ms 没动）临时把 CSS 行为
+         改成 auto 强制瞬移（改完还原）。 */
       var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({top:0, behavior: reduce?'auto':'smooth'});
+      var root=document.documentElement, prev=root.style.scrollBehavior;
+      function force(){
+        root.style.scrollBehavior='auto';
+        window.scrollTo(0,0);
+        if(prev) root.style.scrollBehavior=prev; else root.style.removeProperty('scroll-behavior');
+      }
+      if(reduce||document.hidden){ force(); return; }
+      window.scrollTo({top:0, behavior:'smooth'});
+      setTimeout(function(){ if(window.scrollY>4) force(); }, 350);
     });
     reload.addEventListener('click', function(){
       if(reload.classList.contains('spin')) return;
