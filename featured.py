@@ -88,6 +88,7 @@ MAX_ITEMS = 300          # 安全上限；真正的边界是"15 天"和"限时�
 STATE = OUT + "/featured-state.json"   # 精选板自己的状态（正式形态：data/featured.jsonl）
 MIN_SCORE = 5.0            # 赠送/抽奖类门槛（用户 2026-10-16：调高一点）
 CNY_PER_USD = 7.0
+MIN_AMOUNT_USD = 10.0     # 币种额度下限（用户口径：限制10$）；token 类不折算、不受此限
 
 CARRIER_HOSTS = (
     "t.co", "bit.ly", "github.com", "gitlab.com", "gitee.com", "pan.baidu.com", "lanzou", "drive.google",
@@ -147,8 +148,15 @@ def _band_usd(v: float) -> float:
     return 0.0
 
 
-def amount_of(text: str) -> tuple[float, str, str]:
-    """(排序分, 展示文本, 单位)。额度必须出现在"发放语境"±40 字内，且展示一律照抄原文。
+def _display_amount(raw: str) -> str:
+    """金额显示统一为 数字+单位符号（用户 2026-10-17 口径）：刀/美元/美刀 → $，元 → ￥，挤掉空格。"""
+    s = re.sub(r"\s+", "", raw)
+    return s.replace("美元", "$").replace("美刀", "$").replace("刀", "$").replace("元", "￥")
+
+
+def amount_of(text: str) -> tuple[float, str, str, float | None]:
+    """(排序分, 展示文本, 单位, 折算美元值)。展示统一为 数字+单位符号（R6：刀/美元→$，元→￥）。
+    额度必须出现在"发放语境"±10 字内。
 
     为什么用窗口而不是"同一行"：真实帖子常把量值和发放词拆到相邻行
     （实测 lunarfox：「666刀」/「纯heavy号池」/「限时12个小时」各占一行），
@@ -156,7 +164,7 @@ def amount_of(text: str) -> tuple[float, str, str]:
     没有任何发放词，仍然拦得住。
     """
     t = CLEAN_URL.sub(" ", text or "")
-    best = (0.0, "", "")              # 全体候选（含上限值）的最大分
+    best = (0.0, "", "", None)        # 全体候选（含上限值）的最大分
     best_plain = None                 # 非"上限值"候选里分数最高的
     for pat, unit in AMOUNT_PATTERNS:
         for m in pat.finditer(t):
@@ -168,22 +176,25 @@ def amount_of(text: str) -> tuple[float, str, str]:
             if PRICE_CTX.search(t[max(0, m.start() - 6):m.end() + 6]):
                 continue                                     # 售价 / 消费门槛，不是发放额度
             v = float(m.group(1))
+            usd = None
             if unit == "usd":
                 score = _band_usd(v)
+                usd = v
             elif unit == "cny":
                 score = _band_usd(v / CNY_PER_USD)
+                usd = v / CNY_PER_USD
             elif unit == "token":
                 score = _band_usd(v / 10.0) if v >= 10 else (1.5 if v >= 3 else 1.0)
             else:  # 万 token → 折到亿
                 score = _band_usd(v / 100000.0)
-            cand = (score, m.group(0).strip(), unit)
+            cand = (score, _display_amount(m.group(0).strip()), unit, usd)
             if score > best[0]:
                 best = cand
             capped = bool(CAP_HINT.search(t[max(0, m.start() - 10):m.start()])) or bool(CAP_AFTER.search(t[m.end():m.end() + 6]))
             if not capped and (best_plain is None or score > best_plain[0]):
                 best_plain = cand
     if best_plain is not None and best_plain[2] == best[2]:
-        return (best[0], best_plain[1], best_plain[2])
+        return (best[0], best_plain[1], best_plain[2], best_plain[3])
     return best
 
 
@@ -414,7 +425,7 @@ def champion_of(members: list[dict], cache: dict) -> dict | None:
     for m in members:
         body = (cache.get(m["url"]) or {}).get("body") or ""
         text = f"{m.get('title','')}\n{body}"
-        score, _, _ = amount_of(text)
+        score, _, _, _ = amount_of(text)
         tags, _free = steps_of(text)
         links = (cache.get(m["url"]) or {}).get("meta", {}).get("links") or []
         aggregator = len(links) >= 12 or body.count("http") >= 6
@@ -483,7 +494,7 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         body = (cache.get(champ["url"]) or {}).get("body") or ""
         links = list((cache.get(champ["url"]) or {}).get("meta", {}).get("links") or [])
         text = f"{champ.get('title','')}\n{body}"
-        score, amount, unit = amount_of(text)
+        score, amount, unit, amount_usd = amount_of(text)
         tags, free = steps_of(text)
         expiry = expiry_of(text)
         entry_pre = pick_entry(key, (champ.get("offer") or {}).get("site") or "", links)
@@ -515,7 +526,11 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         if paid_verify and not amount:                 # 先掏钱验证才给用的"免费"不是鸡蛋
             PASSED[key] = False
             REJECT_REASON[key] = "付费验证"
-            continue                                   # （t.me 实测：可能需要0.1刀的验证）
+            continue
+        if amount_usd is not None and amount_usd < MIN_AMOUNT_USD:
+            PASSED[key] = False
+            REJECT_REASON[key] = "额度不足$10"
+            continue                                   # 币种额度低于下限（midalo 实测：2$ 上板）                                   # （t.me 实测：可能需要0.1刀的验证）
 
         title_lot = bool(re.search(r"抽奖|开奖|抽码", str(champ.get("title") or "")))
         # 种类看**额度自己身边的词**（±10 字，与 amount_of 的发放词窗口同一口径）：
@@ -527,6 +542,12 @@ def build_items(rows: list[dict], cache: dict, now: datetime) -> list[dict]:
         if amount:
             t_clean = CLEAN_URL.sub(" ", text)
             pos = t_clean.find(amount)
+            if pos < 0:
+                # 显示已统一成符号（「300$」），正文里是「300刀」——按数字部分找（防撞上更长数字）
+                num = re.sub(r"[^\d.]", "", amount)
+                if num:
+                    mm = re.search(r"(?<![\d.])" + re.escape(num) + r"(?![\d.])", t_clean)
+                    pos = mm.start() if mm else -1
             if pos >= 0:
                 amt_win = t_clean[max(0, pos - 10):pos + len(amount) + 10]
         # 窗口里既没有抽奖、也没有发放动词（如 nexotoken 的奖品表「奖品 名额 有效期 $10」），
