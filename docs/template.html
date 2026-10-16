@@ -203,9 +203,9 @@ html[data-theme=dark] .pick-tag.hard{background:#3a1f1f;color:#f0b0b0;border-col
 /* 正文：第一句="讲啥"（加粗），数字自动高亮 */
 .pick-lead{margin:2px 0 0;font-size:.92rem;line-height:1.5;font-weight:700;color:var(--text)}
 .pick-sub2{margin:0;font-size:.83rem;line-height:1.5;color:var(--muted)}
-.pick-card .hl, .card .hl{font-style:normal;font-weight:850;color:var(--primary);
+.pick-card .hl{font-style:normal;font-weight:850;color:var(--primary);
   background:linear-gradient(transparent 62%,rgba(78,82,201,.18) 62%);padding:0 1px;border-radius:2px}
-html[data-theme=dark] .pick-card .hl, html[data-theme=dark] .card .hl{color:#b9beff;background:linear-gradient(transparent 62%,rgba(139,146,255,.24) 62%)}
+html[data-theme=dark] .pick-card .hl{color:#b9beff;background:linear-gradient(transparent 62%,rgba(139,146,255,.24) 62%)}
 .pick-req{margin-top:2px;font-size:.74rem;color:var(--hint)}
 .pick-req b{color:var(--muted);font-weight:700}
 
@@ -574,7 +574,7 @@ const list=foldCards(cards.filter(matches));
  const enriched=list.map(c=>({c,key:state.sort==='score'?(isRecent(c)?'recent':'earlier'):bjDay(c)}));
  return state.sort==='score'?[...enriched.filter(x=>x.key==='recent'),...enriched.filter(x=>x.key==='earlier')]:enriched;
 }
-function renderCard(c){if(c.f)return pickCardHTML(c);const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=c.title||'未命名帖子';const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${hlText(title)}</a>`:`<a aria-disabled="true">${hlText(title)}</a>`;
+function renderCard(c){if(c.f)return pickCardHTML(c);const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
  const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
