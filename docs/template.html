@@ -267,44 +267,20 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
 .filter-name{font-size:.75rem}
 @media(max-width:760px){.chip{min-height:38px}.filter-row{min-height:42px}}
 
-/* —— 货架横滑（精选项目）：可发现性四件套 ——
-   原生滚动条在 macOS/iOS 是自动隐藏的浮层、手机端压根没有，光靠它没人知道右边还有卡片，
-   所以提示互相兜底：① 加粗着色滚动条 ② 右缘渐隐 ③ 圆形翻页钮 › ④ 区块头「左右拖动看更多」
-   显隐一律挂在 .group 的 data-rail-* 上，只认属性。 */
-#results.pick-rail .group .cards{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;
-  scroll-snap-type:x proximity;scrollbar-width:auto;scrollbar-color:var(--primary) var(--hover);
-  overscroll-behavior-inline:contain}
-#results.pick-rail .group .cards>.pick-card{flex:0 0 min(520px,86%);scroll-snap-align:start}
-/* 滑条只靠 scrollbar-color / scrollbar-width 这两个**标准属性**上色加粗，不要写 ::-webkit-scrollbar：
-   Chromium 一旦看到这两个属性（哪怕值只是 auto 之外）就整套忽略 webkit 伪元素（2026-10-16 实测，
-   Chrome 146：写标准属性 → 平台滚动条 15px；去掉 → 伪元素生效 14px）。写了也是死代码，还会误导后来人。
-   标准属性按主题变量解析，深色主题自动变（--primary/--hover 在 html[data-theme=dark] 里换过值）。 */
-.rail-wrap{position:relative;min-width:0}
-.rail-fade{position:absolute;right:0;top:0;bottom:14px;width:64px;opacity:0;pointer-events:none;
-  /* 不加 transition：被限流的标签页里过渡不推进，getComputedStyle 会一直卡在 0（实测），
-     提示类元素一律"属性一生效就可见"，不靠动画。 */
-  background:linear-gradient(90deg,transparent,var(--bg) 88%)}
-.rail-next{position:absolute;right:8px;top:calc(50% - 26px);z-index:2;display:none;place-items:center;
-  width:38px;height:38px;padding:0;border-radius:999px;font-size:19px;line-height:1;
-  background:var(--surface);color:var(--primary);border:1px solid var(--line);
-  box-shadow:0 6px 18px rgba(25,45,80,.18)}
-.rail-next:hover{border-color:var(--primary);background:var(--soft)}
-.rail-hint{display:none;align-items:center;white-space:nowrap;font-size:.7rem;font-weight:800;
-  color:var(--primary);background:var(--soft);border:1px solid var(--ring);border-radius:999px;padding:3px 9px}
-#results.pick-rail .group[data-rail-more=true]:not([data-rail-end=true]) .rail-fade{opacity:1}
-#results.pick-rail .group[data-rail-more=true] .rail-next{display:grid}
-#results.pick-rail .group[data-rail-more=true]:not([data-rail-scrolled=true]) .rail-hint{display:inline-flex}
-@media(max-width:760px){
-  #results.pick-rail .group .cards>.pick-card{flex:0 0 88%}
-  /* 手机端一行放不下"提示 + 显示 x/y 条"：提示在时先把条数让出去，拖过之后条数回来 */
-  #results.pick-rail .group[data-rail-more=true]:not([data-rail-scrolled=true]) .portion{display:none}
-  /* 手机上不与"就地横滑"的原生习惯抢戏：滑条还给系统（Android/iOS 都是浮层滚动条），
-     发现性交给渐隐 + 圆钮 + 标题行提示；滑条没了，渐隐铺到底、圆钮重新居中 */
-  #results.pick-rail .group .cards{scrollbar-width:none}
-  #results.pick-rail .group .cards::-webkit-scrollbar{display:none}
-  .rail-fade{bottom:0}
-  .rail-next{right:5px;top:calc(50% - 19px);width:34px;height:34px;font-size:17px}
-}
+/* —— 精选项目：平铺双列 + 顶部板块跳转（2026-10-16 用户换掉"货架横滑"）——
+   原先每区一行货架、横向拖；用户要求改成"卡片正常平铺 + 一行跳转按钮"：
+   板块一多会把下面的板块顶到几屏之外，点一下就能到那一区，也不用拖横向滑条。
+   卡片走页面默认的 .cards 双列网格（手机一列），所以这里只有导航条自己的样式。 */
+.pk-nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.pk-nav-btn{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:750;padding:6px 11px;
+  border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.pk-nav-btn:hover{border-color:var(--primary);color:var(--primary)}
+.pk-nav-btn .n{font-size:.68rem;font-weight:800;color:var(--primary);background:var(--soft);border-radius:999px;
+  padding:1px 6px}
+/* 精选视图：板块上下距离收紧（默认 17px → 13px；用户嫌"三个板块上下间隔太长"） */
+#results.pick-mode .group{margin-top:13px}
+#results.pick-mode .group-head{margin-bottom:8px}
+@media(max-width:760px){.pk-nav{margin-bottom:8px}.pk-nav-btn{font-size:.78rem;min-height:38px;padding:0 12px}}
 
 /* 手机端：排序行右侧的"199 / 199 条"会挤住（甚至盖住）排序按钮 —— 隐藏。
    信息列表上方已有"显示 N / N 条"（#result-summary），这里不丢信息。
@@ -421,7 +397,7 @@ function dropExpiredCard(card, key){
   }
   const c = document.querySelector('#count');
   if (c) c.textContent = '精选 ' + pickCount() + ' 项';
-  syncPickRails();          /* 卡片少了，溢出与否跟着变，提示也要跟着变 */
+  syncPickNav();            /* 少了一张卡：条数要跟着变，板块空了连导航一起撤 */
 }
 function tickPickCountdowns(){
   const now = pickNow();
@@ -441,52 +417,49 @@ function hlText(s){
     .map((part, i) => i % 2 ? '<span class="hl">' + escapeHTML(part) + '</span>' : escapeHTML(part)).join('');
 }
 
-/* —— 货架可发现性：让页面自己说出"右边还有、可以拖"（四层提示互为兜底，样式见上）——
-   原生滚动条在 macOS/iOS 上是自动隐藏的浮层，光靠它没人知道能横向拖，所以：
-   滚动条加粗着色 + 右缘渐隐 + 圆形翻页钮 + 区块头提示（拖过就收起，让位给"显示 x/y 条"）。
-   不做滚轮劫持：竖向滚轮推货架会和 scroll-snap 打架（滚动被吸附拉回），还会挡掉触控板原生横滑。
-   状态一律写成 .group 的 data-rail-* 属性，JS 不碰样式 —— 和筛选行 .rail[data-more] 同一套语言。 */
-const PICK_RAIL_SEEN = new Set();          /* 已经拖过的板块：重渲染后不再重复弹提示 */
-function syncPickRail(sec){
-  const box = sec.querySelector('.cards'); if (!box) return;
-  const more = box.scrollWidth > box.clientWidth + 2;
-  const end = !more || box.scrollLeft + box.clientWidth >= box.scrollWidth - 3;
-  sec.dataset.railMore = String(more);
-  sec.dataset.railEnd = String(end);
-  if (sec.dataset.key && PICK_RAIL_SEEN.has(sec.dataset.key)) sec.dataset.railScrolled = 'true';
-  const btn = sec.querySelector('.rail-next');
-  if (btn) { btn.textContent = end ? '‹' : '›'; btn.setAttribute('aria-label', end ? '向左翻回一屏' : '向右查看更多') }
+/* —— 精选项目：板块跳转（2026-10-16 用户把"货架横滑"换成这套）——
+   板块一多，下面的板块会被顶到几屏之外；这里在板上方给一行"板块名 + 条数"按钮，点一下滚到那一区。
+   卡片走页面默认的双列平铺，没有横向滚动、没有横向滑条。 */
+function pickNavButtons(){
+  const secs = [...document.querySelectorAll('#results .group')];
+  if (state.sort !== 'pick' || !secs.length) return '';
+  return secs.map(sec => {
+    const h = sec.querySelector('h2').textContent;
+    return '<button type="button" class="pk-nav-btn" data-pk-jump="' + escapeHTML(h) + '">' + escapeHTML(h)
+      + '<span class="n">' + sec.querySelectorAll('.pick-card').length + '</span></button>';
+  }).join('');
 }
-function syncPickRails(){ document.querySelectorAll('#results.pick-rail .group').forEach(syncPickRail) }
-function pickRailStep(btn){
-  const wrap = btn.closest('.rail-wrap'), box = wrap && wrap.querySelector('.cards'), sec = btn.closest('.group');
-  if (!box) return;
-  /* 到头后按钮翻成 ‹、往回翻一屏 —— 与来源/类型两行的「›/‹」同一套行为（不跳回开头）。 */
-  const back = !!sec && sec.dataset.railEnd === 'true';
-  /* 两个坑（2026-10-16 实拍）：
-     ① 步长必须对齐 scroll-snap 的吸附点，否则滚完立刻被吸附拉回（咦？实测 120px → 回 0）；
-     ② 不能用 behavior:'smooth'：被限流的标签页里动画帧不推进，scrollLeft 会一直卡在 0。
-     所以：一屏 = 整数张卡片，直接改 scrollLeft（瞬时、确定性），吸附点对齐后吸附是空操作。 */
-  const first = box.querySelector('.pick-card');
-  const gap = parseFloat(getComputedStyle(box).columnGap) || 0;
-  const pitch = first ? first.offsetWidth + gap : box.clientWidth;
-  const per = Math.max(1, Math.floor(box.clientWidth / pitch));
-  const max = box.scrollWidth - box.clientWidth;
-  box.scrollLeft = Math.max(0, Math.min(max, box.scrollLeft + (back ? -1 : 1) * per * pitch));
-  /* 状态自己更新，不等 scroll 事件：被限流的会话里 scroll 事件可能根本不派发 */
-  if (sec) { if (sec.dataset.key) PICK_RAIL_SEEN.add(sec.dataset.key); sec.dataset.railScrolled = 'true'; syncPickRail(sec) }
+function insertPickNav(){
+  const res = document.getElementById('results'), html = pickNavButtons();
+  if (res && html) res.insertAdjacentHTML('afterbegin', '<div class="pk-nav" id="pk-nav">' + html + '</div>');
 }
-document.addEventListener('scroll', e => {
-  const box = e.target && e.target.classList && e.target.classList.contains('cards') ? e.target : null;
-  if (!box || !box.closest('#results.pick-rail')) return;
-  const sec = box.closest('.group'); if (!sec) return;
-  if (sec.dataset.key) PICK_RAIL_SEEN.add(sec.dataset.key);
-  sec.dataset.railScrolled = 'true';
-  syncPickRail(sec);
-}, {capture: true, passive: true});
-window.addEventListener('resize', syncPickRails);
-/* 字体到位后卡片宽度可能再变一点，重算一次（拿不到 fonts 就算了，③④ 仍在） */
-if (document.fonts && document.fonts.ready && document.fonts.ready.then) document.fonts.ready.then(syncPickRails);
+/* 到点下架之后：条数会变、板块可能整块消失，就地换掉那一行按钮（板块没了就把导航也撤掉） */
+function syncPickNav(){
+  const nav = document.getElementById('pk-nav');
+  if (!nav || typeof nav.remove !== 'function') return;
+  const html = pickNavButtons();
+  if (!html) { nav.remove(); return }
+  nav.innerHTML = html;
+}
+/* 跳转必须"真的到位"：页面有 html{scroll-behavior:smooth}，连 scrollTo(0,X) 的瞬移写法也会被它
+   变成平滑滚动 —— 而后台/被限流的标签页里平滑滚动不推进（实测 scrollY 一动不动，同推广页那类坑）。
+   所以：先平滑；350ms 后没动过就临时把 CSS 行为改成 auto 强制瞬移。 */
+function pickJump(btn){
+  const name = btn.dataset.pkJump;
+  const sec = [...document.querySelectorAll('#results .group')].find(g => g.querySelector('h2').textContent === name);
+  if (!sec) return;
+  const top = Math.round(sec.getBoundingClientRect().top + window.scrollY - 70);
+  const before = window.scrollY;
+  const force = () => {
+    const root = document.documentElement, prev = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    window.scrollTo(0, top);
+    if (prev) root.style.scrollBehavior = prev; else root.style.removeProperty('scroll-behavior');
+  };
+  if (document.hidden || matchMedia('(prefers-reduced-motion:reduce)').matches) { force(); return }
+  window.scrollTo({top: top, behavior: 'smooth'});
+  setTimeout(() => { if (Math.abs(window.scrollY - before) < 4) force(); }, 350);
+}
 
 function pickCardHTML(c){
   const f = c.f, href = safeURL(c.url);
@@ -554,13 +527,13 @@ function addBatch(){const total=state.entries.length;let end=Math.min(state.show
  if(end<total){const cutKey=state.entries[end-1].key;let gs=end-1;while(gs>state.shown&&state.entries[gs-1].key===cutKey)gs--;let ge=end;while(ge<total&&state.entries[ge].key===cutKey)ge++;const vis=end-gs,hidden=ge-end;
   if(vis%2===1&&hidden>=1)end++}
  for(let i=state.shown;i<end;){const key=state.entries[i].key;let j=i+1;while(j<end&&state.entries[j].key===key)j++;let section=state.sections.get(key);
- if(!section){section=document.createElement('section');section.className='group';section.dataset.key=key;section.innerHTML=`<div class="group-head"><h2>${escapeHTML(sectionLabel(key))}</h2><div class="line"></div><span class="rail-hint">↔ 左右拖动看更多</span><span class="portion"></span></div><div class="rail-wrap"><div class="cards"></div><span class="rail-fade" aria-hidden="true"></span><button class="rail-next" type="button" data-rail-next="1" aria-label="向右查看更多">›</button></div>`;$('#results').append(section);state.sections.set(key,section)}
+ if(!section){section=document.createElement('section');section.className='group';section.dataset.key=key;section.innerHTML=`<div class="group-head"><h2>${escapeHTML(sectionLabel(key))}</h2><div class="line"></div><span class="portion"></span></div><div class="cards"></div>`;$('#results').append(section);state.sections.set(key,section)}
  const batch=state.entries.slice(i,j);for(const x of batch)if(x.c.dups>1&&x.c.dupkey)cardByKey.set(x.c.dupkey,x.c);section.querySelector('.cards').insertAdjacentHTML('beforeend',batch.map(x=>renderCard(x.c)).join(''));section.querySelector('.portion').textContent=`显示 ${section.querySelectorAll('.card').length} / ${state.totals.get(key)} 条`;i=j}
  state.shown=end;$('#more').hidden=end>=state.entries.length;$('#more').textContent=`继续查看 · 剩余 ${state.entries.length-end} 条`;$('#result-summary').textContent=`显示 ${end} / ${state.entries.length} 条`;$('#count').textContent=state.sort==='pick'?`精选 ${pickCount()} 项`:`${state.entries.length} / ${view.length} 条`;
 }
 function refresh(){state.entries=makeEntries();state.shown=0;state.sections=new Map();state.totals=new Map();for(const x of state.entries)state.totals.set(x.key,(state.totals.get(x.key)||0)+1);state.recentSignature=state.sort==='score'?state.entries.filter(x=>x.key==='recent').map(x=>x.c.id).join('|'):'';
  $('#results').replaceChildren();
- if(state.sort==='pick'){$('#results').classList.add('pick-rail','pick-mode');} else {$('#results').classList.remove('pick-rail','pick-mode');}if(!state.entries.length){$('#results').innerHTML='<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else{addBatch();syncPickRails()}
+ if(state.sort==='pick'){$('#results').classList.add('pick-mode');} else {$('#results').classList.remove('pick-mode');}if(!state.entries.length){$('#results').innerHTML='<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else{addBatch();insertPickNav()}
  $('#reset').classList.toggle('dirty',state.query!==''||state.source!=='all'||state.category!=='all'||state.sort!=='latest')
 }
 function reset(){clearTimeout(pending);state.sort='latest';state.source='all';state.category='all';state.query='';$('#search').value='';selected('sorts','sort','latest');selected('sources','source','all');selected('categories','category','all');refresh()}
@@ -568,7 +541,7 @@ function setCategory(c){clearTimeout(pending);state.query=$('#search').value.tri
 let pending;$('#search').addEventListener('input',e=>{clearTimeout(pending);if(e.isComposing)return;pending=setTimeout(()=>{state.query=$('#search').value.trim().toLocaleLowerCase();refresh()},110)});$('#search').addEventListener('compositionend',()=>{clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();refresh()});
 $('#reset').addEventListener('click',reset);$('#more').addEventListener('click',e=>{const index=state.shown;addBatch();if(e.detail===0||$('#more').hidden){document.querySelectorAll('.card')[index]?.querySelector('.title a[href]')?.focus({preventScroll:true})}});
 $('#theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme==='dark',theme=dark?'light':'dark';document.documentElement.dataset.theme=theme;$('#theme').textContent=dark?'☾ 主题':'☀ 主题';$('#theme').setAttribute('aria-label',dark?'切换深色主题':'切换浅色主题');document.querySelector('meta[name="theme-color"]').content=dark?'#f6f7fa':'#111827';try{localStorage.setItem('promo-theme',theme)}catch{}});
-document.addEventListener('click',e=>{const closer=e.target.closest&&e.target.closest('[data-fold-close]');if(closer){closeFoldModal();return}const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.railNext!==undefined){pickRailStep(b)}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}else if(b.dataset.foldClose!==undefined){closeFoldModal()}else if(b.dataset.fold!==undefined){openFoldModal(b.dataset.fold)}});
+document.addEventListener('click',e=>{const closer=e.target.closest&&e.target.closest('[data-fold-close]');if(closer){closeFoldModal();return}const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.pkJump!==undefined){pickJump(b)}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}else if(b.dataset.foldClose!==undefined){closeFoldModal()}else if(b.dataset.fold!==undefined){openFoldModal(b.dataset.fold)}});
 function refreshClock(){if(state.sort==='score'){const signature=state.entries.filter(x=>isRecent(x.c)).map(x=>x.c.id).join('|');if(signature!==state.recentSignature)refresh()}else{for(const [key,el] of state.sections){const label=sectionLabel(key),node=el.querySelector('h2');if(node.textContent!==label)node.textContent=label}}}
 setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshClock()});init();
 
