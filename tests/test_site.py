@@ -112,7 +112,11 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
     tmp = os.path.join(d, 'committed.html')
     subprocess.run([sys.executable, GEN_PY, '-i', STORE, '-o', tmp], capture_output=True, text=True)
     a, b = open(tmp, 'rb').read(), open(PAGE, 'rb').read()
-    check(a == b, 'docs/index.html is up to date with data/topics.jsonl',
+    # 精选板块的倒计时基准是"烘焙时刻"，每次生成都不一样 —— 比较前抹平这一个数字，
+    # 其余（含整份 FEATURED 数据）仍然是逐字节比较。
+    import re as _re
+    flat = lambda x: _re.sub(rb'const PICK_BAKED_AT=\d+;', b'const PICK_BAKED_AT=0;', x)
+    check(flat(a) == flat(b), 'docs/index.html is up to date with data/topics.jsonl（时间戳抹平后）',
           f'{digest(a)} != {digest(b)} - regenerate and commit the page')
 else:
     check(False, 'store and page are present in the repo')

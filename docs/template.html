@@ -146,6 +146,139 @@ html[data-theme=dark] .tag:hover{filter:brightness(1.12)}
 @media (prefers-reduced-motion:reduce){.fab-btn,.fab-btn.top{transition:none}
   .fab-btn.reload.spin svg{animation:none}}
 
+/* —— 精选项目（线上版）—— 货架横滑；样式与离线草稿同源，去掉 cap/jump 与调试条 —— */
+#sorts .chip[data-sort=pick]{border-color:transparent;background:linear-gradient(135deg,#eef0ff,#f6efff);
+  color:#4e52c9;font-weight:800;box-shadow:0 2px 10px rgba(78,82,201,.16)}
+#sorts .chip[data-sort=pick]::before{content:"✦";margin-right:5px;font-size:.9em}
+#sorts .chip[data-sort=pick].active{background:linear-gradient(135deg,#4e52c9,#8b5cf6);color:#fff;
+  box-shadow:0 6px 20px rgba(78,82,201,.42)}
+html[data-theme=dark] #sorts .chip[data-sort=pick]{background:linear-gradient(135deg,#26264a,#332a55);color:#c9c6ff}
+html[data-theme=dark] #sorts .chip[data-sort=pick].active{background:linear-gradient(135deg,#5b5ff0,#9d7bff);color:#fff}
+
+/* 卡片：左侧强调色条 + 极浅渐变底 + 悬停抬升发光 */
+.pick-card{position:relative;overflow:hidden;gap:9px;padding:16px 16px 14px;
+  background:linear-gradient(158deg,var(--surface) 34%,var(--soft) 145%);border-color:#e3e7fb;
+  box-shadow:0 6px 22px rgba(78,82,201,.10);transition:border-color .16s,box-shadow .16s,transform .16s}
+.pick-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,#4e52c9,#8b5cf6)}
+.pick-card.luck:before{background:linear-gradient(180deg,#f59e0b,#fb7185)}
+.pick-card:hover{transform:translateY(-2px);border-color:#c7cdf7;box-shadow:0 14px 34px rgba(78,82,201,.20)}
+
+/* 头行：名字 + 今日上新 …… 额度（主角：实色胶囊，见下方 .pick-amt） */
+.pick-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.pick-id{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
+.pick-name{font-size:1.04rem;font-weight:850;letter-spacing:-.01em;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.pick-new{font-size:.66rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#e0479e,#f472b6);
+  padding:2px 8px;border-radius:999px;white-space:nowrap;
+  border:1px solid #ffd6ea;                       /* 浅色描边：在白色卡片上也有对比 */
+  box-shadow:0 0 0 2px rgba(255,214,234,.50),0 2px 8px rgba(224,71,158,.30)}
+html[data-theme=dark] .pick-new{border-color:#ffd6ea;box-shadow:0 0 0 2px rgba(255,214,234,.20),0 2px 8px rgba(0,0,0,.35)}
+html[data-theme=dark] .pick-updated{border:1px solid #bfe6f7;box-shadow:0 0 0 2px rgba(191,230,247,.20),0 2px 8px rgba(14,165,233,.25)}
+/* 金额：实色胶囊（浅底 + 深紫字 + 描边）。弃用 background-clip:text 渐变裁字 ——
+   那个技法在不同渲染器下会翻车（用户两次反馈"渲染有问题"），实色永远一致且更重。 */
+.pick-amt{display:inline-flex;align-items:baseline;gap:2px;padding:2px 9px;border-radius:10px;
+  font-size:1.42rem;line-height:1.15;font-weight:900;letter-spacing:-.02em;white-space:nowrap;
+  color:#4c1d95;background:#f0ecff;border:1px solid #ddd4ff;box-shadow:0 1px 0 rgba(76,29,149,.06) inset}
+.pick-amt .pre{font-size:.72rem;font-weight:800;letter-spacing:0;margin-right:3px;color:#b45309}
+.pick-amt .pre{font-size:.74rem;font-weight:800;letter-spacing:0;margin-right:3px;
+  background:none;-webkit-text-fill-color:currentColor;color:#b45309}
+html[data-theme=dark] .pick-amt{color:#d8d2ff;background:#2b2550;border-color:#4a3f8f}
+
+/* 门槛/品牌/有效期/折叠：实心或描边小胶囊 */
+.pick-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pick-tag{font-size:.7rem;line-height:1.3;padding:4px 10px;border-radius:999px;font-weight:800;
+  border:1px solid transparent;white-space:nowrap}
+.pick-tag.free{background:linear-gradient(135deg,#0ea56b,#22c55e);color:#fff;box-shadow:0 2px 10px rgba(16,185,129,.30)}
+.pick-tag.mid{background:#fff4dd;color:#a15c00;border-color:#f2d9a4}
+.pick-tag.luck{background:linear-gradient(135deg,#f59e0b,#fb7185);color:#fff;box-shadow:0 2px 10px rgba(245,158,11,.32)}
+.pick-tag.hard{background:#fdeaea;color:#a02222;border-color:#f2c9c9}
+.pick-sub{font-size:.7rem;color:var(--hint);border:1px solid var(--line);border-radius:999px;
+  padding:3px 8px;white-space:nowrap;background:var(--surface)}
+html[data-theme=dark] .pick-tag.free{background:linear-gradient(135deg,#0f8f5e,#1fae57)}
+html[data-theme=dark] .pick-tag.mid{background:#3a2f16;color:#f0cf90;border-color:#6b5730}
+html[data-theme=dark] .pick-tag.luck{background:linear-gradient(135deg,#b9770b,#c2555f)}
+html[data-theme=dark] .pick-tag.hard{background:#3a1f1f;color:#f0b0b0;border-color:#6e3a3a}
+
+/* 正文：第一句="讲啥"（加粗），数字自动高亮 */
+.pick-lead{margin:2px 0 0;font-size:.92rem;line-height:1.5;font-weight:700;color:var(--text)}
+.pick-sub2{margin:0;font-size:.83rem;line-height:1.5;color:var(--muted)}
+.pick-card .hl{font-style:normal;font-weight:850;color:var(--primary);
+  background:linear-gradient(transparent 62%,rgba(78,82,201,.18) 62%);padding:0 1px;border-radius:2px}
+html[data-theme=dark] .pick-card .hl{color:#b9beff;background:linear-gradient(transparent 62%,rgba(139,146,255,.24) 62%)}
+.pick-req{margin-top:2px;font-size:.74rem;color:var(--hint)}
+.pick-req b{color:var(--muted);font-weight:700}
+
+/* 脚行：入口 / 原帖 / 剩余天数 */
+/* 分割线对齐的关键：**空白插在脚行上方**（.pick-foot 吃 margin-top:auto），
+   脚行+按钮作为一个整体贴住卡片底部 → 同一行两张卡的虚线、入口网址、按钮都在同一高度。
+   （反过来把 auto 给按钮的话，脚行仍跟在内容后面，高度就会随内容长度飘。） */
+.pick-foot{margin-top:auto;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;
+  gap:6px 12px;align-items:center;font-size:.72rem;color:var(--hint)}
+.pick-entry{font-weight:800;color:var(--primary);letter-spacing:.01em}
+.pick-src{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
+.pick-src:hover{color:var(--primary)}
+.pick-life{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700;
+  color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;background:var(--surface)}
+.pick-life.soon{color:#b45309;border-color:#f2d9a4;background:#fff4dd}
+html[data-theme=dark] .pick-life.soon{color:#f0b463;border-color:#6b5730;background:#3a2f16}
+
+/* 倒计时胶囊：正常=琥珀，≤1 小时=红，已结束=灰划掉；整卡过期时额度降透明度 */
+.pick-cd{font-size:.7rem;line-height:1.3;padding:4px 10px;border-radius:999px;font-weight:800;white-space:nowrap;
+  font-variant-numeric:tabular-nums;color:#b45309;background:#fff4dd;border:1px solid #f2d9a4}
+.pick-cd::before{content:"⏳";margin-right:4px;font-size:.92em}
+.pick-cd.urgent{color:#fff;background:linear-gradient(135deg,#ef4444,#f97316);border-color:transparent;
+  box-shadow:0 2px 10px rgba(239,68,68,.35)}
+.pick-cd.done{color:var(--hint);background:var(--hover);border-color:var(--line);text-decoration:line-through}
+.pick-cd.done::before{content:"⛔"}
+.pick-card.done .pick-amt{opacity:.5;filter:saturate(.6)}
+.pick-card.done .pick-lead{color:var(--muted)}
+html[data-theme=dark] .pick-cd{color:#f0cf90;background:#3a2f16;border-color:#6b5730}
+html[data-theme=dark] .pick-cd.urgent{color:#fff;background:linear-gradient(135deg,#c0392b,#c2555f);border-color:transparent}
+html[data-theme=dark] .pick-cd.done{color:var(--hint);background:#22242e;border-color:#3a3d4a}
+
+@media(max-width:760px){
+  .pick-card{padding:14px 14px 12px}
+  .pick-name{font-size:.98rem}
+  .pick-amt{font-size:1.5rem}
+  .pick-lead{font-size:.88rem}
+  .pick-note{font-size:.75rem}
+}
+
+/* 长条「立即跳转」按钮：整行、渐变、悬停抬升 + 箭头滑出、按下回弹 */
+.pick-go{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;
+  padding:11px 14px;border-radius:12px;font-weight:850;font-size:.9rem;letter-spacing:.02em;
+  color:#fff;text-decoration:none;background:linear-gradient(135deg,#4e52c9,#8b5cf6);
+  box-shadow:0 6px 18px rgba(78,82,201,.32);
+  transition:transform .14s,box-shadow .14s,filter .14s}
+.pick-go .arw{transition:transform .16s}
+.pick-go:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(78,82,201,.42);filter:brightness(1.06)}
+.pick-go:hover .arw{transform:translateX(4px)}
+.pick-go:active{transform:translateY(0) scale(.995);box-shadow:0 4px 12px rgba(78,82,201,.30)}
+html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff);box-shadow:0 6px 18px rgba(120,120,255,.30)}
+.pick-updated{font-size:.68rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#0ea5e9,#38bdf8);
+  padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 8px rgba(14,165,233,.30)}
+/* 卡片脚行改为"入口 + 剩余天数"一行，之后接长条按钮 */
+.pick-foot{margin-top:auto;padding-top:10px;border-top:1px dashed var(--line)}
+
+/* 三个筛选行（排序/来源/类型）统一做小一档 —— 这是页面级微调，正式上线时搬进 template.html */
+.chip{min-height:32px;padding:0 11px;font-size:.78rem;border-radius:9px}
+.filter-row{min-height:38px}
+.filter-name{font-size:.75rem}
+@media(max-width:760px){.chip{min-height:38px}.filter-row{min-height:42px}}
+
+#results.pick-rail .group .cards{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:6px;
+  scroll-snap-type:x proximity;scrollbar-width:thin}
+#results.pick-rail .group .cards>.pick-card{flex:0 0 min(520px,86%);scroll-snap-align:start}
+#results.pick-rail .group .cards::-webkit-scrollbar{height:8px}
+#results.pick-rail .group .cards::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+@media(max-width:760px){#results.pick-rail .group .cards>.pick-card{flex:0 0 88%}}
+
+/* 手机端：排序行右侧的"199 / 199 条"会挤住（甚至盖住）排序按钮 —— 隐藏。
+   信息列表上方已有"显示 N / N 条"（#result-summary），这里不丢信息。
+   （页面级微调；正式上线时搬进 template.html 的移动端媒体查询） */
+@media(max-width:760px){#count{display:none}}
+
 </style>
 </head>
 <!-- v6 template: cards/labels/tones/order are injected by generate.py -->
@@ -161,12 +294,12 @@ html[data-theme=dark] .tag:hover{filter:brightness(1.12)}
     </a>
     <section class="panel" aria-label="搜索与筛选">
       <div class="searchline"><label class="search"><span class="glass" aria-hidden="true">⌕</span><input id="search" type="search" aria-label="搜索帖子标题" placeholder="搜索标题关键词…" autocomplete="off"></label><button id="reset" class="reset" type="button">重置筛选</button></div>
-      <div class="filter-row"><span class="filter-name">排序</span><div class="rail" id="sort-rail"><div id="sorts" class="scroller"><button class="chip active" type="button" data-sort="latest">最新发布</button><button class="chip" type="button" data-sort="score">匹配度</button></div></div><span class="count" id="count" role="status" aria-live="polite"></span></div>
+      <div class="filter-row"><span class="filter-name">排序</span><div class="rail" id="sort-rail"><div id="sorts" class="scroller"><button class="chip active" type="button" data-sort="latest">最新发布</button><button class="chip" type="button" data-sort="score">匹配度</button><button class="chip" type="button" data-sort="pick">精选项目</button></div></div><span class="count" id="count" role="status" aria-live="polite"></span></div>
       <div class="filter-row"><span class="filter-name">来源</span><div class="rail" id="source-rail"><div id="sources" class="scroller"></div><button class="scroll-next" type="button" aria-label="向右滚动来源选项" data-rail="sources">›</button></div></div>
       <div class="filter-row"><span class="filter-name">类型</span><div class="rail" id="category-rail"><div id="categories" class="scroller"></div><button class="scroll-next" type="button" aria-label="向右滚动类型选项" data-rail="categories">›</button></div></div>
     </section>
     <div class="summary"><strong>信息列表</strong><span id="result-summary"></span></div>
-    <details class="hint"><summary>时间与匹配度说明</summary><p>匹配度仅代表标题关键词命中，不代表推荐；日期为北京时间。无发布时间的帖子显示收录时间。同一来源下标题相同的重复帖、以及正文判定为同一份福利的多条帖，都只显示最新一条，角标 ×N 表示折叠条数。</p></details>
+    <details class="hint"><summary>说明 · 时间 · 匹配度 · 折叠 · 精选</summary><p>· 时间：均为北京时间；帖子没写发布时间的，显示"收录"时间。</p><p>· 匹配度：标题命中关键词的个数——只说明标题提过这些词，<b>不代表推荐</b>。</p><p>· 折叠 ×N：同来源同标题、或正文判定为同一份福利的多条帖，只留最新一条；点 <b>▸ ×N</b> 看清单。</p><p>· 精选项目：每天刷新一次，从<b>最近 3 天</b>里挑值得薅的，按最新时间排；额度 / 条件 / 入口 / 有效期都取自帖子<b>正文</b>，不改写、不编数字。</p><p>· 精选上下架：限时活动到点自动下架，其余<b>上架 15 天</b>到期下架。</p></details>
     <div id="results" aria-label="筛选结果"></div>
     <div class="more-wrap"><button type="button" class="more" id="more" hidden>查看更多</button></div>
   </main>
@@ -205,6 +338,109 @@ const cardByKey=new Map();
 function openFoldModal(key){const c=cardByKey.get(key)||foldMap.get(key);if(!c)return;const m=$('#foldModal');const offer=c.dupwhy==='offer';$('#foldModalTitle').textContent=(offer?'同一份福利':'同来源同标题')+' · 共 '+c.dups+' 条';$('#foldModalSub').textContent=(offer?'按正文判定（同一份 offer）':'标题完全相同')+' · 新 → 旧 · 点任意一条打开原帖';$('#foldModalBody').innerHTML=foldModalHTML(c);m.hidden=false;document.documentElement.style.overflow='hidden';const x=m.querySelector('.modal-x');x&&x.focus&&x.focus({preventScroll:true});document.addEventListener('keydown',foldModalEsc)}
 function closeFoldModal(){const m=$('#foldModal');if(!m||m.hidden)return;m.hidden=true;document.documentElement.style.overflow='';$('#foldModalBody').innerHTML='';document.removeEventListener('keydown',foldModalEsc)}
 function foldModalEsc(e){if(e.key==='Escape')closeFoldModal()}
+const FEATURED=__FEATURED_JSON__;
+const PICK_BAKED_AT=__FEATURED_BAKED_AT__;
+/* —— 精选项目（线上版）—— 货架横滑 · 无置顶副本 · 纯 CSS 布局（不需要观察器/定时器套壳）——
+   数据由 generate.py 注入：const FEATURED=[...]（整卡快照）+ const PICK_BAKED_AT=epoch 秒。
+   倒计时基准用"烘焙时刻 + 页面已开时长"，不信任访客的绝对时钟（手机时间不准会整条错）。 */
+const PICK_KINDS = ['gift','lottery','free'];        /* 板块顺序：赠送 → 抽奖 → 免费 */
+const PICK_EXPIRED = new Set();                      /* 到点下架过的，重渲染不再冒出来 */
+
+function pickEntries(){
+  return PICK_KINDS.flatMap(k => FEATURED
+    .filter(c => c.f.kind === k && !PICK_EXPIRED.has(c.dupkey) && matches(c))
+    .map(c => ({c, key: 'pick:' + k})));
+}
+function pickCount(){ return new Set([...document.querySelectorAll('.pick-card')].map(c => c.dataset.pickKey)).size }
+
+const PICK_LOADED_AT = Date.now();
+function pickNow(){ return PICK_BAKED_AT * 1000 + (Date.now() - PICK_LOADED_AT) }
+
+function cdText(ms){
+  if (ms <= 0) return '已结束';
+  const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600),
+        m = Math.floor(s % 3600 / 60), sec = s % 60;
+  if (d > 0) return d + ' 天' + (h ? ' ' + h + ' 小时' : '');
+  if (h > 0) return h + ' 小时 ' + m + ' 分';
+  if (m > 0) return m + ' 分 ' + sec + ' 秒';
+  return sec + ' 秒';
+}
+function cdChip(f){
+  if (!f.deadline) return '';
+  const ms = f.deadline * 1000 - pickNow();
+  const at = new Date(f.deadline * 1000 + 8 * 3600e3).toISOString().slice(5, 16).replace('T', ' ');
+  return '<span class="pick-cd' + (ms < 3600e3 ? ' urgent' : '') + '" data-cd="' + f.deadline + '"'
+    + ' data-label="' + escapeHTML(f.cd_label || '截止') + '"'
+    + ' title="' + escapeHTML(f.cd_label || '截止') + ' ' + at + '（北京时间，按发帖时间+帖内限时折算）">'
+    + escapeHTML(f.cd_label || '截止') + ' ' + cdText(ms) + '</span>';
+}
+/* 到点即下架：卡片从 DOM 摘掉，并同步"显示 x / y 条"与顶部计数 */
+function dropExpiredCard(card, key){
+  if (key) PICK_EXPIRED.add(key);
+  if (!card) return;
+  const sec = card.closest('.group');
+  card.remove();
+  if (sec) {
+    const left = sec.querySelectorAll('.pick-card').length;
+    const portion = sec.querySelector('.portion');
+    const m = portion && portion.textContent.match(/\/\s*(\d+)/);
+    if (portion) portion.textContent = '显示 ' + left + ' / ' + (m ? m[1] : left) + ' 条';
+    if (!left) sec.remove();
+  }
+  const c = document.querySelector('#count');
+  if (c) c.textContent = '精选 ' + pickCount() + ' 项';
+}
+function tickPickCountdowns(){
+  const now = pickNow();
+  document.querySelectorAll('.pick-cd[data-cd]').forEach(el => {
+    const ms = Number(el.dataset.cd) * 1000 - now;
+    if (ms <= 0) { dropExpiredCard(el.closest('.pick-card'), el.closest('.pick-card') && el.closest('.pick-card').dataset.pickKey); return; }
+    el.textContent = (el.dataset.label || '截止') + ' ' + cdText(ms);
+    el.classList.toggle('urgent', ms < 3600e3);
+  });
+}
+if (typeof setInterval === 'function') setInterval(() => { if (!document.hidden) tickPickCountdowns(); }, 1000);
+
+/* 数字高亮：先按"金额/额度"切段、再逐段转义（反过来会把 &quot; 里的 39 当成数字） */
+const HL_RE = /((?:[$￥¥])\s?\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:亿|万|刀|美刀|美元|元|token|词元))/g;
+function hlText(s){
+  return String(s || '').split(HL_RE)
+    .map((part, i) => i % 2 ? '<span class="hl">' + escapeHTML(part) + '</span>' : escapeHTML(part)).join('');
+}
+
+function pickCardHTML(c){
+  const f = c.f, href = safeURL(c.url);
+  const lifeLeft = f.left <= 3 ? ' soon' : '';
+  const fresh = f.left >= 15 ? '<span class="pick-new">今日上新</span>' : '';
+  const amt = f.amt_pre
+    ? '<span class="pre">' + escapeHTML(f.amt_pre) + '</span>' + escapeHTML(f.amt_main)
+    : escapeHTML(f.amount || '免费福利');
+  const lead = f.lines[0] ? hlText(f.lines[0]) : '';
+  const sub = f.lines[1] ? hlText(f.lines[1]) : '';
+  return '<article class="card pick-card' + (f.level_class === 'luck' ? ' luck' : '') + '"'
+   + ' data-pick-key="' + escapeHTML(String(c.dupkey)) + '" data-pick-kind="' + escapeHTML(f.kind) + '">'
+   + '<div class="pick-head"><span class="pick-id"><span class="pick-name">' + escapeHTML(f.name) + '</span>' + fresh + '</span>'
+   + '<span class="pick-amt">' + amt + '</span></div>'
+   + '<div class="pick-meta"><span class="pick-tag ' + escapeHTML(f.level_class) + '">' + escapeHTML(f.level) + '</span>'
+   + cdChip(f)
+   + (f.brand ? '<span class="pick-sub">' + escapeHTML(f.brand) + '</span>' : '')
+   + (f.expiry ? '<span class="pick-sub">' + escapeHTML(f.expiry) + '</span>' : '')
+   + (f.n > 1 ? '<button class="dups hot" type="button" data-fold="' + escapeHTML(String(c.dupkey)) + '" data-n="' + f.n + '"'
+       + ' aria-haspopup="dialog" title="同一个活动共 ' + f.n + ' 条，点击展开清单">▸ ×' + f.n + '</button>' : '')
+   + '</div>'
+   + (lead ? '<p class="pick-lead">' + lead + '</p>' : '')
+   + (sub ? '<p class="pick-sub2">' + sub + '</p>' : '')
+   + '<div class="pick-req">条件：<b>' + escapeHTML(f.reqs || '见原帖') + '</b></div>'
+   + '<div class="pick-foot">'
+   + (f.entry ? '<span class="pick-entry">' + escapeHTML(f.entry) + '</span>' : '')
+   + '<span class="pick-life' + lifeLeft + '" title="上架 ' + escapeHTML(f.on) + ' · 上架 15 天到期下架">'
+   +   (f.left > 0 ? ('剩 ' + f.left + ' 天') : '即将下架') + '</span>'
+   + '</div>'
+   + (href ? '<a class="pick-go" href="' + escapeHTML(href) + '" target="_blank" rel="noopener noreferrer"'
+       + ' title="打开原帖（新标签页）· 摘录自 ' + escapeHTML(f.when) + '"><span>立即跳转</span><span class="arw" aria-hidden="true">→</span></a>' : '')
+   + '</article>';
+}
+
 const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
 function updateRails(){['source','category'].forEach(updateRail)}
@@ -223,26 +459,28 @@ function isRecent(c){const t=time(c),delta=Date.now()-t;return !!t&&delta>=0&&de
 /* 筛选与搜索都在**原始行**上做，再折叠命中的子集：折叠组里的成员（代表行之外的）
    也要能被来源/类型/关键词找到（2026-10-15 审计：9 条成员筛不到、来源按钮还会消失）。 */
 function matches(c){return (state.source==='all'||sourceKey(c.source)===state.source)&&(state.category==='all'||(Array.isArray(c.tags)?c.tags:[]).includes(state.category))&&(!state.query||String(c.title||'').toLocaleLowerCase().includes(state.query))}
-function makeEntries(){const list=foldCards(cards.filter(matches));
+function makeEntries(){if(state.sort==='pick'){return pickEntries()}
+const list=foldCards(cards.filter(matches));
  list.sort((a,b)=>state.sort==='score'?((Number(b.score)||0)-(Number(a.score)||0)||stamp(b.fetched_at)-stamp(a.fetched_at)):time(b)-time(a));
  const enriched=list.map(c=>({c,key:state.sort==='score'?(isRecent(c)?'recent':'earlier'):bjDay(c)}));
  return state.sort==='score'?[...enriched.filter(x=>x.key==='recent'),...enriched.filter(x=>x.key==='earlier')]:enriched;
 }
-function renderCard(c){const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
+function renderCard(c){if(c.f)return pickCardHTML(c);const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
  const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
-function sectionLabel(k){if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
+function sectionLabel(k){if(k==='pick:gift')return '赠送 · 送到账';if(k==='pick:lottery')return '抽奖 · 拼手气';if(k==='pick:free')return '免费 · 注册或直接用';if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
 function addBatch(){const total=state.entries.length;let end=Math.min(state.shown+40,total);
  if(end<total){const cutKey=state.entries[end-1].key;let gs=end-1;while(gs>state.shown&&state.entries[gs-1].key===cutKey)gs--;let ge=end;while(ge<total&&state.entries[ge].key===cutKey)ge++;const vis=end-gs,hidden=ge-end;
   if(vis%2===1&&hidden>=1)end++}
  for(let i=state.shown;i<end;){const key=state.entries[i].key;let j=i+1;while(j<end&&state.entries[j].key===key)j++;let section=state.sections.get(key);
  if(!section){section=document.createElement('section');section.className='group';section.dataset.key=key;section.innerHTML=`<div class="group-head"><h2>${escapeHTML(sectionLabel(key))}</h2><div class="line"></div><span class="portion"></span></div><div class="cards"></div>`;$('#results').append(section);state.sections.set(key,section)}
  const batch=state.entries.slice(i,j);for(const x of batch)if(x.c.dups>1&&x.c.dupkey)cardByKey.set(x.c.dupkey,x.c);section.querySelector('.cards').insertAdjacentHTML('beforeend',batch.map(x=>renderCard(x.c)).join(''));section.querySelector('.portion').textContent=`显示 ${section.querySelectorAll('.card').length} / ${state.totals.get(key)} 条`;i=j}
- state.shown=end;$('#more').hidden=end>=state.entries.length;$('#more').textContent=`继续查看 · 剩余 ${state.entries.length-end} 条`;$('#result-summary').textContent=`显示 ${end} / ${state.entries.length} 条`;$('#count').textContent=`${state.entries.length} / ${view.length} 条`;
+ state.shown=end;$('#more').hidden=end>=state.entries.length;$('#more').textContent=`继续查看 · 剩余 ${state.entries.length-end} 条`;$('#result-summary').textContent=`显示 ${end} / ${state.entries.length} 条`;$('#count').textContent=state.sort==='pick'?`精选 ${pickCount()} 项`:`${state.entries.length} / ${view.length} 条`;
 }
 function refresh(){state.entries=makeEntries();state.shown=0;state.sections=new Map();state.totals=new Map();for(const x of state.entries)state.totals.set(x.key,(state.totals.get(x.key)||0)+1);state.recentSignature=state.sort==='score'?state.entries.filter(x=>x.key==='recent').map(x=>x.c.id).join('|'):'';
- $('#results').replaceChildren();if(!state.entries.length){$('#results').innerHTML='<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else addBatch();
+ $('#results').replaceChildren();
+ if(state.sort==='pick'){$('#results').classList.add('pick-rail','pick-mode');} else {$('#results').classList.remove('pick-rail','pick-mode');}if(!state.entries.length){$('#results').innerHTML='<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else addBatch();
  $('#reset').classList.toggle('dirty',state.query!==''||state.source!=='all'||state.category!=='all'||state.sort!=='latest')
 }
 function reset(){clearTimeout(pending);state.sort='latest';state.source='all';state.category='all';state.query='';$('#search').value='';selected('sorts','sort','latest');selected('sources','source','all');selected('categories','category','all');refresh()}

@@ -83,7 +83,7 @@ function makeEl(tag = 'div') {
   const el = {
     tag, children: [], _html: '', _text: undefined, style: {}, dataset: {},
     className: '', hidden: false,
-    classList: { add() {}, remove() {}, toggle() {} },
+    classList: { contains: () => false, add() {}, remove() {}, toggle() {} },   // contains 是页面 FAB 用到的
     addEventListener() {},
     setAttribute() {}, getAttribute: () => null,
     append(...nodes) { el.children.push(...nodes); },

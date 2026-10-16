@@ -19,6 +19,8 @@ import tempfile
 from pathlib import Path
 
 TEMPLATE = Path(__file__).resolve().parent / "docs" / "template.html"
+FEATURED_STATE = Path(__file__).resolve().parent / "data" / "featured.jsonl"
+FEATURED_CACHE = Path(__file__).resolve().parent / "data" / "cache" / "content"
 
 # ---- authoritative display maps (mirror of fetch.py's category authority) ----
 # fetch.py owns tagging; generate.py owns display. tests/test_site.py asserts
@@ -105,7 +107,7 @@ def _js_payload(topics):
     )
 
 
-def render(topics):
+def render(topics, featured_payload=None, featured_baked_at=0):
     try:
         template = TEMPLATE.read_text(encoding="utf-8")
     except OSError as e:
@@ -113,15 +115,35 @@ def render(topics):
 
     html = (
         template
+        .replace("__FEATURED_JSON__", _js_payload(featured_payload))
+        .replace("__FEATURED_BAKED_AT__", str(int(featured_baked_at)))
         .replace("__CARDS_JSON__", _js_payload(topics))
         .replace("__SOURCE_LABELS_JSON__", json.dumps(SOURCE_LABELS, ensure_ascii=False))
         .replace("__CATEGORY_TONES_JSON__", json.dumps(CATEGORY_TONES, ensure_ascii=False))
         .replace("__CATEGORY_ORDER_JSON__", json.dumps(CATEGORY_ORDER, ensure_ascii=False))
     )
-    for token in ("__CARDS_JSON__", "__SOURCE_LABELS_JSON__", "__CATEGORY_TONES_JSON__", "__CATEGORY_ORDER_JSON__"):
+    for token in ("__CARDS_JSON__", "__SOURCE_LABELS_JSON__", "__CATEGORY_TONES_JSON__", "__CATEGORY_ORDER_JSON__",
+                  "__FEATURED_JSON__", "__FEATURED_BAKED_AT__"):
         if token in html:
             raise SystemExit(f"template still contains {token} after substitution")
     return html
+
+
+def build_featured(topics):
+    """精选板：读 store+正文缓存 → 过门槛 → 合并状态 → 返回 (payload, baked_at)。
+
+    离线、零 token。**任何异常都吞掉**：主站页面不能因为精选板块挂掉而不生成。
+    """
+    import time
+    try:
+        import featured
+        payload, stats = featured.update(topics, FEATURED_CACHE, FEATURED_STATE)
+        print("[featured] {} 项（新增 {added} / 刷新 {updated} / 沿用 {kept} / 下架 {dropped}，其中复核下架 {pruned}）".format(
+            len(payload), **stats), file=sys.stderr)
+        return payload, time.time()
+    except Exception as exc:                      # noqa: BLE001 —— 明确兜住，不能拖停主站
+        print(f"[featured] 跳过（{type(exc).__name__}: {exc}）—— 页面照常生成，精选区置空", file=sys.stderr)
+        return [], 0
 
 
 def main():
@@ -131,7 +153,8 @@ def main():
     args = ap.parse_args()
 
     topics = load_topics(args.input)
-    html = render(topics)
+    featured_payload, featured_baked_at = build_featured(topics)
+    html = render(topics, featured_payload, featured_baked_at)
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     wrote = _write_if_changed(args.output, html)
     print(
