@@ -5,13 +5,18 @@ on:
     # 兜底用，不是主节奏：linux.do 在 CI 里被关掉了（数据中心 IP 会被 429），
     # 所以这条路径抓到的是与家宽侧相同的四源结果，真正带 linux.do 的完整抓取
     # 只能在家宽上跑（Windows 任务每 30 分钟 :07/:37 + Hermes cron 每小时 :30）。
-    # 保持 6 小时一次，是为了让仓库在 Windows 机器长期离线时仍有新数据；
-    # 提到每小时只是重复抓四源并增加并发冲突，对时效性没有帮助。
+    # 保持 6 小时一次只为兜底；**常规写者只有家宽那条腿** —— 下面的"停更门"会让
+    # 平时的轮次只跑离线套件、不碰 git（单写者原则，2026-10-18 分叉死锁的根治）。
     #
     # 刻意选 01:00 UTC（北京 09:00）以外的位置：GitHub 官方说明 schedule 在高负载时
     # 会被延迟，且"每小时整点"是最堵的时段；实测这条 cron 曾连续多日延迟 3h45m~5h30m。
     - cron: '17 */6 * * *'
   workflow_dispatch:  # 允许手动触发
+    inputs:
+      force:
+        description: '无视停更检查，强制抓取并提交（本地机器离线/应急用）'
+        type: boolean
+        default: false
 
 # The Windows scheduled task (\hermes-merged-publish, every 30 minutes) and the
 # Hermes cron job (hourly on the half hour) run the same merged publisher
@@ -77,6 +82,38 @@ jobs:
         with:
           node-version: '22'
 
+      # 单写者门（2026-10-18 凌晨事故的根治）：本机计划任务每小时更新，这里**平时
+      # 不再提交**，只在页面确实停更（生成时刻距今 ≥3 小时 = 本地腿连续 3 轮没成功 /
+      # 机器离线）时才接管。两个写者同时提交同一批生成物 ⇒ push 非快进 + rebase 在
+      # 产物文件上冲突 ⇒ 连红告警、站点停更（2026-10-18 01:43 就是）。
+      # 判据 = 页内 PICK_BAKED_AT（生成时刻，epoch 秒）：不依赖 git 历史，
+      # 也正好就是"线上那一版的年龄"；读不到时按停更处理（fail-open 到发布侧）。
+      # 手动应急：Actions 里 dispatch 本工作流、force 勾 true。
+      - name: Single-writer gate (take over only if the site went stale)
+        id: stale
+        env:
+          FORCE: ${{ inputs.force || 'false' }}
+        run: |
+          if [ "$FORCE" = "true" ]; then
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "手动 force=true → 跳过停更检查，本轮接管抓取与提交"
+            exit 0
+          fi
+          baked=$(grep -o 'const PICK_BAKED_AT=[0-9]*' docs/index.html | head -1 | cut -d= -f2)
+          if [ -z "$baked" ]; then
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "!! 读不到 PICK_BAKED_AT（页面结构变了？）→ 保守起见按停更处理"
+            exit 0
+          fi
+          age=$(( $(date -u +%s) - baked ))
+          if [ "$age" -lt 10800 ]; then
+            echo "stale=0" >> "$GITHUB_OUTPUT"
+            echo "提交版页面 ${age}s 前刚生成（< 3 小时）→ 本地腿在干活，本轮只跑离线套件、不提交"
+          else
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "页面已停更 ${age}s（≥ 3 小时）→ 本地腿沉默，本轮接管抓取与提交"
+          fi
+
       # Pre-flight: all four suites are hermetic (no network, every source
       # injected) and cover the "do not lose data | do not garble the page"
       # paths - including the parsers, whose fixtures encode the markup
@@ -95,14 +132,17 @@ jobs:
           node tests/test_page_js.mjs
 
       - name: Fetch topics from linux.sb
+        if: steps.stale.outputs.stale == '1'
         run: |
           python3 fetch.py -o data/topics.jsonl
 
       - name: Generate static site
+        if: steps.stale.outputs.stale == '1'
         run: |
           python3 generate.py -i data/topics.jsonl -o docs/index.html
 
       - name: Commit and push
+        if: steps.stale.outputs.stale == '1'
         run: |
           git config --global user.name "linuxsb-daily-bot"
           git config --global user.email "bot@users.noreply.github.com"
