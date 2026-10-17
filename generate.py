@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import sys
+import time
 import tempfile
 from pathlib import Path
 
@@ -62,7 +63,20 @@ def _atomic_write(path, text):
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, path)
+        # Windows：杀毒/索引器会短暂锁住目标文件，os.replace 抛 WinError 5（拒绝访问）。
+        # 瞬时锁，指数退避重试是标准解法——不重试会让 test_guards/生产写入整轮失败
+        # （2026-10-17 实测：主站腿连续 22 轮被这一个瞬时错误挡住，全站停更）。
+        last_err = None
+        for attempt in range(6):
+            try:
+                os.replace(tmp, path)
+                last_err = None
+                break
+            except PermissionError as e:
+                last_err = e
+                time.sleep(0.15 * (attempt + 1))
+        if last_err is not None:
+            raise last_err
     except BaseException:
         try:
             os.remove(tmp)
