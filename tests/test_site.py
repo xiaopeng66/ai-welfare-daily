@@ -144,10 +144,25 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
     #      CI 检出仓库后没有缓存，load_cache 抛错 → 精选区置空，与本地（有缓存、
     #      新鲜重建）天然不同。它的内容正确性由本地管道提交前的同一道门禁
     #      （有缓存）与 test_content 覆盖；这里只验证注入点还在、结构合法。
-    flat = lambda x: re.sub(rb'const FEATURED=\[[^\n]*', b'const FEATURED=0;',
-                            re.sub(rb'const PICK_BAKED_AT=\d+;', b'const PICK_BAKED_AT=0;', x))
-    check(flat(a) == flat(b), 'docs/index.html is up to date with data/topics.jsonl（时间戳与精选板抹平后）',
-          f'{digest(a)} != {digest(b)} - regenerate and commit the page')
+    # 比对 cards payload（主内容）而非整页字节——整页字节受行尾（CRLF/LF）、
+    # 编码、正文缓存等非 store 输入影响（CI ubuntu vs Windows 的渲染天然不同）。
+    # cards payload 是从 store 确定性渲染的 JSON，不受这些影响。
+    def cards_of(data):
+        text = data.decode('utf-8')
+        i = text.index('const cards=')
+        start = text.index('[', i)
+        depth = 0
+        for j in range(start, len(text)):
+            if text[j] == '[': depth += 1
+            elif text[j] == ']':
+                depth -= 1
+                if depth == 0: return text[start:j+1]
+        return None
+
+    ca, cb = cards_of(a), cards_of(b)
+    check(ca is not None and cb is not None, 'both pages have a cards payload')
+    check(ca == cb, 'docs/index.html cards match the committed store',
+          f'{digest(ca.encode())[:12]} != {digest(cb.encode())[:12]} - regenerate and commit the page')
     # 精选板结构：注入点在、非空、每张卡都有合法 kind（内容对错由有缓存的本地门禁管）
     m = re.search(rb'const FEATURED=(\[[^\n]*\]);', b)
     check(m is not None, 'the featured payload is embedded in the committed page', None)
