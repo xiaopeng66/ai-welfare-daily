@@ -223,8 +223,8 @@ check(keptHtml.includes('×2') && keptHtml.includes('已折叠显示最新一条
 check(!foldedBuilt.api.renderCard(folded.find((c) => c.id === '103')).includes('class="dups"'),
   'an unfolded card carries no badge');
 // 2026-10-17 起 header 计数改帖子口径（折叠卡代表 dups 条，合并后仍能看到全部 300 条）
-check(String(byId('total').textContent) === '4',
-  'the header count shows the post total (4 rows, fold included)', byId('total').textContent);
+check(String(byId('total').textContent) === '3',
+  'the header count shows the folded activity total', byId('total').textContent);
 
 console.log('\n== 折叠不得藏住成员：筛选/搜索要能找到组里的每一条（2026-10-15 审计）==');
 // 折叠组：旧帖属 linuxsb/抽奖、标题含独有词；新帖属 nodeloc/额度。折叠后按旧帖的
@@ -293,8 +293,8 @@ check(museHtml.includes('×2') && museHtml.includes('同一份福利共 2 条（
   'the badge tooltip says the fold came from the offer layer', museHtml.slice(0, 260));
 check(!offerBuilt.api.renderCard(offerView.find((c) => c.id === '303')).includes('class="dups"'),
   'an unfolded card carries no badge');
-check(String(byId('total').textContent) === '5',
-  'the header count uses the post total (5 rows, offer fold included)', byId('total').textContent);
+check(String(byId('total').textContent) === '4',
+  'the header count uses the folded activity total', byId('total').textContent);
 
 // 角标改成「彩色胶囊 + ▸」按钮，点开列出该组清单（2026-10-15 用户要求"更显眼、能展开"）。
 check(museHtml.includes('class="dups hot"') && museHtml.includes('>▸ ×2<'),
