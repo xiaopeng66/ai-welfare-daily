@@ -32,12 +32,14 @@ def git_show(path: str, ref: str) -> str:
     git = sys.executable and "git"
     try:
         r = subprocess.run(["git", "show", f"{ref}:{path}"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace",
                            check=True, cwd=str(ROOT))
         return r.stdout
     except (FileNotFoundError, subprocess.CalledProcessError) as e:
         for cand in (r"C:\Program Files\Git\cmd\git.exe", "/usr/bin/git"):
             try:
                 r = subprocess.run([cand, "show", f"{ref}:{path}"], capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace",
                                    check=True, cwd=str(ROOT))
                 return r.stdout
             except Exception:

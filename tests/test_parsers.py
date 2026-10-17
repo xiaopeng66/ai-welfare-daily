@@ -18,6 +18,17 @@ import os
 import re
 import sys
 
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FETCH_PY = os.environ.get('FETCH_PY') or (
     sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'fetch.py')

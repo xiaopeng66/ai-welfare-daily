@@ -45,9 +45,11 @@ def load_module(path, name):
 
 
 def load_base(rev):
+    # 显式解码：git 写 UTF-8，text=True 的默认解码是 locale（Windows = cp936）。
     src = subprocess.run(
         ["git", "show", f"{rev}:fetch.py"],
         cwd=ROOT, capture_output=True, text=True, check=True,
+        encoding="utf-8", errors="replace",
     ).stdout
     fd, path = tempfile.mkstemp(suffix=".py", prefix=f"fetch_{rev.replace('/', '_')}_")
     with os.fdopen(fd, "w", encoding="utf-8") as f:

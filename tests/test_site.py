@@ -18,6 +18,17 @@ import subprocess
 import sys
 import tempfile
 
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN_PY = os.path.join(ROOT, 'generate.py')
 STORE = os.path.join(ROOT, 'data', 'topics.jsonl')
@@ -44,11 +55,23 @@ def row(tid, title, created, fetched, source='linuxsb_p1', **kw):
     return r
 
 
+# 2026-10-17：subprocess 的编码两侧写死。子进程 stdio 由 PYTHONIOENCODING 决定
+# （run-update.ps1 设成 utf-8），但 text=True 的解码走 locale（中文 Windows = cp936）。
+# 不一致时读管道的线程抛 UnicodeDecodeError、p.stderr 变 None，套件崩在无关断言上
+# —— 主站腿连续 7 轮红就是这样来的。显式 utf-8 + replace 后与 locale/PYTHONUTF8 无关。
+_GEN_ENV = {**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+_GEN_RUN = dict(capture_output=True, text=True, encoding='utf-8',
+                errors='replace', env=_GEN_ENV)
+
+
+def run_gen(args):
+    return subprocess.run(args, **_GEN_RUN)
+
+
 def build(rows, out, store):
     with open(store, 'w', encoding='utf-8') as f:
         f.write(''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in rows))
-    return subprocess.run([sys.executable, GEN_PY, '-i', store, '-o', out],
-                          capture_output=True, text=True)
+    return run_gen([sys.executable, GEN_PY, '-i', store, '-o', out])
 
 
 def cards_of(html):
@@ -136,7 +159,7 @@ check(cards[2]['created_at'] is None and cards[2]['id'] == '3',
 print('\n== the committed page is what the committed store renders to ==')
 if os.path.exists(STORE) and os.path.exists(PAGE):
     tmp = os.path.join(d, 'committed.html')
-    subprocess.run([sys.executable, GEN_PY, '-i', STORE, '-o', tmp], capture_output=True, text=True)
+    run_gen([sys.executable, GEN_PY, '-i', STORE, '-o', tmp])
     a, b = open(tmp, 'rb').read(), open(PAGE, 'rb').read()
     # 抹平两类"非 store 输入"后再逐字节比较：
     #   ① PICK_BAKED_AT：倒计时基准，每次生成都不同；
