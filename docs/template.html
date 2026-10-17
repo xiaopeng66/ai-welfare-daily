@@ -357,6 +357,14 @@ const safeURL=s=>{try{const u=new URL(s);return (u.protocol==='https:'||u.protoc
    折叠只发生在渲染层：store 保留每一行（合并键 host#id），页面仍是 store 的纯函数。
    分隔符**不能用 NUL**：它写进 data-fold 属性后按 HTML5 规则会变成 U+FFFD，
    点击角标时查不到分组、弹窗打不开（2026-10-15 审计复现 1 组）。用 '|#|' 这种可打印串。 */
+function foldKeyOf(c){
+  /* 与 foldCards 的折叠键同构：offer 优先，否则 来源+标题（展开/收起按 key 找成员） */
+  const title = String(c.title || '').trim();
+  const ok = (c.offer && c.offer.key) ? ('O:' + c.offer.key) : null;
+  if (!ok && !title) return null;
+  return ok || ('T:' + sourceKey(c.source) + '|#|' + title);
+}
+
 function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&c.offer.key)?('O:'+c.offer.key):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
 const view=foldCards(cards);
 /* 展开清单：该组每条的标题 + 北京时间，点任意一条去原帖。点击不整页重渲染（只挂/摘一个节点），
@@ -495,6 +503,34 @@ function highlightPickNav(){
     b.classList.toggle('active', b.dataset.pkKey === cur);   // 按 key 匹配（pk-jump 存的是标题）
   });
 }
+/* —— ×N 就地展开/收起（2026-10-17 用户口径：合并之后还是要能看到全部 300 条）——
+   点折叠卡的 ×N：在代表卡后面插入「同活动早前帖子」区块（成员 = 同键、通过当前
+   筛选、除代表外按时间降序的行，逐张 renderCard）；再点收起（摘除区块）。
+   ×N 徽章 ▸/▴ 与 aria-expanded 同步。弹窗函数保留但不再有入口。 */
+function toggleFoldInline(btn){
+  const cardEl = btn.closest('.card');
+  if (!cardEl) return;
+  const dupkey = btn.dataset.fold;
+  const next = cardEl.nextElementSibling;
+  if (next && next.classList && next.classList.contains('fold-inline')) {
+    next.remove();
+    btn.textContent = '▸ ×' + btn.dataset.n;
+    btn.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  const all = cards.filter(c => foldKeyOf(c) === dupkey && matches(c))
+                   .sort((a, b) => (time(b) || 0) - (time(a) || 0));
+  const members = all.slice(1);                    /* all[0] = 列表里已显示的代表卡（最新一条） */
+  if (!members.length) return;
+  const bin = document.createElement('div');
+  bin.className = 'fold-inline';
+  bin.innerHTML = '<div class="fold-inline-h">同活动的早前帖子（新 → 旧）</div>'
+    + members.map(m => renderCard(m)).join('');
+  cardEl.after(bin);
+  btn.textContent = '▴ ×' + btn.dataset.n;
+  btn.setAttribute('aria-expanded', 'true');
+}
+
 /* 跳转必须"真的到位"：页面有 html{scroll-behavior:smooth}，连 scrollTo(0,X) 的瞬移写法也会被它
    变成平滑滚动 —— 而后台/被限流的标签页里平滑滚动不推进（实测 scrollY 一动不动，同推广页那类坑）。
    所以：先平滑；350ms 后没动过就临时把 CSS 行为改成 auto 强制瞬移。 */
@@ -561,7 +597,7 @@ function init(){try{if(new URLSearchParams(location.search).get('sort')==='pick'
  $('#sources').innerHTML='<button type="button" class="chip" data-source="all">全部来源</button>'+sources.map(s=>`<button type="button" class="chip" data-source="${escapeHTML(s)}">${escapeHTML(labels[s]||s)}</button>`).join('');
  $('#categories').innerHTML='<button type="button" class="chip" data-category="all">全部类型</button>'+categories.map(c=>`<button type="button" class="chip" data-category="${escapeHTML(c)}" ${tones[c]?`data-tone="${tones[c]}"`:''}>${escapeHTML(c)}</button>`).join('');
  selected('sorts','sort',state.sort);selected('sources','source','all');selected('categories','category','all');
- $('#total').textContent=view.length;   /* 折叠后的活动数（同活动帖折叠成一张卡，×N 可就地展开） */const updated=Math.max(0,...cards.map(c=>stamp(c.fetched_at)));$('#updated').textContent=updated?'最近收录 '+formatTime(new Date(updated).toISOString()):'收录时间未知';
+ $('#total').textContent=view.reduce((s,c)=>s+(c.dups||1),0);   /* 帖子口径（含折叠的同活动帖） */   /* 折叠后的活动数（同活动帖折叠成一张卡，×N 可就地展开） */const updated=Math.max(0,...cards.map(c=>stamp(c.fetched_at)));$('#updated').textContent=updated?'最近收录 '+formatTime(new Date(updated).toISOString()):'收录时间未知';
  const dark=document.documentElement.dataset.theme==='dark';$('#theme').textContent=dark?'☀ 主题':'☾ 主题';$('#theme').setAttribute('aria-label',dark?'切换浅色主题':'切换深色主题');
  document.querySelector('meta[name="theme-color"]').content=dark?'#111827':'#f6f7fa';requestAnimationFrame(updateRails);if('ResizeObserver' in window){const ro=new ResizeObserver(updateRails);['sources','categories'].forEach(id=>ro.observe($('#'+id)))}else window.addEventListener('resize',updateRails);
  ['sources','categories'].forEach(id=>$('#'+id).addEventListener('scroll',()=>updateRail(id==='sources'?'source':'category'),{passive:true}));
@@ -601,7 +637,7 @@ function setCategory(c){clearTimeout(pending);state.query=$('#search').value.tri
 let pending;$('#search').addEventListener('input',e=>{clearTimeout(pending);if(e.isComposing)return;pending=setTimeout(()=>{state.query=$('#search').value.trim().toLocaleLowerCase();refresh()},110)});$('#search').addEventListener('compositionend',()=>{clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();refresh()});
 $('#reset').addEventListener('click',reset);$('#more').addEventListener('click',e=>{const index=state.shown;addBatch();syncPickNav();if(e.detail===0||$('#more').hidden){document.querySelectorAll('.card')[index]?.querySelector('.title a[href]')?.focus({preventScroll:true})}});
 $('#theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.theme==='dark',theme=dark?'light':'dark';document.documentElement.dataset.theme=theme;$('#theme').textContent=dark?'☾ 主题':'☀ 主题';$('#theme').setAttribute('aria-label',dark?'切换深色主题':'切换浅色主题');document.querySelector('meta[name="theme-color"]').content=dark?'#f6f7fa':'#111827';try{localStorage.setItem('promo-theme',theme)}catch{}});
-document.addEventListener('click',e=>{const closer=e.target.closest&&e.target.closest('[data-fold-close]');if(closer){closeFoldModal();return}const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.pkJump!==undefined){pickJump(b)}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}else if(b.dataset.foldClose!==undefined){closeFoldModal()}else if(b.dataset.fold!==undefined){openFoldModal(b.dataset.fold)}});
+document.addEventListener('click',e=>{const closer=e.target.closest&&e.target.closest('[data-fold-close]');if(closer){closeFoldModal();return}const b=e.target.closest('button');if(!b)return;if(b.dataset.clear){reset();return}if(b.dataset.sort){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.sort=b.dataset.sort;selected('sorts','sort',state.sort);refresh()}else if(b.dataset.source){clearTimeout(pending);state.query=$('#search').value.trim().toLocaleLowerCase();state.source=b.dataset.source;selected('sources','source',state.source);refresh()}else if(b.dataset.category){setCategory(b.dataset.category)}else if(b.dataset.tag){setCategory(b.dataset.tag);const target=$$('#categories .chip').find(x=>x.dataset.category===state.category);target?.focus({preventScroll:true})}else if(b.dataset.pkJump!==undefined){pickJump(b)}else if(b.dataset.rail){$('#'+b.dataset.rail).scrollBy({left:b.closest('.rail').dataset.end==='true'?-190:190,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}else if(b.dataset.foldClose!==undefined){closeFoldModal()}else if(b.dataset.fold!==undefined){toggleFoldInline(b)}});
 function refreshClock(){if(state.sort==='score'){const signature=state.entries.filter(x=>isRecent(x.c)).map(x=>x.c.id).join('|');if(signature!==state.recentSignature)refresh()}else{for(const [key,el] of state.sections){const label=sectionLabel(key),node=el.querySelector('h2');if(node.textContent!==label)node.textContent=label}}}
 setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshClock()});init();
 
