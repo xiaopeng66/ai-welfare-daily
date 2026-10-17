@@ -1446,8 +1446,10 @@ def _row_changed(prev: dict, t: dict) -> bool:
     return bool(t.get("published_verified")) != bool(prev.get("published_verified"))
 
 
-# 滚动窗口的条数上限。见 --limit 处的说明：闸门放宽后入库量翻倍，200 会让
-# 内容偏旧的源被整体挤出（实测 vibex 归零），因此固定在 300。
+# 滚动窗口的**活动数**上限（2026-10-17 用户口径）：同一活动（offer key 优先，
+# 否则 来源+标题）的多条帖折叠后算一条；总数超过 300 就淘汰最旧的整个活动。
+# 行数因此不固定（300 个活动可能对应 300~600+ 行），页面上折叠后仍是 300 张卡。
+# 历史沿革见 --limit 处的说明与 README「cap 与窗口跨度」一节。
 DEFAULT_LIMIT = 300
 
 
@@ -1757,14 +1759,37 @@ def main():
     # (key, topic) pairs: the key is the merge identity,
     # and it differs from the bare id only for a cross-site id collision.
     merged_items = list(merged.items())
-    if len(merged_items) > args.limit:
-        merged_items.sort(key=lambda kv: age_key(kv[1]), reverse=True)  # newest first
-        dropped = merged_items[args.limit:]
-        merged_items = merged_items[: args.limit]
-        oldest = dropped[-1][1]  # the list is sorted newest-first
+
+    # 窗口裁剪按**活动**计数（2026-10-17 用户口径）：新帖与存帖合并后，同一活动
+    # （offer key 优先，否则 来源+标题——与页面 foldCards 的键同构）算一条；活动数
+    # 超过上限就淘汰**最旧的整个活动**（连同成员帖）。不够上限则不淘汰，靠增量
+    # 合并自然补足到 300 个活动。
+    def fold_key(t):
+        off = t.get("offer") or {}
+        ok = off.get("key") or off.get("campaign")
+        title = str(t.get("title") or "").strip()
+        if not ok and not title:
+            return f"#lone:{t.get('id')}"      # 无活动键也无标题的行各算一个，不互相折叠
+        return ok or f"{t.get('source', '')}|#|{title}"
+
+    groups: dict[str, list] = {}
+    for kv in merged_items:
+        groups.setdefault(fold_key(kv[1]), []).append(kv)
+    if len(groups) > args.limit:
+        # 活动的时间 = 组内最新一条（与页面折叠后保留最新一条同口径）
+        def group_age(items):
+            return max((age_key(t) or "" for _k, t in items), default="")
+
+        ordered = sorted(groups.items(), key=lambda kv: group_age(kv[1]), reverse=True)
+        keep, dropped = ordered[: args.limit], ordered[args.limit:]
+        n_rows_dropped = sum(len(items) for _gk, items in dropped)
+        merged_items = [kv for _gk, items in keep for kv in items]
+        merged_items.sort(key=lambda kv: age_key(kv[1]), reverse=True)  # 行序保持最新在前
+        oldest = min((t for _gk, items in dropped for _k, t in items),
+                     key=lambda t: age_key(t) or "")
         print(
-            f"[limit] trimmed {len(dropped)} oldest posts (cap {args.limit}); "
-            f"oldest dropped id={oldest.get('id')} "
+            f"[limit] trimmed {len(dropped)} oldest activities ({n_rows_dropped} rows, "
+            f"cap {args.limit} activities); oldest dropped id={oldest.get('id')} "
             f"at {oldest.get('created_at') or oldest.get('fetched_at')}",
             file=sys.stderr,
         )
