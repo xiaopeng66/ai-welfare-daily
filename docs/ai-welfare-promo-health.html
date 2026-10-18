@@ -490,7 +490,7 @@ html[data-theme=dark] .rchip.free b{color:#7fe0bb}
 /* 最近一次检测时间戳（由 bake_preview.py 每次烘焙写入，取自 health.json 的 generated_at）。
    整点脚本每 30 分钟跑一轮，页面是静态快照 —— 这里必须用**采集时间**，
    不能用浏览器当前时间（那会显示"用户打开页面的时刻"，与数据实际新鲜度无关）。 */
-const CHECKED_AT = "10-18 23:38";
+const CHECKED_AT = "10-19 00:37";
 const PROMO = [
   {
     "name": "KiosAPI",
@@ -626,25 +626,15 @@ const PROMO = [
     "pick_total": 2,
     "health": {
       "current": {
-        "checked_at": "2026-10-18T23:37:11+08:00",
+        "checked_at": "2026-10-19T00:37:11+08:00",
         "reachable": true
       },
-      "score": 91.2,
+      "score": 91.5,
       "level": "优",
       "rate_window": 96.1,
-      "streak_days": 2,
-      "days_with_data": 9,
+      "streak_days": 3,
+      "days_with_data": 10,
       "bars": [
-        {
-          "d": "2026-09-19",
-          "rate": null,
-          "ok": null,
-          "sparse": true,
-          "buckets": null,
-          "checks": 0,
-          "failures": 0,
-          "missing_hours": 24
-        },
         {
           "d": "2026-09-20",
           "rate": null,
@@ -934,6 +924,16 @@ const PROMO = [
           "checks": 24,
           "failures": 0,
           "missing_hours": 0
+        },
+        {
+          "d": "2026-10-19",
+          "rate": 100.0,
+          "ok": true,
+          "sparse": true,
+          "buckets": null,
+          "checks": 1,
+          "failures": 0,
+          "missing_hours": 0
         }
       ],
       "families": [
@@ -950,11 +950,11 @@ const PROMO = [
           "count": 8
         },
         {
-          "name": "GPT",
-          "count": 6
+          "name": "GLM",
+          "count": 5
         },
         {
-          "name": "GLM",
+          "name": "GPT",
           "count": 5
         },
         {
@@ -982,19 +982,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 91.2（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 31.2/35（3 个监控模型成功率中位数 89.27%）+ 延迟 10/15（1032ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 91.5（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 31.5/35（3 个监控模型成功率中位数 89.93%）+ 延迟 10/15（1032ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 3053,
+        "ms": 2457,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 1355,
+        "ms": 721,
         "note": ""
       }
     },
@@ -1002,22 +1002,12 @@ const PROMO = [
       {
         "n": "deepseek-v4-flash-free",
         "in_site": "deepseek-v4-flash-free",
-        "r": 90.6,
-        "l": 35696,
-        "t": 9553,
-        "tps": 20.830031242215828,
+        "r": 90.7,
+        "l": 34449,
+        "t": 9062,
+        "tps": 21.208736277154134,
         "anomaly": 12,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": null,
@@ -1300,10 +1290,20 @@ const PROMO = [
           },
           {
             "d": "2026-10-18",
-            "rate": 90.6,
+            "rate": 91.1,
             "ok": false,
             "sparse": false,
             "buckets": 24,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 91.3,
+            "ok": false,
+            "sparse": true,
+            "buckets": 1,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -1315,12 +1315,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 90.9,
-            "ok": false,
-            "anomaly": true
-          },
           {
             "d": "10-18 01:00",
             "rate": 93.2,
@@ -1455,7 +1449,13 @@ const PROMO = [
           },
           {
             "d": "10-18 23:00",
-            "rate": 67.7,
+            "rate": 79.3,
+            "ok": false,
+            "anomaly": true
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 91.3,
             "ok": false,
             "anomaly": true
           }
@@ -1464,19 +1464,13 @@ const PROMO = [
           "g": "Free",
           "ratio": 0,
           "eff": 0.0,
-          "r": 90.55,
-          "l": 35696,
-          "t": 9553,
-          "tps": 20.830031242215828,
+          "r": 90.7,
+          "l": 34449,
+          "t": 9062,
+          "tps": 21.208736277154134,
           "days": null,
           "anomaly": 12,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 90.9,
-              "ok": false,
-              "anomaly": true
-            },
             {
               "d": "10-18 01:00",
               "rate": 93.2,
@@ -1611,7 +1605,13 @@ const PROMO = [
             },
             {
               "d": "10-18 23:00",
-              "rate": 67.7,
+              "rate": 79.3,
+              "ok": false,
+              "anomaly": true
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 91.3,
               "ok": false,
               "anomaly": true
             }
@@ -1624,19 +1624,13 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 90.55,
-            "l": 35696,
-            "t": 9554,
-            "tps": 20.82925528014737,
-            "days": 24,
+            "r": 90.7,
+            "l": 34449,
+            "t": 9062,
+            "tps": 21.208736277154134,
+            "days": 25,
             "anomaly": 12,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 90.9,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 93.2,
@@ -1771,22 +1765,18 @@ const PROMO = [
               },
               {
                 "d": "10-18 23:00",
-                "rate": 67.5,
+                "rate": 79.3,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 91.3,
                 "ok": false,
                 "anomaly": true
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -2069,10 +2059,20 @@ const PROMO = [
               },
               {
                 "d": "2026-10-18",
-                "rate": 91.2,
+                "rate": 91.7,
                 "ok": false,
                 "sparse": false,
                 "buckets": 24,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 91.3,
+                "ok": false,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -2083,19 +2083,13 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 87.68,
-            "l": 33194,
-            "t": 7315,
-            "tps": 20.578159164075462,
-            "days": 20,
-            "anomaly": 12,
+            "r": 87.58,
+            "l": 32746,
+            "t": 7319,
+            "tps": 20.85011957315754,
+            "days": 21,
+            "anomaly": 11,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 89.9,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 95.6,
@@ -2233,19 +2227,15 @@ const PROMO = [
                 "rate": 14.3,
                 "ok": false,
                 "anomaly": true
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -2535,6 +2525,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           }
@@ -2543,22 +2543,12 @@ const PROMO = [
       {
         "n": "deepseek-v4-flash-vision-exp-free",
         "in_site": "deepseek-v4-flash-vision-exp-free",
-        "r": 89.3,
-        "l": 30691,
-        "t": 6955,
-        "tps": 22.09215302072219,
-        "anomaly": 8,
+        "r": 89.9,
+        "l": 29752,
+        "t": 6628,
+        "tps": 21.94172253706824,
+        "anomaly": 7,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": null,
@@ -2841,10 +2831,20 @@ const PROMO = [
           },
           {
             "d": "2026-10-18",
-            "rate": 88.0,
+            "rate": 88.2,
             "ok": false,
             "sparse": false,
             "buckets": 23,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -2856,12 +2856,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 83.7,
-            "ok": false,
-            "anomaly": true
-          },
           {
             "d": "10-18 01:00",
             "rate": 98.3,
@@ -2990,28 +2984,28 @@ const PROMO = [
           },
           {
             "d": "10-18 23:00",
-            "rate": 56.2,
+            "rate": 63.2,
             "ok": false,
             "anomaly": true
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "Free",
           "ratio": 0,
           "eff": 0.0,
-          "r": 89.27,
-          "l": 30691,
-          "t": 6955,
-          "tps": 22.09215302072219,
+          "r": 89.93,
+          "l": 29752,
+          "t": 6628,
+          "tps": 21.94172253706824,
           "days": null,
-          "anomaly": 8,
+          "anomaly": 7,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 83.7,
-              "ok": false,
-              "anomaly": true
-            },
             {
               "d": "10-18 01:00",
               "rate": 98.3,
@@ -3140,9 +3134,15 @@ const PROMO = [
             },
             {
               "d": "10-18 23:00",
-              "rate": 56.2,
+              "rate": 63.2,
               "ok": false,
               "anomaly": true
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -3153,19 +3153,13 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 89.27,
-            "l": 30691,
-            "t": 6955,
-            "tps": 22.09215302072219,
-            "days": 22,
-            "anomaly": 8,
+            "r": 89.93,
+            "l": 29752,
+            "t": 6628,
+            "tps": 21.94172253706824,
+            "days": 23,
+            "anomaly": 7,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 83.7,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 98.3,
@@ -3294,22 +3288,18 @@ const PROMO = [
               },
               {
                 "d": "10-18 23:00",
-                "rate": 56.2,
+                "rate": 63.2,
                 "ok": false,
                 "anomaly": true
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -3592,10 +3582,20 @@ const PROMO = [
               },
               {
                 "d": "2026-10-18",
-                "rate": 89.0,
+                "rate": 89.3,
                 "ok": false,
                 "sparse": false,
                 "buckets": 23,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -3606,19 +3606,13 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 71.28,
-            "l": 19819,
-            "t": 6378,
-            "tps": 21.75593820883448,
-            "days": 22,
-            "anomaly": 9,
+            "r": 69.96,
+            "l": 17322,
+            "t": 5340,
+            "tps": 23.98609937378529,
+            "days": 23,
+            "anomaly": 8,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 82.4,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 75.0,
@@ -3714,19 +3708,15 @@ const PROMO = [
                 "rate": 18.9,
                 "ok": false,
                 "anomaly": true
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -4016,6 +4006,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           }
@@ -4024,22 +4024,12 @@ const PROMO = [
       {
         "n": "glm-5.3-flash-free",
         "in_site": "glm-5.3-flash-free",
-        "r": 88.3,
-        "l": 18872,
-        "t": 9068,
-        "tps": 46.73600864383262,
+        "r": 88.8,
+        "l": 19100,
+        "t": 9134,
+        "tps": 46.29073479864368,
         "anomaly": 14,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": 90.3,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": 90.3,
@@ -4322,10 +4312,20 @@ const PROMO = [
           },
           {
             "d": "2026-10-18",
-            "rate": 89.3,
+            "rate": 89.8,
             "ok": false,
             "sparse": false,
             "buckets": 24,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 91.2,
+            "ok": false,
+            "sparse": true,
+            "buckets": 1,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -4337,12 +4337,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 85.3,
-            "ok": false,
-            "anomaly": true
-          },
           {
             "d": "10-18 01:00",
             "rate": 78.5,
@@ -4477,7 +4471,13 @@ const PROMO = [
           },
           {
             "d": "10-18 23:00",
-            "rate": 74.9,
+            "rate": 84.9,
+            "ok": false,
+            "anomaly": true
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 91.3,
             "ok": false,
             "anomaly": true
           }
@@ -4486,19 +4486,13 @@ const PROMO = [
           "g": "Free-Pro",
           "ratio": 0,
           "eff": 0.0,
-          "r": 88.34,
-          "l": 18872,
-          "t": 9068,
-          "tps": 46.73600864383262,
+          "r": 88.79,
+          "l": 19100,
+          "t": 9134,
+          "tps": 46.29073479864368,
           "days": null,
           "anomaly": 14,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 85.3,
-              "ok": false,
-              "anomaly": true
-            },
             {
               "d": "10-18 01:00",
               "rate": 78.5,
@@ -4633,7 +4627,13 @@ const PROMO = [
             },
             {
               "d": "10-18 23:00",
-              "rate": 74.9,
+              "rate": 84.9,
+              "ok": false,
+              "anomaly": true
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 91.3,
               "ok": false,
               "anomaly": true
             }
@@ -4646,24 +4646,14 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 92.79,
-            "l": 63703,
+            "r": 92.87,
+            "l": 63641,
             "t": 24432,
             "tps": 20.119913397830423,
-            "days": 28,
+            "days": 27,
             "anomaly": 0,
             "bars_24h": [],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 90.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 90.3,
@@ -4953,6 +4943,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -4960,19 +4960,13 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 88.34,
-            "l": 18874,
-            "t": 9068,
-            "tps": 46.73507156739167,
-            "days": 22,
+            "r": 88.79,
+            "l": 19100,
+            "t": 9134,
+            "tps": 46.29073479864368,
+            "days": 23,
             "anomaly": 14,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 85.3,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 78.5,
@@ -5107,22 +5101,18 @@ const PROMO = [
               },
               {
                 "d": "10-18 23:00",
-                "rate": 74.7,
+                "rate": 84.9,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 91.3,
                 "ok": false,
                 "anomaly": true
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -5405,10 +5395,20 @@ const PROMO = [
               },
               {
                 "d": "2026-10-18",
-                "rate": 89.3,
+                "rate": 89.8,
                 "ok": false,
                 "sparse": false,
                 "buckets": 24,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 91.3,
+                "ok": false,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -5693,25 +5693,15 @@ const PROMO = [
     "pick_total": 3,
     "health": {
       "current": {
-        "checked_at": "2026-10-18T23:37:11+08:00",
+        "checked_at": "2026-10-19T00:37:12+08:00",
         "reachable": true
       },
-      "score": 89.9,
-      "level": "良",
+      "score": 90.0,
+      "level": "优",
       "rate_window": 100.0,
-      "streak_days": 8,
-      "days_with_data": 9,
+      "streak_days": 9,
+      "days_with_data": 10,
       "bars": [
-        {
-          "d": "2026-09-19",
-          "rate": null,
-          "ok": null,
-          "sparse": true,
-          "buckets": null,
-          "checks": 0,
-          "failures": 0,
-          "missing_hours": 24
-        },
         {
           "d": "2026-09-20",
           "rate": null,
@@ -6001,12 +5991,22 @@ const PROMO = [
           "checks": 24,
           "failures": 0,
           "missing_hours": 0
+        },
+        {
+          "d": "2026-10-19",
+          "rate": 100.0,
+          "ok": true,
+          "sparse": true,
+          "buckets": null,
+          "checks": 1,
+          "failures": 0,
+          "missing_hours": 0
         }
       ],
       "families": [
         {
           "name": "其他",
-          "count": 27
+          "count": 26
         },
         {
           "name": "DeepSeek",
@@ -6029,16 +6029,16 @@ const PROMO = [
           "count": 11
         },
         {
+          "name": "GLM",
+          "count": 5
+        },
+        {
           "name": "Grok",
           "count": 5
         },
         {
           "name": "Mistral",
           "count": 5
-        },
-        {
-          "name": "GLM",
-          "count": 4
         },
         {
           "name": "Kimi",
@@ -6055,25 +6055,21 @@ const PROMO = [
         {
           "name": "Step",
           "count": 1
-        },
-        {
-          "name": "豆包",
-          "count": 1
         }
       ],
-      "note": "得分 89.9（良）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.9/35（3 个监控模型成功率中位数 99.79%）+ 延迟 5/15（1522ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 90.0（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 35.0/35（3 个监控模型成功率中位数 99.89%）+ 延迟 5/15（1630ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 2469,
+        "ms": 2495,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 2307,
+        "ms": 2043,
         "note": ""
       }
     },
@@ -6082,21 +6078,11 @@ const PROMO = [
         "n": "glm-5.3-flash",
         "in_site": "glm-5.3-flash",
         "r": 100,
-        "l": 120066,
-        "t": 137768,
-        "tps": 0.6336169905599088,
+        "l": 37104,
+        "t": 30947,
+        "tps": 19.955999946522553,
         "anomaly": 0,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": 86.8,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": 96.6,
@@ -6386,9 +6372,19 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
-        "buckets_24h": 1,
+        "buckets_24h": 2,
         "low_sample": null,
         "free_group": "Unlimited",
         "delisted": false,
@@ -6399,6 +6395,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -6406,14 +6408,20 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 100,
-          "l": 120066,
-          "t": 137768,
-          "tps": 0.6336169905599088,
+          "l": 37104,
+          "t": 30947,
+          "tps": 19.955999946522553,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
             {
               "d": "10-18 23:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -6428,10 +6436,10 @@ const PROMO = [
             "ratio": 0.06,
             "eff": 0.06,
             "r": 100,
-            "l": 15505,
-            "t": 12108,
-            "tps": 114.26790003577452,
-            "days": 5,
+            "l": 15021,
+            "t": 10110,
+            "tps": 76.68184456051068,
+            "days": 6,
             "anomaly": 0,
             "bars_24h": [
               {
@@ -6469,19 +6477,21 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-18 23:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -6767,7 +6777,17 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 6,
+                "buckets": 7,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -6779,10 +6799,10 @@ const PROMO = [
             "ratio": 0.01,
             "eff": 0.01,
             "r": 100,
-            "l": 35918,
-            "t": 3065,
-            "tps": 52.017532924966154,
-            "days": 16,
+            "l": 11052,
+            "t": 3465,
+            "tps": 51.30643424838234,
+            "days": 17,
             "anomaly": 0,
             "bars_24h": [
               {
@@ -6808,19 +6828,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -7110,6 +7126,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -7121,7 +7147,7 @@ const PROMO = [
             "l": 36022,
             "t": 1873,
             "tps": 31.1825706096422,
-            "days": 30,
+            "days": 29,
             "anomaly": 0,
             "bars_24h": [
               {
@@ -7138,16 +7164,6 @@ const PROMO = [
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 96.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 57,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 73.2,
@@ -7437,6 +7453,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -7445,9 +7471,9 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 100,
-            "l": 120066,
-            "t": 137768,
-            "tps": 0.6336169905599088,
+            "l": 37104,
+            "t": 30947,
+            "tps": 19.955999946522553,
             "days": 20,
             "anomaly": 0,
             "bars_24h": [
@@ -7456,19 +7482,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 87.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 288,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 99.3,
@@ -7758,6 +7780,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           }
@@ -7767,21 +7799,11 @@ const PROMO = [
         "n": "DeepSeek-V4.1-Flash",
         "in_site": "DeepSeek-V4.1-Flash",
         "r": 99.2,
-        "l": 88506,
-        "t": 33241,
-        "tps": 5.264861184149502,
+        "l": 88770,
+        "t": 33088,
+        "tps": 5.2096216907396045,
         "anomaly": 3,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": null,
@@ -8071,6 +8093,16 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
         "buckets_24h": 24,
@@ -8079,12 +8111,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "10-18 01:00",
             "rate": 100.0,
@@ -8222,6 +8248,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -8229,18 +8261,12 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 99.24,
-          "l": 88506,
-          "t": 33241,
-          "tps": 5.264861184149502,
+          "l": 88770,
+          "t": 33088,
+          "tps": 5.2096216907396045,
           "days": null,
           "anomaly": 3,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "10-18 01:00",
               "rate": 100.0,
@@ -8378,6 +8404,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -8389,18 +8421,12 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 99.24,
-            "l": 88506,
-            "t": 33241,
-            "tps": 5.264861184149502,
-            "days": 3,
+            "l": 88770,
+            "t": 33088,
+            "tps": 5.2096216907396045,
+            "days": 4,
             "anomaly": 3,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 100.0,
@@ -8538,19 +8564,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -8840,6 +8862,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -8847,19 +8879,13 @@ const PROMO = [
             "g": "Pay-Per-Request",
             "ratio": 1,
             "eff": 1.0,
-            "r": 74.42,
-            "l": 14554,
-            "t": 17231,
-            "tps": 46.81069315352957,
-            "days": 14,
-            "anomaly": 4,
+            "r": 75.61,
+            "l": 13676,
+            "t": 15337,
+            "tps": 44.669913751855624,
+            "days": 15,
+            "anomaly": 3,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 66.7,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 100.0,
@@ -8997,19 +9023,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -9299,6 +9321,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           }
@@ -9307,22 +9339,12 @@ const PROMO = [
       {
         "n": "deepseek-v4-flash-0731",
         "in_site": "deepseek-v4-flash-0731",
-        "r": 99.8,
-        "l": 12592,
-        "t": 4490,
-        "tps": 108.83409407916248,
+        "r": 99.9,
+        "l": 12459,
+        "t": 4413,
+        "tps": 108.199691012341,
         "anomaly": 0,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": 68.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": 99.4,
@@ -9612,6 +9634,16 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 98.4,
+            "ok": false,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
         "buckets_24h": 24,
@@ -9620,12 +9652,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 97.6,
-            "ok": false,
-            "anomaly": false
-          },
           {
             "d": "10-18 01:00",
             "rate": 100.0,
@@ -9763,25 +9789,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "Free",
           "ratio": 0.01,
           "eff": 0.01,
-          "r": 99.79,
-          "l": 12592,
-          "t": 4490,
-          "tps": 108.83409407916248,
+          "r": 99.89,
+          "l": 12459,
+          "t": 4413,
+          "tps": 108.199691012341,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 97.6,
-              "ok": false,
-              "anomaly": false
-            },
             {
               "d": "10-18 01:00",
               "rate": 100.0,
@@ -9919,6 +9945,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -9933,7 +9965,7 @@ const PROMO = [
             "l": 25121,
             "t": 21833,
             "tps": 116.88603743633838,
-            "days": 19,
+            "days": 18,
             "anomaly": 0,
             "bars_24h": [
               {
@@ -9950,16 +9982,6 @@ const PROMO = [
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 10,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 100.0,
@@ -10249,6 +10271,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -10256,19 +10288,13 @@ const PROMO = [
             "g": "Free",
             "ratio": 0.01,
             "eff": 0.01,
-            "r": 99.79,
-            "l": 12591,
-            "t": 4491,
-            "tps": 108.83584502777164,
+            "r": 99.89,
+            "l": 12459,
+            "t": 4412,
+            "tps": 108.19463745262506,
             "days": 30,
             "anomaly": 0,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 97.6,
-                "ok": false,
-                "anomaly": false
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 100.0,
@@ -10406,19 +10432,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 94.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 256,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 99.9,
@@ -10708,6 +10730,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -10715,24 +10747,14 @@ const PROMO = [
             "g": "Unlimited",
             "ratio": 0,
             "eff": 0.0,
-            "r": 56.49,
-            "l": 50737,
-            "t": 47570,
-            "tps": 8.804527091467227,
-            "days": 7,
+            "r": 58.23,
+            "l": 52261,
+            "t": 47644,
+            "tps": 8.83591554923112,
+            "days": 6,
             "anomaly": 0,
             "bars_24h": [],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 78.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 282,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 97.7,
@@ -11015,6 +11037,16 @@ const PROMO = [
               },
               {
                 "d": "2026-10-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
                 "rate": null,
                 "ok": null,
                 "sparse": null,
@@ -11340,25 +11372,15 @@ const PROMO = [
     "pick_total": 3,
     "health": {
       "current": {
-        "checked_at": "2026-10-18T23:37:13+08:00",
+        "checked_at": "2026-10-19T00:37:11+08:00",
         "reachable": true
       },
-      "score": 94.7,
+      "score": 94.8,
       "level": "优",
       "rate_window": 98.8,
-      "streak_days": 2,
-      "days_with_data": 9,
+      "streak_days": 3,
+      "days_with_data": 10,
       "bars": [
-        {
-          "d": "2026-09-19",
-          "rate": null,
-          "ok": null,
-          "sparse": true,
-          "buckets": null,
-          "checks": 0,
-          "failures": 0,
-          "missing_hours": 24
-        },
         {
           "d": "2026-09-20",
           "rate": null,
@@ -11648,12 +11670,22 @@ const PROMO = [
           "checks": 24,
           "failures": 0,
           "missing_hours": 0
+        },
+        {
+          "d": "2026-10-19",
+          "rate": 100.0,
+          "ok": true,
+          "sparse": true,
+          "buckets": null,
+          "checks": 1,
+          "failures": 0,
+          "missing_hours": 0
         }
       ],
       "families": [
         {
           "name": "其他",
-          "count": 37
+          "count": 38
         },
         {
           "name": "GLM",
@@ -11664,11 +11696,11 @@ const PROMO = [
           "count": 15
         },
         {
-          "name": "DeepSeek",
-          "count": 14
+          "name": "Claude",
+          "count": 13
         },
         {
-          "name": "Claude",
+          "name": "DeepSeek",
           "count": 13
         },
         {
@@ -11708,19 +11740,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 94.7（优）｜连通性 35/35（最近 5 次采样多数值：直连 4/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.7/35（3 个监控模型成功率中位数 99.00%）+ 延迟 10/15（1069ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 94.8（优）｜连通性 35/35（最近 5 次采样多数值：直连 3/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.8/35（3 个监控模型成功率中位数 99.41%）+ 延迟 10/15（1118ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
-        "ok": true,
-        "code": 200,
-        "ms": 5916,
-        "note": ""
+        "ok": false,
+        "code": 0,
+        "ms": 2282,
+        "note": "curl: (35) Recv failure: Connection was reset"
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 758,
+        "ms": 1118,
         "note": ""
       }
     },
@@ -11728,22 +11760,12 @@ const PROMO = [
       {
         "n": "deepseek-ai/deepseek-v4.1-flash",
         "in_site": "deepseek-ai/deepseek-v4.1-flash",
-        "r": 99.5,
-        "l": 101786,
-        "t": 80188,
-        "tps": 79.80052680764405,
+        "r": 99.4,
+        "l": 102060,
+        "t": 80224,
+        "tps": 79.82315290850666,
         "anomaly": 2,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": null,
@@ -11996,10 +12018,10 @@ const PROMO = [
           },
           {
             "d": "2026-10-15",
-            "rate": 99.3,
-            "ok": false,
-            "sparse": true,
-            "buckets": 1,
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -12033,6 +12055,16 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
         "buckets_24h": 24,
@@ -12041,12 +12073,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "10-18 01:00",
             "rate": 99.8,
@@ -12181,8 +12207,14 @@ const PROMO = [
           },
           {
             "d": "10-18 23:00",
-            "rate": 99.7,
+            "rate": 99.0,
             "ok": false,
+            "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
             "anomaly": false
           }
         ],
@@ -12190,19 +12222,13 @@ const PROMO = [
           "g": "NIM",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.46,
-          "l": 101786,
-          "t": 80188,
-          "tps": 79.80052680764405,
+          "r": 99.43,
+          "l": 102060,
+          "t": 80224,
+          "tps": 79.82315290850666,
           "days": null,
           "anomaly": 2,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "10-18 01:00",
               "rate": 99.8,
@@ -12337,8 +12363,14 @@ const PROMO = [
             },
             {
               "d": "10-18 23:00",
-              "rate": 99.7,
+              "rate": 99.0,
               "ok": false,
+              "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 100.0,
+              "ok": true,
               "anomaly": false
             }
           ],
@@ -12350,19 +12382,13 @@ const PROMO = [
             "g": "NIM",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.46,
-            "l": 101784,
-            "t": 80184,
-            "tps": 79.8003556691408,
+            "r": 99.43,
+            "l": 102060,
+            "t": 80224,
+            "tps": 79.82315290850666,
             "days": 4,
             "anomaly": 2,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 99.8,
@@ -12497,22 +12523,18 @@ const PROMO = [
               },
               {
                 "d": "10-18 23:00",
-                "rate": 99.7,
+                "rate": 99.0,
                 "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
                 "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -12765,10 +12787,10 @@ const PROMO = [
               },
               {
                 "d": "2026-10-15",
-                "rate": 99.2,
-                "ok": false,
-                "sparse": false,
-                "buckets": 4,
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -12778,7 +12800,7 @@ const PROMO = [
                 "rate": 99.9,
                 "ok": true,
                 "sparse": false,
-                "buckets": 288,
+                "buckets": 281,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -12798,7 +12820,17 @@ const PROMO = [
                 "rate": 99.0,
                 "ok": false,
                 "sparse": false,
-                "buckets": 280,
+                "buckets": 284,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 8,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -12810,22 +12842,12 @@ const PROMO = [
       {
         "n": "z-ai/glm-5.3",
         "in_site": "z-ai/glm-5.3",
-        "r": 99.0,
-        "l": 133630,
-        "t": 76908,
-        "tps": 15.716269358094317,
-        "anomaly": 2,
+        "r": 99.4,
+        "l": 129668,
+        "t": 75748,
+        "tps": 15.788951203080314,
+        "anomaly": 1,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": null,
@@ -13078,10 +13100,10 @@ const PROMO = [
           },
           {
             "d": "2026-10-15",
-            "rate": 100.0,
-            "ok": true,
-            "sparse": true,
-            "buckets": 1,
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -13115,6 +13137,16 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
         "buckets_24h": 23,
@@ -13123,12 +13155,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 57.4,
-            "ok": false,
-            "anomaly": true
-          },
           {
             "d": "10-18 01:00",
             "rate": 72.2,
@@ -13260,25 +13286,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "NIM",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.0,
-          "l": 133630,
-          "t": 76908,
-          "tps": 15.716269358094317,
+          "r": 99.41,
+          "l": 129668,
+          "t": 75748,
+          "tps": 15.788951203080314,
           "days": null,
-          "anomaly": 2,
+          "anomaly": 1,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 57.4,
-              "ok": false,
-              "anomaly": true
-            },
             {
               "d": "10-18 01:00",
               "rate": 72.2,
@@ -13410,6 +13436,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -13420,19 +13452,13 @@ const PROMO = [
             "g": "NIM",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.0,
-            "l": 133630,
-            "t": 76908,
-            "tps": 15.716269358094317,
-            "days": 3,
-            "anomaly": 2,
+            "r": 99.41,
+            "l": 129668,
+            "t": 75748,
+            "tps": 15.788951203080314,
+            "days": 4,
+            "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 57.4,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 72.2,
@@ -13564,19 +13590,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -13839,10 +13861,10 @@ const PROMO = [
               },
               {
                 "d": "2026-10-16",
-                "rate": 97.8,
+                "rate": 97.7,
                 "ok": false,
                 "sparse": false,
-                "buckets": 256,
+                "buckets": 251,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -13866,6 +13888,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 2,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           }
@@ -13874,22 +13906,12 @@ const PROMO = [
       {
         "n": "z-ai/glm-5.3-flash",
         "in_site": "z-ai/glm-5.3-flash",
-        "r": 95.3,
-        "l": 18092,
-        "t": 5133,
-        "tps": 38.11832520290821,
-        "anomaly": 6,
+        "r": 95.8,
+        "l": 18399,
+        "t": 5175,
+        "tps": 37.821182470092666,
+        "anomaly": 5,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": null,
-            "ok": null,
-            "sparse": null,
-            "buckets": 0,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": null,
@@ -14142,10 +14164,10 @@ const PROMO = [
           },
           {
             "d": "2026-10-15",
-            "rate": 99.8,
-            "ok": false,
-            "sparse": true,
-            "buckets": 1,
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -14179,6 +14201,16 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 99.8,
+            "ok": false,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
         "buckets_24h": 24,
@@ -14187,12 +14219,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 87.7,
-            "ok": false,
-            "anomaly": true
-          },
           {
             "d": "10-18 01:00",
             "rate": 79.3,
@@ -14327,8 +14353,14 @@ const PROMO = [
           },
           {
             "d": "10-18 23:00",
-            "rate": 99.9,
-            "ok": true,
+            "rate": 99.8,
+            "ok": false,
+            "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 99.6,
+            "ok": false,
             "anomaly": false
           }
         ],
@@ -14336,19 +14368,13 @@ const PROMO = [
           "g": "NIM",
           "ratio": 0,
           "eff": 0.0,
-          "r": 95.27,
-          "l": 18092,
-          "t": 5133,
-          "tps": 38.11832520290821,
+          "r": 95.77,
+          "l": 18399,
+          "t": 5175,
+          "tps": 37.821182470092666,
           "days": null,
-          "anomaly": 6,
+          "anomaly": 5,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 87.7,
-              "ok": false,
-              "anomaly": true
-            },
             {
               "d": "10-18 01:00",
               "rate": 79.3,
@@ -14483,8 +14509,14 @@ const PROMO = [
             },
             {
               "d": "10-18 23:00",
-              "rate": 99.9,
-              "ok": true,
+              "rate": 99.8,
+              "ok": false,
+              "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 99.6,
+              "ok": false,
               "anomaly": false
             }
           ],
@@ -14496,19 +14528,13 @@ const PROMO = [
             "g": "NIM",
             "ratio": 0,
             "eff": 0.0,
-            "r": 95.26,
-            "l": 18089,
-            "t": 5133,
-            "tps": 38.1179251272609,
+            "r": 95.77,
+            "l": 18398,
+            "t": 5175,
+            "tps": 37.821478822520525,
             "days": 4,
-            "anomaly": 6,
+            "anomaly": 5,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 87.7,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 79.3,
@@ -14643,22 +14669,18 @@ const PROMO = [
               },
               {
                 "d": "10-18 23:00",
-                "rate": 99.9,
-                "ok": true,
+                "rate": 99.8,
+                "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 99.6,
+                "ok": false,
                 "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": null,
@@ -14911,10 +14933,10 @@ const PROMO = [
               },
               {
                 "d": "2026-10-15",
-                "rate": 99.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 4,
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -14924,7 +14946,7 @@ const PROMO = [
                 "rate": 99.9,
                 "ok": true,
                 "sparse": false,
-                "buckets": 288,
+                "buckets": 280,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -14944,7 +14966,17 @@ const PROMO = [
                 "rate": 94.9,
                 "ok": false,
                 "sparse": false,
-                "buckets": 281,
+                "buckets": 285,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 99.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 8,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -15332,25 +15364,15 @@ const PROMO = [
     "pick_total": 6,
     "health": {
       "current": {
-        "checked_at": "2026-10-18T23:37:08+08:00",
+        "checked_at": "2026-10-19T00:37:11+08:00",
         "reachable": true
       },
       "score": 70.5,
       "level": "良",
       "rate_window": 99.1,
-      "streak_days": 0,
-      "days_with_data": 5,
+      "streak_days": 1,
+      "days_with_data": 6,
       "bars": [
-        {
-          "d": "2026-09-19",
-          "rate": null,
-          "ok": null,
-          "sparse": true,
-          "buckets": null,
-          "checks": 0,
-          "failures": 0,
-          "missing_hours": 24
-        },
         {
           "d": "2026-09-20",
           "rate": null,
@@ -15640,20 +15662,30 @@ const PROMO = [
           "checks": 24,
           "failures": 1,
           "missing_hours": 0
+        },
+        {
+          "d": "2026-10-19",
+          "rate": 100.0,
+          "ok": true,
+          "sparse": true,
+          "buckets": null,
+          "checks": 1,
+          "failures": 0,
+          "missing_hours": 0
         }
       ],
       "families": [
         {
           "name": "Gemini",
-          "count": 64
+          "count": 66
         },
         {
           "name": "Claude",
-          "count": 26
+          "count": 27
         },
         {
           "name": "其他",
-          "count": 24
+          "count": 23
         },
         {
           "name": "Grok",
@@ -15665,7 +15697,7 @@ const PROMO = [
         },
         {
           "name": "DeepSeek",
-          "count": 11
+          "count": 12
         },
         {
           "name": "GLM",
@@ -15680,19 +15712,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 70.5（良）｜连通性 18/35（最近 5 次采样多数值：直连 2/5、代理 4/5、延迟中位数 4 次） + 免费模型 33.5/35（3 个监控模型成功率中位数 95.80%）+ 延迟 10/15（1252ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 70.5（良）｜连通性 18/35（最近 5 次采样多数值：直连 2/5、代理 4/5、延迟中位数 4 次） + 免费模型 33.5/35（3 个监控模型成功率中位数 95.73%）+ 延迟 10/15（1280ms）+ 观测证据 9/15（3~6 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 582,
+        "ms": 631,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 1194,
+        "ms": 2331,
         "note": ""
       }
     },
@@ -15701,21 +15733,11 @@ const PROMO = [
         "n": "gpt-image-2.5-flare",
         "in_site": "gpt-image-2.5-flare",
         "r": 99.2,
-        "l": 29153,
+        "l": 28946,
         "t": 0,
-        "tps": 59.51994861232854,
+        "tps": 59.791204877379734,
         "anomaly": 1,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": 93.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 19,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": 84.2,
@@ -16005,20 +16027,24 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
-        "buckets_24h": 17,
+        "buckets_24h": 16,
         "low_sample": null,
         "free_group": "生图",
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "10-18 01:00",
             "rate": 100.0,
@@ -16120,19 +16146,13 @@ const PROMO = [
           "g": "生图",
           "ratio": 1,
           "eff": 1.0,
-          "r": 99.24,
-          "l": 29153,
+          "r": 99.2,
+          "l": 28946,
           "t": 0,
-          "tps": 59.51994861232854,
+          "tps": 59.791204877379734,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "10-18 01:00",
               "rate": 100.0,
@@ -16238,19 +16258,13 @@ const PROMO = [
             "g": "生图",
             "ratio": 1,
             "eff": 1.0,
-            "r": 99.24,
-            "l": 29153,
+            "r": 99.2,
+            "l": 28946,
             "t": 0,
-            "tps": 59.51994861232854,
-            "days": 30,
+            "tps": 59.791204877379734,
+            "days": 29,
             "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 100.0,
@@ -16349,16 +16363,6 @@ const PROMO = [
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 93.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 19,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 84.0,
@@ -16648,6 +16652,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -16659,20 +16673,10 @@ const PROMO = [
             "l": 37000,
             "t": 0,
             "tps": 48.839042802432076,
-            "days": 28,
+            "days": 27,
             "anomaly": 0,
             "bars_24h": [],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": true,
-                "buckets": 1,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 100.0,
@@ -16962,6 +16966,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           }
@@ -16970,22 +16984,12 @@ const PROMO = [
       {
         "n": "gpt-image-2.5",
         "in_site": "gpt-image-2.5",
-        "r": 95.8,
-        "l": 29349,
+        "r": 95.7,
+        "l": 29122,
         "t": 0,
-        "tps": 64.08219586673323,
+        "tps": 64.33349153481282,
         "anomaly": 1,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": 92.2,
-            "ok": false,
-            "sparse": false,
-            "buckets": 24,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": 90.7,
@@ -17268,10 +17272,20 @@ const PROMO = [
           },
           {
             "d": "2026-10-18",
-            "rate": 98.4,
+            "rate": 98.5,
             "ok": false,
             "sparse": false,
-            "buckets": 20,
+            "buckets": 21,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -17283,12 +17297,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "10-18 01:00",
             "rate": 100.0,
@@ -17390,25 +17398,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-18 23:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "生图",
           "ratio": 1,
           "eff": 1.0,
-          "r": 95.8,
-          "l": 29349,
+          "r": 95.73,
+          "l": 29122,
           "t": 0,
-          "tps": 64.08219586673323,
+          "tps": 64.33349153481282,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "10-18 01:00",
               "rate": 100.0,
@@ -17510,6 +17518,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-18 23:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -17524,7 +17538,7 @@ const PROMO = [
             "l": 25645,
             "t": 0,
             "tps": 66.87306984433977,
-            "days": 29,
+            "days": 28,
             "anomaly": 0,
             "bars_24h": [
               {
@@ -17565,16 +17579,6 @@ const PROMO = [
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 95.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 10,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 82.1,
@@ -17864,6 +17868,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -17871,19 +17885,13 @@ const PROMO = [
             "g": "生图",
             "ratio": 1,
             "eff": 1.0,
-            "r": 95.8,
-            "l": 29349,
+            "r": 95.73,
+            "l": 29122,
             "t": 0,
-            "tps": 64.08219586673323,
-            "days": 30,
+            "tps": 64.33349153481282,
+            "days": 29,
             "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 100.0,
@@ -17985,19 +17993,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-18 23:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 90.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 23,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 92.4,
@@ -18280,10 +18284,20 @@ const PROMO = [
               },
               {
                 "d": "2026-10-18",
-                "rate": 98.3,
+                "rate": 98.4,
                 "ok": false,
                 "sparse": false,
-                "buckets": 18,
+                "buckets": 19,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -18295,22 +18309,12 @@ const PROMO = [
       {
         "n": "gpt-image-2.5-sunburst",
         "in_site": "gpt-image-2.5-sunburst",
-        "r": 92.1,
-        "l": 28978,
+        "r": 93.0,
+        "l": 28574,
         "t": 0,
-        "tps": 58.17223095209908,
+        "tps": 59.79464073169916,
         "anomaly": 5,
         "bars": [
-          {
-            "d": "2026-09-19",
-            "rate": 84.5,
-            "ok": false,
-            "sparse": false,
-            "buckets": 19,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
           {
             "d": "2026-09-20",
             "rate": 86.4,
@@ -18600,6 +18604,16 @@ const PROMO = [
             "checks": null,
             "failures": null,
             "missing_hours": null
+          },
+          {
+            "d": "2026-10-19",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 1,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
           }
         ],
         "buckets_24h": 18,
@@ -18608,12 +18622,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "10-18 00:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "10-18 01:00",
             "rate": 100.0,
@@ -18715,25 +18723,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "10-19 00:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "生图",
           "ratio": 1,
           "eff": 1.0,
-          "r": 92.08,
-          "l": 28978,
+          "r": 93.04,
+          "l": 28574,
           "t": 0,
-          "tps": 58.17223095209908,
+          "tps": 59.79464073169916,
           "days": null,
           "anomaly": 5,
           "bars_24h": [
-            {
-              "d": "10-18 00:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "10-18 01:00",
               "rate": 100.0,
@@ -18835,6 +18843,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "10-19 00:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -18849,7 +18863,7 @@ const PROMO = [
             "l": 26898,
             "t": 0,
             "tps": 51.49700941287833,
-            "days": 29,
+            "days": 28,
             "anomaly": 0,
             "bars_24h": [
               {
@@ -18872,16 +18886,6 @@ const PROMO = [
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 93.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 4,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 58.3,
@@ -19171,6 +19175,16 @@ const PROMO = [
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
               }
             ]
           },
@@ -19178,19 +19192,13 @@ const PROMO = [
             "g": "生图",
             "ratio": 1,
             "eff": 1.0,
-            "r": 92.08,
-            "l": 28978,
+            "r": 93.04,
+            "l": 28574,
             "t": 0,
-            "tps": 58.17223095209908,
+            "tps": 59.79464073169916,
             "days": 30,
             "anomaly": 5,
             "bars_24h": [
-              {
-                "d": "10-18 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "10-18 01:00",
                 "rate": 100.0,
@@ -19292,19 +19300,15 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "10-19 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
-              {
-                "d": "2026-09-19",
-                "rate": 83.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 19,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
               {
                 "d": "2026-09-20",
                 "rate": 88.8,
@@ -19591,6 +19595,16 @@ const PROMO = [
                 "ok": false,
                 "sparse": false,
                 "buckets": 18,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
