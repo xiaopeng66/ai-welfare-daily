@@ -789,6 +789,32 @@ def topic_key(topic: dict) -> str:
     return f"{site or 'unknown'}#{topic.get('id')}"
 
 
+def activity_source(source: str) -> str:
+    """折叠用的来源键：按站点归并（`nodeloc_p1` / `nodeloc_p2` / `nodeloc` 同一个源）。
+
+    页面 foldCards 用 sourceKey（标签前缀）归并；窗口计数必须同口径，否则同一标题
+    跨分页出现时，页面折成一张、store 算两个活动（2026-10-19 线上 302 的一半原因）。
+    """
+    return str(source or "").strip().split("_", 1)[0]
+
+
+def activity_key(t: dict) -> str:
+    """活动折叠键 —— 必须与页面 foldCards 的键完全同构。
+
+    活动身份优先（offer.key，没有时用 offer.campaign：转帖常常认得出活动、认不出
+    站点），否则 来源（按站点归并）+ 标题。前缀 O:/T: 与页面一致，避免一个恰好
+    叫 "T:xxx" 的 campaign 与标题键相撞。
+    """
+    off = t.get("offer") or {}
+    ok = off.get("key") or off.get("campaign")
+    title = str(t.get("title") or "").strip()
+    if not ok and not title:
+        return f"#lone:{t.get('id')}"      # 无活动键也无标题的行各算一个，不互相折叠
+    if ok:
+        return "O:" + str(ok)
+    return "T:" + activity_source(t.get("source")) + "|#|" + title
+
+
 def deduplicate(topics: list) -> list:
     seen = set()
     out = []
@@ -1760,21 +1786,14 @@ def main():
     # and it differs from the bare id only for a cross-site id collision.
     merged_items = list(merged.items())
 
-    # 窗口裁剪按**活动**计数（2026-10-17 用户口径）：新帖与存帖合并后，同一活动
-    # （offer key 优先，否则 来源+标题——与页面 foldCards 的键同构）算一条；活动数
-    # 超过上限就淘汰**最旧的整个活动**（连同成员帖）。不够上限则不淘汰，靠增量
-    # 合并自然补足到 300 个活动。
-    def fold_key(t):
-        off = t.get("offer") or {}
-        ok = off.get("key") or off.get("campaign")
-        title = str(t.get("title") or "").strip()
-        if not ok and not title:
-            return f"#lone:{t.get('id')}"      # 无活动键也无标题的行各算一个，不互相折叠
-        return ok or f"{t.get('source', '')}|#|{title}"
-
+    # 窗口裁剪按**活动**计数（2026-10-17 用户口径）：新帖与存帖合并后，同一活动算一条；
+    # 活动数超过上限就淘汰**最旧的整个活动**（连同成员帖）。不够上限则不淘汰，靠增量
+    # 合并自然补足到 300 个活动。键必须与页面 foldCards 完全同构（2026-10-19 修：
+    # 页面只认 offer.key，这里还认 campaign；来源带 _pN 分页后缀时两边也会算成两组
+    # ——线上 hero 因此显示 302 而不是 300）。
     groups: dict[str, list] = {}
     for kv in merged_items:
-        groups.setdefault(fold_key(kv[1]), []).append(kv)
+        groups.setdefault(activity_key(kv[1]), []).append(kv)
     if len(groups) > args.limit:
         # 活动的时间 = 组内最新一条（与页面折叠后保留最新一条同口径）
         def group_age(items):

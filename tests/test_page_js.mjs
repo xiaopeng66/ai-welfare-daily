@@ -146,6 +146,11 @@ function build(payloadScript) {
 
 const { api, doc: document } = build(script);
 
+// 真实载荷（未替换 fixture）：页面折叠数必须 <= 窗口上限。2026-10-19 线上 hero
+// 显示 302 —— 页面只认 offer.key、fetch 还认 campaign，两套键不一致。
+const published = build(inlineJs).api.getView();
+check(published.length <= 300, 'the published page shows at most 300 activities', published.length);
+
 console.log('== the 24-hour window ==');
 check(api.isRecent({ created_at: iso(t - 1 * HOUR) }) === true, '1 hour old is recent');
 check(api.isRecent({ created_at: iso(t - 23 * HOUR) }) === true, '23 hours old is recent');
@@ -257,6 +262,28 @@ const hit = memberBuilt.api.makeEntries();
 check(hit.length === 1 && hit[0].c.id === '401',
   '搜索被折成员的独有标题直接命中那一条', hit.map((x) => x.c.id));
 memberBuilt.api.state.query = '';
+
+console.log('\n== campaign-only rows fold into one activity (2026-10-19) ==');
+// 正文层认得出活动、却认不出站点时 offer.key 为 null、campaign 有值（muse 转帖）。
+// 页面折叠键必须和 fetch 的窗口计数同构，否则 hero 会超过 300（线上实测 302）。
+const campaignCards = [
+  { ...row('601', 'Muse兑换 10亿额度', iso(t - 3 * HOUR), iso(t - 3 * HOUR)), source: 'linuxsb_发卡',
+    offer: { v: 8, key: null, site: '', campaign: 'muse' } },
+  { ...row('602', '新鲜出炉的muse邀请码，有需要的自取。', iso(t - 2 * HOUR), iso(t - 2 * HOUR)), source: 'nodeloc_p3',
+    offer: { v: 8, key: null, site: '', campaign: 'muse' } },
+  { ...row('603', 'muse邀请码，有兑换的么？', iso(t - 1 * HOUR), iso(t - 1 * HOUR)), source: 'nodeloc_p2',
+    offer: { v: 8, key: null, site: '', campaign: 'muse' } },
+  { ...row('604', '另一个活动', iso(t - 1 * HOUR), iso(t - 1 * HOUR)), source: 'nodeloc_p3',
+    offer: { v: 8, key: null, site: '', campaign: 'other' } },
+];
+const campaignBuilt = build(inlineJs.replace(payload, JSON.stringify(campaignCards)));
+const campaignView = campaignBuilt.api.getView();
+check(campaignView.length === 2, 'campaign-only rows fold by campaign (4 -> 2)', campaignView.length);
+const museCampaign = campaignView.find((c) => c.offer && c.offer.campaign === 'muse');
+check(museCampaign && museCampaign.dups === 3 && museCampaign.id === '603',
+  'the newest muse repost survives with dups=3', museCampaign && `${museCampaign.id}/${museCampaign.dups}`);
+check(campaignBuilt.api.renderCard(museCampaign).includes('data-fold="O:muse"'),
+  'the badge carries the campaign as the fold key');
 
 console.log('\n== 折叠键不含 NUL（HTML 属性解析会把它变成 U+FFFD）==');
 const keyProbe = memberBuilt.api.foldCards(memberCards);

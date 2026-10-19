@@ -18,17 +18,17 @@ import subprocess
 import sys
 import tempfile
 
-# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
-# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
-# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
-# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN_PY = os.path.join(ROOT, 'generate.py')
 STORE = os.path.join(ROOT, 'data', 'topics.jsonl')
@@ -186,6 +186,15 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
     check(ca is not None and cb is not None, 'both pages have a cards payload')
     check(ca == cb, 'docs/index.html cards match the committed store',
           f'{digest(ca.encode())[:12]} != {digest(cb.encode())[:12]} - regenerate and commit the page')
+    # 活动口径（2026-10-19）：窗口上限按「活动」算，页面折叠键必须与 fetch 完全同构。
+    # 两边不一致时 hero 会超过 300（线上实测 302），而 fetch 的日志算 299。
+    spec = importlib.util.spec_from_file_location('fetch_activity', os.path.join(ROOT, 'fetch.py'))
+    fetch_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fetch_mod)
+    activities = {fetch_mod.activity_key(r) for r in json.loads(ca)}
+    check(len(activities) <= fetch_mod.DEFAULT_LIMIT,
+          'the committed page folds to at most DEFAULT_LIMIT activities',
+          f'{len(activities)} > {fetch_mod.DEFAULT_LIMIT}')
     # 精选板结构：注入点在、非空、每张卡都有合法 kind（内容对错由有缓存的本地门禁管）
     m = re.search(rb'const FEATURED=(\[[^\n]*\]);', b)
     check(m is not None, 'the featured payload is embedded in the committed page', None)
@@ -299,7 +308,8 @@ _FOLD = [
     ('角标样式存在', '.dups{'),
     ('角标标题文案', '已折叠显示最新一条'),
     # 2026-10-15 正文层：同一份 offer（offer.key）也参与折叠
-    ('offer 折叠分支', '(c.offer&&c.offer.key)'),
+    # 2026-10-19：没有 key 时 campaign 也参与（与 fetch.activity_key 同构）
+    ('offer 折叠分支', '(c.offer&&(c.offer.key||c.offer.campaign))'),
     ('offer 角标文案', '同一份福利共'),
     ('提示文案含正文判定', '正文判定为同一份福利'),
     # 2026-10-15 用户要求：角标更显眼（彩色胶囊）且点开可看该组清单

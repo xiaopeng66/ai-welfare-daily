@@ -351,21 +351,22 @@ const formatter=new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:
 const formatTime=s=>{const n=stamp(s);if(!n)return '时间未知';const parts=Object.fromEntries(formatter.formatToParts(new Date(n)).map(x=>[x.type,x.value]));return `${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`};
 const safeURL=s=>{try{const u=new URL(s);return (u.protocol==='https:'||u.protocol==='http:')?u.href:null}catch{return null}};
 /* 折叠：两类重复只渲染最新一张，角标 ×N 标出折叠条数。
-   ① 同一份 offer（store 的 offer.key，由正文层判定）—— 不同标题、同一份福利
-      （muse 30 亿被十几个人各发一条，标题条条不同，纯标题折叠一条都折不掉）；
-   ② 同来源 + 同标题（历史行为；没有 offer.key 的行走这条）。
+   ① 同一份 offer（store 的 offer.key，没有 key 时用 offer.campaign；正文层判定）——
+      不同标题、同一份福利（muse 30 亿被十几个人各发一条，标题条条不同，纯标题折叠
+      一条都折不掉；转帖常常认得出活动、认不出站点，campaign 不参与就会各占一张卡）；
+   ② 同来源 + 同标题（历史行为；没有活动身份的行走这条）。
    折叠只发生在渲染层：store 保留每一行（合并键 host#id），页面仍是 store 的纯函数。
    分隔符**不能用 NUL**：它写进 data-fold 属性后按 HTML5 规则会变成 U+FFFD，
    点击角标时查不到分组、弹窗打不开（2026-10-15 审计复现 1 组）。用 '|#|' 这种可打印串。 */
 function foldKeyOf(c){
-  /* 与 foldCards 的折叠键同构：offer 优先，否则 来源+标题（展开/收起按 key 找成员） */
+  /* 与 foldCards 的折叠键同构：活动身份（key/campaign）优先，否则 来源+标题（展开/收起按 key 找成员） */
   const title = String(c.title || '').trim();
-  const ok = (c.offer && c.offer.key) ? ('O:' + c.offer.key) : null;
+  const ok = (c.offer && (c.offer.key || c.offer.campaign)) ? ('O:' + (c.offer.key || c.offer.campaign)) : null;
   if (!ok && !title) return null;
   return ok || ('T:' + sourceKey(c.source) + '|#|' + title);
 }
 
-function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&c.offer.key)?('O:'+c.offer.key):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
+function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&(c.offer.key||c.offer.campaign))?('O:'+(c.offer.key||c.offer.campaign)):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
 const view=foldCards(cards);
 /* 展开清单：该组每条的标题 + 北京时间，点任意一条去原帖。点击不整页重渲染（只挂/摘一个节点），
    展开状态记在 state.expanded —— 切筛选/排序后重新渲染仍保持展开。 */
