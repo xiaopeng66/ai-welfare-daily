@@ -34,7 +34,7 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 8                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+OFFER_V = 9                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
                                  # （v8：活动级身份 offer.campaign + 亿/万 左边界放宽 + 正文不可用也写 thin；
                                  #   v7：量值边界 + …；v6：正文声明隐藏内容时只认入口形状的 URL；v5：量值单位边界 + offer 会过期重判；
                                  #   v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
@@ -450,6 +450,13 @@ def amount_in_offer(title: str, body: str) -> str:
 # 品牌词很泛（gpt/claude 这类）会一锅端。
 CAMPAIGN_ALIASES = {
     "muse": ("muse.ai", "t.me/satudigitalbot"),
+    # 2026-10-24 两个用户点名的案例：
+    # · zcode：1024 节"端内领 5 亿 token"的活动 —— **没有任何网页链接**（端内活动），
+    #   8+ 条帖子横跨 linux.do/linux.sb/nextbuf，此前各算各的卡。无域名可列，members 空。
+    # · hyxapi：站点域名是 hyxware.com（帖子里带 /auth?aff= 链接的那三条能并上），
+    #   但转帖标题只写 "Hyxapi公益站" —— 活动名与域名不同名，靠别名表对上。
+    "zcode": (),
+    "hyxapi": ("hyxware.com",),
 }
 
 
@@ -470,7 +477,7 @@ def campaign_of(site: str, title: str, body: str) -> str:
 def offer_of(title: str, body: str, links=()) -> dict:
     """判这条帖属于哪一份 offer。判不出就返回 key=None（仍带 v 标记）。
 
-    身份 = **归一后的被推广站点**（域名 / TG 机器人名）：
+    身份 = **活动名（别名命中时），否则归一后的被推广站点**（域名 / TG 机器人名）：
     · 品牌不参与 —— 实测同一站 `dzhsmartai.com` 的帖子标题分别写 claude/deepseek/gpt，
       按「品牌|站点」会被拆成四份；读者眼里的同一件事就是「同一个站」。
     · 量值不参与 —— 同一个 muse 活动在语料里被写成 30亿 / 3B / 30B 三种口径。
@@ -480,8 +487,13 @@ def offer_of(title: str, body: str, links=()) -> dict:
     amount = amount_in_offer(title, body)
     m = BRAND.search(title) or BRAND.search(body[:400])
     brand = m.group(0).lower() if m else ""
-    return {"v": OFFER_V, "key": (site or None), "site": site,
-            "campaign": campaign_of(site, title, body), "amount": amount, "brand": brand}
+    campaign = campaign_of(site, title, body)
+    # key = **活动名优先**，没有活动名才是站点（2026-10-24）：
+    #   别名命中的活动，"带链接的帖"（site=hyxware.com）与"只在标题里写活动名的帖"
+    #   （site 空、campaign=hyxapi）必须落到**同一个键**上，否则一个活动两张卡。
+    #   非别名行为完全不变（campaign == site）。品牌与量值仍然不参与 —— 见 docstring。
+    return {"v": OFFER_V, "key": (campaign or site or None), "site": site,
+            "campaign": campaign, "amount": amount, "brand": brand}
 
 
 # 纯函数到这里为止；`at` 时间戳由 _judge 落笔（offer_of 保持可离线断言）。

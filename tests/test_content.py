@@ -14,17 +14,28 @@ import shutil
 import sys
 import tempfile
 
-# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
-# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
-# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
-# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+
+for _stream in (sys.stdout, sys.stderr):
+
+    try:
+
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
+    except Exception:
+
+        pass
+
+
+
+
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import content as c  # noqa: E402
 
@@ -187,8 +198,11 @@ keys = {c.offer_of(t, b)["key"] for t, b in zip(
     ["速领30亿token，机器人灌满muse，耍疯喽", "白嫖30亿muse token", "tg bot 把 muse 的价格打下来了"],
     muse_bodies)}
 check(len(keys) == 1 and None not in keys, "muse 三条不同标题 → 同一把 offer key", keys)
-check(keys.pop() == "t.me/satudigitalbot",
-      "key = TG 机器人名（v2：身份只看站点，品牌进 offer.brand；ref 推广号不进 key）")
+# 2026-10-24 口径更新（用户点名 zcode/hyxapi 两个案例）：别名命中的活动，
+# key = 活动名 —— 链接帖（t.me 机器人）与只在标题里写活动名的转帖必须同一个键。
+# 防误合的边界是**人工维护的别名表**（加条目要实测证据），不是"一律不许跨入口"。
+check(keys.pop() == "muse",
+      "key = 活动名（别名命中；品牌进 offer.brand，ref 推广号不进 key）")
 
 print("\n== offer 判定：不同份绝不能合并 ==")
 gpt_a = c.offer_of("注册送20刀 0.15倍率gpt", "https://www.primerelay.online/register?aff=X 注册进群领10刀")
@@ -222,8 +236,10 @@ muse_repost = c.offer_of("Muse兑换 10亿额度", "自己把邀请码扔给机�
 check(muse_site["campaign"] == muse_bot["campaign"] == muse_repost["campaign"] == "muse",
       "官网 / 电报机器人 / 无链接转帖 → 同一个活动身份",
       [muse_site["campaign"], muse_bot["campaign"], muse_repost["campaign"]])
-check(len({muse_site["key"], muse_bot["key"]}) == 2 and muse_repost["key"] is None,
-      "offer.key 保持站点级不变（页面折叠不动，跨站合并会误合，见 RULES.md §5）",
+# 2026-10-24 口径更新：三个入口 → 同一个 key（此前站点级 key 一分为三，页面三张卡）。
+# 防误合的边界 = 别名表人工维护（RULES.md v9），站点字段 offer.site 仍如实保留。
+check(muse_site["key"] == muse_bot["key"] == muse_repost["key"] == "muse",
+      "官网 / 电报机器人 / 无链接转帖 → 同一个 key（一个活动一张卡）",
       [muse_site["key"], muse_bot["key"], muse_repost["key"]])
 check(c.offer_of("注册送20刀 gpt", "https://a-relay.example/register 送20刀")["campaign"] == "a-relay.example"
       and c.offer_of("注册送10刀 gpt", "https://b-relay.example/register 送10刀")["campaign"] == "b-relay.example",
@@ -394,6 +410,31 @@ _title_changed = {"id": "1", "title": "t2", "url": "u", "source": "linuxsb_首�
 fm.carry_forward(_prev, _title_changed)
 check("offer" not in _title_changed, "carry_forward：标题变了不继承旧 offer")
 
+# ---------------------------------------------------------------- 合并键：活动名优先（2026-10-24）
+# 由头：zcode 1024"端内领 5 亿"的活动没有任何网页链接（8+ 条帖跨 3 个源，各算各的卡）；
+# hyxapi 的站点域名是 hyxware.com，转帖标题只写 "Hyxapi公益站" —— 活动名与域名不同名。
+# 规则：key = 活动名（别名命中，链接帖与标题帖同一个键）→ 站点 → None。
+# 品牌与量值仍然不参与（那是两条有语料教训的明文决策，不能因为这次改动回潮）。
+check(c.offer_of("muse 送 30 亿", "", ("https://muse.ai/x",))["key"] == "muse",
+      "合并键：muse 的链接帖 → 活动名 muse（不再用域名当键）")
+check(c.offer_of("鸡蛋！！MUSE 电报领 30 亿", "", ("https://t.me/satudigitalbot",))["key"] == "muse",
+      "合并键：muse 的另一个入口（t.me 机器人）→ 同一个键 muse（此前一分为二）")
+check(c.offer_of("muse AI免费领鸡蛋邀请码", "", ())["key"] == "muse",
+      "合并键：无链接、标题认得出活动 → 也能并进 muse")
+check(c.offer_of("HyxAPI新公益站，签到10刀以上", "", ("https://hyxware.com/auth?mode=register&aff=BBpX",))["key"] == "hyxapi",
+      "合并键：hyxware.com 的链接帖 → 活动名 hyxapi")
+check(c.offer_of("Hyxapi公益站", "", ())["key"] == "hyxapi",
+      "合并键：只在标题里写 Hyxapi（linux.do 那条未判定帖）→ 同一个键 hyxapi")
+check(c.offer_of("zcode 1024端内送5亿token额度", "", ())["key"] == "zcode",
+      "合并键：端内活动无链接（zcode）→ 标题里的活动名当键")
+_zk = c.offer_of("快去白嫖zcode领取5亿可用glm5.3", "", ())
+check(_zk["key"] == "zcode" and "5亿" not in _zk["key"] and "glm" not in _zk["key"],
+      "合并键：量值与品牌仍不参与（zcode 就是键，5亿/glm 都不是）", _zk)
+check(c.offer_of("某站注册送 10 刀", "", ("https://dzhsmartai.com/",))["key"] == "dzhsmartai.com",
+      "合并键：没进别名表的站，行为不变（key == 站点）")
+check(c.offer_of("免费领取5亿token庆祝1024节", "", ())["key"] is None,
+      "合并键：无链接且标题认不出活动 → 仍是 None（等正文判定，不瞎猜）")
+
 print("\n== annotate：预算、缓存、失败跳过 ==")
 tmp = tempfile.mkdtemp()
 old_cache = c.CACHE_DIR
@@ -424,8 +465,8 @@ try:
 
     n = c.annotate(rows, fake_fetch, limit=10, delay=0, timeout=1, log=lambda _m: None)
     check(n == 2, "处理了两条（1 号成功、3 号成功、2 号失败被跳过）", n)
-    check(rows[0].get("offer", {}).get("key") == "t.me/satudigitalbot",
-          "1 号帖写入 offer key", rows[0].get("offer"))
+    check(rows[0].get("offer", {}).get("key") == "muse",
+          "1 号帖写入 offer key（别名活动 → 活动名）", rows[0].get("offer"))
     check("offer" not in rows[1], "抓失败的 2 号帖不写 offer（下轮再试）")
     check("offer" not in rows[3], "linux.do 不在 EXTRACTORS 里 → 不抓、不写（行为同今天）")
     check(rows[2].get("offer", {}).get("site") == "station-x.com", "nextbuf 的 offer 判定生效")

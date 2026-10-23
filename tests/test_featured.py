@@ -104,6 +104,15 @@ for mod in (featured, sys.modules["content"] if "content" in sys.modules else No
     check("\x08" not in open(mod.__file__, encoding="utf-8").read(),
           f"{mod.__name__}.py 无控制字符残留（concrete 词表 api 后曾混入退格符）", mod.__file__)
 
+# ---------------------------------------------------------------- 活动别名表同步（2026-10-24 加）
+# featured.py 与 content.py 各有一份 CAMPAIGN_ALIASES（"双份 build_items"事故的同族）。
+# 2026-10-24 给两份同时加了 zcode / hyxapi；这条断言钉住"以后只改一份必红"。
+import content as _content_mod
+check(featured.CAMPAIGN_ALIASES == _content_mod.CAMPAIGN_ALIASES,
+      "featured 与 content 的活动别名表完全一致（漂移会在这里红）",
+      f"featured={sorted(featured.CAMPAIGN_ALIASES)} content={sorted(_content_mod.CAMPAIGN_ALIASES)}")
+
+
 # ---------------------------------------------------------------- CI 复现（2026-10-24 加）
 # 云端 CI 检出仓库后**没有** data/cache/content（gitignored）—— 原来 load_cache 直接
 # os.listdir 抛异常 → featured.update 崩 → build_featured 兜底成空载荷 → 线上精选板整块消失。

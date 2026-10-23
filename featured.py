@@ -111,6 +111,10 @@ CARRIER_HOSTS = (
 # 活动别名表：与 content.py 的 CAMPAIGN_ALIASES 对齐（一个活动多个入口，卡片按活动聚合）
 CAMPAIGN_ALIASES = {
     "muse": ("muse.ai", "t.me/satudigitalbot"),
+    # 与 content.py 的 CAMPAIGN_ALIASES 保持一致（2026-10-24 加；两份表漂移过一次，
+    # tests/test_featured.py 有同步断言盯着）。
+    "zcode": (),
+    "hyxapi": ("hyxware.com",),
 }
 
 

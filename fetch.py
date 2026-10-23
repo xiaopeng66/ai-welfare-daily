@@ -1529,6 +1529,31 @@ def _flag_identity_failures(report: dict) -> list:
     return failed
 
 
+def apply_title_offers(rows) -> int:
+    """给**还没判定过正文**的行（offer 没有 at）补一个"仅凭标题"的临时 offer。
+
+    为什么需要（2026-10-24，用户点名的 hyxapi 案例）：offer 只在正文判定时写入，
+    而 linux.do 的正文走隐身通道 —— 每轮预算 8 条、积压 90+ 条 ≈ 12 小时延迟。
+    没判到的行连 offer 都没有，合并键退化成"来源+标题"，同一个活动在等正文
+    的这半天里就是两张卡。标题里认得出的活动（别名表命中）与量值，在这里先给上；
+    正文轮到它时 _judge 会覆盖成带站点的正式 offer（临时 offer 不写 at，
+    在 _offer_stale 眼里永远是"待判"，不会被误当成已判过）。
+    零网络、纯标题函数。返回补了多少行。
+    """
+    import content as _c
+    n = 0
+    for r in rows:
+        if (r.get("offer") or {}).get("at"):
+            continue                       # 已正式判定过，不动
+        title = str(r.get("title") or "")
+        offer = _c.offer_of(title, "", ())
+        offer["provisional"] = True      # 标记：仅凭标题、正文还没判（_row_changed 据此豁免）
+        if offer != (r.get("offer") or {}):
+            r["offer"] = offer
+            n += 1
+    return n
+
+
 def trim_activities(merged_items: list, limit: int, age_key) -> tuple[list, dict]:
     """按**活动**数裁剪 (key, topic) 列表，返回 (保留项, 统计)。
 
@@ -1554,6 +1579,15 @@ def trim_activities(merged_items: list, limit: int, age_key) -> tuple[list, dict
                   "rows": sum(len(items) for _gk, items in dropped), "oldest": oldest}
 
 
+# offer 里的记账字段：版本号（规则升级）、判定时刻、正文薄厚。
+# 它们变了不代表帖子内容变了 —— _row_changed 只看语义字段。
+_OFFER_META_FIELDS = ("v", "at", "thin", "provisional")
+
+
+def _offer_semantic(offer) -> dict:
+    return {k: v for k, v in (offer or {}).items() if k not in _OFFER_META_FIELDS}
+
+
 def _row_changed(prev: dict, t: dict) -> bool:
     """True when a freshly fetched row differs from the stored one in anything
     the site shows.
@@ -1575,7 +1609,22 @@ def _row_changed(prev: dict, t: dict) -> bool:
     # 更新不算「最近收录」变化）。这行比较是给「offer 真的变了」（OFFER_V 升级、
     # key 从 A 变 B）留的出口。
     if (t.get("offer") or None) != (prev.get("offer") or None):
-        return True
+        # offer 的变化分三层（2026-10-24）：
+        #  ① 旧行没有 offer、新行是**仅凭标题的临时 offer**（provisional，正文还没判）
+        #     → 帖子本身没变，只是提前认出了活动身份 —— 不算内容变化。
+        #     否则一次会给 90+ 条 linux.do 积压行刷新 fetched_at，"最近收录"全变刚刚。
+        #  ② 两行都有 offer → 比**语义**（key/site/campaign/amount/brand）。
+        #     v/at/thin 是记账字段：OFFER_V 升级引起的整库重判不该把两三百行的
+        #     fetched_at 一次刷爆（那正是"fetched_at 只随内容变"原则要防的）。
+        #  ③ 其它（offer 首次正式出现、key 从 A 变 B）→ 算变了。
+        _new, _old = (t.get("offer") or {}), (prev.get("offer") or {})
+        if not _old:
+            if _new.get("provisional"):
+                pass                          # ①
+            else:
+                return True                   # ③ 首次正式判定（tests/test_content 钉着这条）
+        elif _offer_semantic(_new) != _offer_semantic(_old):
+            return True                       # ③ 语义真的变了
     return bool(t.get("published_verified")) != bool(prev.get("published_verified"))
 
 
@@ -1916,6 +1965,9 @@ def main():
             print(f"[content] 裁剪前用缓存判定 {_cached_n} 行 offer（零网络）", file=sys.stderr)
     except Exception as exc:                  # 缓存层永不拖垮主链
         print(f"[content] 缓存预判失败（忽略）：{exc!r}", file=sys.stderr)
+    _title_n = apply_title_offers([t for _k, t in merged_items])
+    if _title_n:
+        print(f"[content] 给 {_title_n} 行未判定帖补了仅凭标题的临时 offer", file=sys.stderr)
 
     merged_items, _trim = trim_activities(merged_items, args.limit, age_key)
     if _trim["dropped"]:

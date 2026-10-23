@@ -949,6 +949,42 @@ check(_proc.returncode != 0, "--limit 0 被拒绝（非零退出）", _proc.retu
 check("keep" in open(_store, encoding="utf-8").read(), "store 原样保留", open(_store, encoding="utf-8").read()[:80])
 
 
+print('
+== 无链接/未判定活动的合并（2026-10-24，zcode 与 hyxapi 案例）==')
+
+_rows_ttl = [{"id": "1", "source": "linuxdo_welfare_p1", "url": "https://linux.do/t/topic/1",
+              "title": "zcode 1024端内送5亿token额度"},
+             {"id": "2", "source": "linuxsb_福利放送", "url": "https://linux.sb/topic/2",
+              "title": "无关帖", "offer": {"v": content_mod.OFFER_V, "key": "x.com",
+                                          "site": "x.com", "at": 1792770000}}]
+_n = mod.apply_title_offers(_rows_ttl)
+check(_n == 1 and _rows_ttl[0]["offer"]["key"] == "zcode"
+      and _rows_ttl[0]["offer"].get("provisional") is True,
+      "未判定帖拿到仅凭标题的临时 offer（provisional 标记）", _rows_ttl[0].get("offer"))
+check(_rows_ttl[1]["offer"]["key"] == "x.com" and "provisional" not in _rows_ttl[1]["offer"],
+      "已正式判定过的行（有 at）不被临时 offer 覆盖", _rows_ttl[1].get("offer"))
+check(mod.activity_key(_rows_ttl[0]) == "O:zcode",
+      "临时 offer 的行按活动折叠（不再退化成 标题键）", mod.activity_key(_rows_ttl[0]))
+
+check(mod._row_changed({"title": "t", "url": "u", "offer": None},
+                       {"title": "t", "url": "u",
+                        "offer": {"v": 9, "key": "zcode", "campaign": "zcode", "provisional": True}}) is False,
+      "临时 offer 首次出现 ≠ 内容变化（积压行的 fetched_at 不许一次刷爆）")
+check(mod._row_changed({"title": "t", "url": "u",
+                        "offer": {"v": 8, "key": "x.com", "site": "x.com", "at": 2}},
+                       {"title": "t", "url": "u",
+                        "offer": {"v": 9, "key": "x.com", "site": "x.com", "at": 1}}) is False,
+      "只有 v/at 变了（规则升级引起的整库重判）≠ 内容变化")
+check(mod._row_changed({"title": "t", "url": "u",
+                        "offer": {"v": 8, "key": "hyxware.com", "site": "hyxware.com", "at": 2}},
+                       {"title": "t", "url": "u",
+                        "offer": {"v": 9, "key": "hyxapi", "site": "hyxware.com", "at": 1}}) is True,
+      "key 真的变了（hyxware.com → hyxapi）= 内容变化（fetched_at 要刷新）")
+check(mod._row_changed({"title": "t", "url": "u", "offer": None},
+                       {"title": "t", "url": "u", "offer": {"v": 1}}) is True,
+      "offer 首次正式出现 = 内容变化（tests/test_content 钉过的既有行为，不许回退）")
+
+
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
 sys.exit(0 if passed == len(results) else 1)
