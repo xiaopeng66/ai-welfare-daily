@@ -1540,7 +1540,13 @@ def apply_title_offers(rows) -> int:
     在 _offer_stale 眼里永远是"待判"，不会被误当成已判过）。
     零网络、纯标题函数。返回补了多少行。
     """
-    import content as _c
+    try:
+        import content as _c
+    except ImportError:
+        # fetch 要能**孤立运行**（tests/test_guards 的密闭环境就是这么跑的：
+        # 全部源注入、不依赖仓库里其他模块）—— content 不在场时跳过这一步，
+        # 绝不让它把主链带走（2026-10-24 05:37 轮实测：裸 import 让主站腿 exit=1）。
+        return 0
     n = 0
     for r in rows:
         if (r.get("offer") or {}).get("at"):
@@ -1965,9 +1971,12 @@ def main():
             print(f"[content] 裁剪前用缓存判定 {_cached_n} 行 offer（零网络）", file=sys.stderr)
     except Exception as exc:                  # 缓存层永不拖垮主链
         print(f"[content] 缓存预判失败（忽略）：{exc!r}", file=sys.stderr)
-    _title_n = apply_title_offers([t for _k, t in merged_items])
-    if _title_n:
-        print(f"[content] 给 {_title_n} 行未判定帖补了仅凭标题的临时 offer", file=sys.stderr)
+    try:
+        _title_n = apply_title_offers([t for _k, t in merged_items])
+        if _title_n:
+            print(f"[content] 给 {_title_n} 行未判定帖补了仅凭标题的临时 offer", file=sys.stderr)
+    except Exception as exc:                      # 同上：这一步只增益、不保命
+        print(f"[content] 标题临时 offer 失败（忽略）：{exc!r}", file=sys.stderr)
 
     merged_items, _trim = trim_activities(merged_items, args.limit, age_key)
     if _trim["dropped"]:
