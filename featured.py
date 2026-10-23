@@ -34,8 +34,18 @@ def load_topics(path) -> list[dict]:
 
 
 def load_cache(cache_dir) -> dict:
+    """读正文缓存目录；目录不存在 = 空缓存，不是异常。
+
+    2026-10-23 审计 P1-11：缓存目录是 gitignored 的，CI 检出仓库后**必然**没有，
+    os.listdir 直接抛 FileNotFoundError → 精选板整块消失（32 张卡）；而失败路径
+    又返回 baked_at=0，让 CI 的停更门把自己锁死。这里只修"缺缓存不至于空板"。
+    """
     out = {}
-    for name in os.listdir(cache_dir):
+    try:
+        names = os.listdir(cache_dir)
+    except OSError:
+        return out
+    for name in names:
         if not name.endswith(".json"):
             continue
         try:

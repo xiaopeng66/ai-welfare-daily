@@ -18,6 +18,7 @@ import re
 import sys
 import time
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 TEMPLATE = Path(__file__).resolve().parent / "docs" / "template.html"
@@ -172,6 +173,28 @@ def _append_featured_report(row):
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _data_stamp(topics) -> int:
+    """页面里唯一的时间基准：store 里最新的 fetched_at（epoch 秒）。
+
+    2026-10-23 审计 P1-10：原来烘焙 time.time() —— 没新帖也每轮生成不同字节、
+    每轮提交+部署；RULES.md 声称的"逐字节相同"已被提交 d449946 证伪。
+    现在页面是 store 的纯函数：输入不变 → 字节不变；有变化时时间戳也跟着数据走。
+    """
+    best = 0.0
+    for t in topics or []:
+        raw = t.get("fetched_at") or t.get("created_at")
+        if not raw:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        best = max(best, dt.timestamp())
+    return int(best)
+
+
 def build_featured(topics):
     """精选板：读 store+正文缓存 → 过门槛 → 合并状态 → 返回 (payload, baked_at)。
 
@@ -198,10 +221,12 @@ def build_featured(topics):
             _append_featured_report(report)
         except Exception as _re:                       # noqa: BLE001 —— 日报失败不拖停页面
             print(f"[featured-report] 跳过（{_re.__class__.__name__}: {_re}）", file=sys.stderr)
-        return payload, time.time()
+        return payload, _data_stamp(topics)
     except Exception as exc:                      # noqa: BLE001 —— 明确兜住，不能拖停主站
+        # 失败也返回 store 的时间戳：返回 0 会让 CI 停更门把"精选板空了"误判成
+        # "页面停更"而自锁（P1-11）。精选区置空，主列表照常。
         print(f"[featured] 跳过（{type(exc).__name__}: {exc}）—— 页面照常生成，精选区置空", file=sys.stderr)
-        return [], 0
+        return [], _data_stamp(topics)
 
 
 def main():

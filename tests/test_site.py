@@ -155,17 +155,20 @@ first = open(out, 'rb').read()
 mtime = os.path.getmtime(out)
 p2 = build(rows, out, store)
 second = open(out, 'rb').read()
-check(flatten_bake(first) == flatten_bake(second), 'byte-identical output（抹平倒计时基准后）',
-      f'{digest(flatten_bake(first))} vs {digest(flatten_bake(second))}')
+check(first == second, 'byte-identical output（整文件比对，P1-10）',
+      f'{digest(first)} vs {digest(second)}')
 b1, b2 = bake_of(first), bake_of(second)
-check(b1 is not None and b2 is not None and 0 <= b2 - b1 <= 5,
-      '倒计时基准是当次生成写入的时钟值（两次渲染相差 ≤5 秒）', f'{b1} vs {b2}')
-if first == second:
-    check(os.path.getmtime(out) == mtime, 'the file is not even rewritten')
-    check('unchanged' in p2.stderr or 'up to date' in p2.stderr,
-          'the log says the page did not change', p2.stderr.strip().splitlines()[-1:])
-else:
-    print('      （两次渲染只差倒计时基准那一秒：页面被重写一次，属预期）')
+check(b1 is not None and b1 == b2,
+      '倒计时基准两次渲染完全相同（不再是墙上时钟）', f'{b1} vs {b2}')
+_newest = max(
+    int(__import__('datetime').datetime.fromisoformat(r['fetched_at'].replace('Z', '+00:00')).timestamp())
+    for r in rows
+)
+check(b1 == _newest, 'PICK_BAKED_AT = store 最新 fetched_at（纯函数，P1-10）',
+      f'{b1} vs {_newest}')
+check(os.path.getmtime(out) == mtime, 'the file is not even rewritten')
+check('unchanged' in p2.stderr or 'up to date' in p2.stderr,
+      'the log says the page did not change', p2.stderr.strip().splitlines()[-1:])
 
 print('\n== payload integrity ==')
 html = open(out, encoding='utf-8').read()
