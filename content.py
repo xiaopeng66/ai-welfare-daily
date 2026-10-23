@@ -586,6 +586,35 @@ def _offer_stale(row: dict, ttl_h: float, now: float) -> bool:
         return True
 
 
+def apply_cached_offers(rows: list[dict], ttl_h: float = DEFAULT_TTL_H,
+                        now: float | None = None) -> int:
+    """只用**本地正文缓存**给行补 offer（零网络）。裁剪/活动判定之前调用。
+
+    2026-10-23 审计 P1-5：窗口裁剪发生在内容判定之前，"300 个活动"其实在数标题行
+    —— 同一份 offer 的多个标题各算一个，每轮多裁（实测 479 行 = 300 活动键，其中
+    196 个是标题键；linux.sb 只抓第一页，被裁掉的活帖永久丢失）。
+    这里先把缓存能判的判了，裁剪看到的才是真正的活动身份；网络预算随后只花在
+    还没判过的行上（annotate 会跳过已判新鲜的行）。
+    返回正文可用（判定成功）的行数。
+    """
+    clock = time.time() if now is None else now
+    done = 0
+    for row in rows:
+        if row.get("source", "").split("_")[0] not in EXTRACTORS:
+            continue
+        if not _offer_stale(row, ttl_h, clock):
+            continue
+        cached = _cache_load(row.get("url") or "", ttl_h)
+        if not cached:
+            continue
+        try:
+            if _judge(row, cached.get("body") or "", cached.get("meta") or {}, clock):
+                done += 1
+        except Exception:                 # 正文层永不拖垮主链
+            continue
+    return done
+
+
 def annotate(rows: list[dict], fetch: Callable[..., str],
              limit: int = 60, delay: float = 0.4, timeout: int = 20,
              ttl_h: float = DEFAULT_TTL_H, now: float | None = None,

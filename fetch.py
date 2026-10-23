@@ -1180,7 +1180,14 @@ def fetch_linuxdo_welfare() -> list:
         # Discourse JSON endpoint: topic_list.topics carries id/title/created_at
         # natively (verified 2026-10-02: 30 topics/page, every field populated).
         # NOTE: page.html_content wraps the payload in <html><body> — use page.body.
-        data = json.loads(raw)
+        try:
+            data = json.loads(raw)
+        except ValueError as exc:
+            # 200 + 拦截页（HTML）也会走到这里：记一笔、停在该页，不抛出去。
+            FETCH_ERRORS.append(f"linux.do welfare page {page_num}: 200 但不是 JSON（{exc}）")
+            print(f"[warn] linux.do welfare page {page_num}: 200 但不是 JSON → 停止翻页",
+                  file=sys.stderr)
+            break
         topics = data.get("topic_list", {}).get("topics", [])
         # The first topic of the board is the pinned category description
         # ("关于福利羊毛类别", created 2024) — drop pinned/no-title entries.
@@ -1447,6 +1454,106 @@ def store_row(t: dict, fetched_at: str) -> dict:
     }
 
 
+def _guarded_source(name: str, fn) -> list:
+    """单个源采集入口：任何异常只记 FETCH_ERRORS，不带走整轮。
+
+    2026-10-23 审计 P1-6：linux.do 是唯一没有解析兜底的源（其余五个都包了 try）。
+    200 + 拦截页 → json.loads 抛异常 → 整轮 fetch 崩 → 页面不生成。
+    与副站的 check_site_guarded 同一条口径：谁坏了谁降级，其余照常。
+    """
+    try:
+        return fn()
+    except Exception as exc:                     # 采集层不许把整轮带走
+        FETCH_ERRORS.append(f"{name}: 异常 {type(exc).__name__}: {exc}")
+        print(f"[warn] {name} 采集异常（{type(exc).__name__}：{exc}）→ 该源本轮无新数据",
+              file=sys.stderr)
+        return []
+
+
+def _valid_identity(row: dict) -> bool:
+    """身份是否可用：id 必须是非空字符串（"None"/"null" 不算），URL 必须是绝对地址。"""
+    rid = row.get("id")
+    if not isinstance(rid, str) or not rid.strip():
+        return False
+    if rid.strip().lower() in ("none", "null", "undefined"):
+        return False
+    url = str(row.get("url") or "")
+    return url.startswith(("http://", "https://"))
+
+
+def _validate_identities(rows: list) -> tuple[list, dict]:
+    """逐行校验身份并丢弃坏行；返回 (可用行, {源: [总数, 坏行数]})。
+
+    2026-10-23 审计 P1-7：schema 漂移（字段改名）会让 id 变成 None/"None"，
+    去重后只剩 1 条，而健康检查看到 count>0 就闭嘴。这里把"坏行"变成可统计的
+    数字，由 _flag_identity_failures 决定是否判该源失败。
+    """
+    report: dict[str, list] = {}
+    keep: list = []
+    seen: set = set()
+    for row in rows:
+        src = str(row.get("source") or "").split("_")[0] or "?"
+        total, bad = report.get(src, [0, 0])
+        total += 1
+        ok = _valid_identity(row)
+        if ok:
+            key = (src, str(row.get("id")))
+            if key in seen:
+                ok = False                        # 同批重复 id（同一源内）
+            else:
+                seen.add(key)
+        if ok:
+            keep.append(row)
+        else:
+            bad += 1
+        report[src] = [total, bad]
+    return keep, report
+
+
+IDENTITY_BAD_RATE = 0.5      # 坏行占比达到这个值 → 判该源本轮失败
+
+
+def _flag_identity_failures(report: dict) -> list:
+    """把身份坏行写进 FETCH_ERRORS；超过阈值判该源失败。返回被判失败的源。"""
+    failed = []
+    for src, (total, bad) in sorted(report.items()):
+        if not bad:
+            continue
+        rate = bad / total if total else 0
+        FETCH_ERRORS.append(f"identity: {src} {bad}/{total} 行身份非法（{rate:.0%}）")
+        print(f"[warn] {src}: {bad}/{total} 行 id/url 非法 → 已丢弃", file=sys.stderr)
+        if rate >= IDENTITY_BAD_RATE:
+            FETCH_ERRORS.append(f"{src}: 身份非法率 {rate:.0%} ≥ "
+                                f"{IDENTITY_BAD_RATE:.0%} → 判该源失败")
+            failed.append(src)
+    return failed
+
+
+def trim_activities(merged_items: list, limit: int, age_key) -> tuple[list, dict]:
+    """按**活动**数裁剪 (key, topic) 列表，返回 (保留项, 统计)。
+
+    活动身份 = activity_key()（offer.key 优先，否则 来源+标题）。调用方必须先用
+    apply_cached_offers 把本地缓存能判的 offer 判过 —— 否则这里数的是标题行，
+    同一 offer 的多个标题各算一个活动，每轮多裁（审计 P1-5）。
+    """
+    groups: dict[str, list] = {}
+    for kv in merged_items:
+        groups.setdefault(activity_key(kv[1]), []).append(kv)
+    if len(groups) <= limit:
+        return list(merged_items), {"activities": len(groups), "dropped": 0, "rows": 0,
+                                    "oldest": None}
+    def group_age(items):
+        return max((age_key(t) or "" for _k, t in items), default="")
+    ordered = sorted(groups.items(), key=lambda kv: group_age(kv[1]), reverse=True)
+    keep, dropped = ordered[:limit], ordered[limit:]
+    kept = [kv for _gk, items in keep for kv in items]
+    kept.sort(key=lambda kv: age_key(kv[1]), reverse=True)   # 行序保持最新在前
+    oldest = min((t for _gk, items in dropped for _k, t in items),
+                 key=lambda t: age_key(t) or "")
+    return kept, {"activities": len(groups), "dropped": len(dropped),
+                  "rows": sum(len(items) for _gk, items in dropped), "oldest": oldest}
+
+
 def _row_changed(prev: dict, t: dict) -> bool:
     """True when a freshly fetched row differs from the stored one in anything
     the site shows.
@@ -1523,6 +1630,10 @@ def main():
         "如 muse 30 亿被十几个人各发一条）。只影响折叠，不影响入库；0 = 关闭。",
     )
     args = ap.parse_args()
+    if args.limit < 1:
+        # 2026-10-23 审计 P1-8：--limit 0 会清空整个 store（与其他
+        # "0=关闭"的旗标习惯冲突）。宁可拒绝启动，也不许静默清库。
+        ap.error("--limit 必须 >= 1（0 会清空 store，不是'关闭'）")
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
@@ -1581,15 +1692,20 @@ def main():
         if str(t.get("source", "")).startswith("nextbuf")
     }
 
-    linuxsb_topics = fetch_linuxsb(known_linuxsb_ids)
-    baipiao_topics = fetch_baipiao()
-    nodeloc_topics = fetch_nodeloc()
-    nodeloc_welfare_topics = fetch_nodeloc_welfare()
-    linuxdo_topics = fetch_linuxdo_welfare()
-    vibex_topics = fetch_vibex_welfare()
-    nextbuf_topics = fetch_nextbuf(known_nextbuf_ids)
+    # 每个源单独兜底：一个源的解析/接口异常只让该源本轮无新数据（P1-6）。
+    linuxsb_topics = _guarded_source("linux.sb", lambda: fetch_linuxsb(known_linuxsb_ids))
+    baipiao_topics = _guarded_source("baipiao", fetch_baipiao)
+    nodeloc_topics = _guarded_source("nodeloc", fetch_nodeloc)
+    nodeloc_welfare_topics = _guarded_source("nodeloc-welfare", fetch_nodeloc_welfare)
+    linuxdo_topics = _guarded_source("linux.do", fetch_linuxdo_welfare)
+    vibex_topics = _guarded_source("vibex", fetch_vibex_welfare)
+    nextbuf_topics = _guarded_source("nextbuf", lambda: fetch_nextbuf(known_nextbuf_ids))
     all_topics = (linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics
                   + linuxdo_topics + vibex_topics + nextbuf_topics)
+
+    # 身份校验（P1-7）：坏行丢弃并计数；坏行占比过半 → 该源判失败（FETCH_ERRORS）。
+    all_topics, _id_report = _validate_identities(all_topics)
+    _flag_identity_failures(_id_report)
 
     # Partial failures are survivable now that we merge incrementally: cached
     # rows for the failed source stay in the store. Warn loudly (the workflow
@@ -1791,23 +1907,21 @@ def main():
     # 合并自然补足到 300 个活动。键必须与页面 foldCards 完全同构（2026-10-19 修：
     # 页面只认 offer.key，这里还认 campaign；来源带 _pN 分页后缀时两边也会算成两组
     # ——线上 hero 因此显示 302 而不是 300）。
-    groups: dict[str, list] = {}
-    for kv in merged_items:
-        groups.setdefault(activity_key(kv[1]), []).append(kv)
-    if len(groups) > args.limit:
-        # 活动的时间 = 组内最新一条（与页面折叠后保留最新一条同口径）
-        def group_age(items):
-            return max((age_key(t) or "" for _k, t in items), default="")
+    # 裁剪前先用**本地正文缓存**判活动身份（纯函数、零网络）—— 否则这里数的是
+    # 标题行，同一 offer 的多个标题各算一个活动，每轮多裁（P1-5）。
+    try:
+        import content as _content_layer
+        _cached_n = _content_layer.apply_cached_offers([t for _k, t in merged_items])
+        if _cached_n:
+            print(f"[content] 裁剪前用缓存判定 {_cached_n} 行 offer（零网络）", file=sys.stderr)
+    except Exception as exc:                  # 缓存层永不拖垮主链
+        print(f"[content] 缓存预判失败（忽略）：{exc!r}", file=sys.stderr)
 
-        ordered = sorted(groups.items(), key=lambda kv: group_age(kv[1]), reverse=True)
-        keep, dropped = ordered[: args.limit], ordered[args.limit:]
-        n_rows_dropped = sum(len(items) for _gk, items in dropped)
-        merged_items = [kv for _gk, items in keep for kv in items]
-        merged_items.sort(key=lambda kv: age_key(kv[1]), reverse=True)  # 行序保持最新在前
-        oldest = min((t for _gk, items in dropped for _k, t in items),
-                     key=lambda t: age_key(t) or "")
+    merged_items, _trim = trim_activities(merged_items, args.limit, age_key)
+    if _trim["dropped"]:
+        oldest = _trim["oldest"] or {}
         print(
-            f"[limit] trimmed {len(dropped)} oldest activities ({n_rows_dropped} rows, "
+            f"[limit] trimmed {_trim['dropped']} oldest activities ({_trim['rows']} rows, "
             f"cap {args.limit} activities); oldest dropped id={oldest.get('id')} "
             f"at {oldest.get('created_at') or oldest.get('fetched_at')}",
             file=sys.stderr,

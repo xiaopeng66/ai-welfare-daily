@@ -886,6 +886,69 @@ try:
 finally:
     mod.fetch = real_fetch
 
+print('\n== 第 2 期：数据层根因（P1-5/P1-6/P1-7/P1-8）==')
+
+
+def _row(tid, title, created="2026-10-20T00:00:00+00:00", source="linuxsb_p1", **kw):
+    r = {"id": str(tid), "title": title, "url": f"https://linux.sb/topic/{tid}",
+         "created_at": created, "fetched_at": created, "source": source, "tags": [], "score": 0}
+    r.update(kw)
+    return r
+
+
+# P1-5：裁剪按活动身份（offer.key）而不是标题行
+from importlib import import_module
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)          # content.py 与 fetch.py 同目录
+content_mod = import_module("content")
+offer = {"key": "same-offer", "v": content_mod.OFFER_V, "at": 1792770000}
+pairs = [("a", _row(1, "标题甲", offer=offer)),
+         ("b", _row(2, "标题乙", offer=dict(offer))),
+         ("c", _row(3, "标题丙"))]
+kept, stats = mod.trim_activities(pairs, 2, lambda t: mod._parse_sortable(t.get("created_at")))
+check(stats["activities"] == 2, "同一 offer 的两个标题折叠成一个活动", stats)
+check(len(kept) == 3, "裁剪保留的是活动（成员行一起留下）", len(kept))
+
+# P1-5：缓存能判的 offer 在零网络下生效（annotate 的预算随后才花）
+real_load = content_mod._cache_load
+content_mod._cache_load = lambda url, ttl: {"body": "注册即送 $5 额度，限时活动", "meta": {}}
+try:
+    rows = [_row(10, "免费领取额度")]
+    n = content_mod.apply_cached_offers(rows)
+finally:
+    content_mod._cache_load = real_load
+check(bool(rows[0].get("offer")) and rows[0]["offer"].get("at"), "缓存预判写入了 offer", rows[0].get("offer"))
+
+# P1-6：单源异常不带走整轮
+mod.FETCH_ERRORS.clear()
+out = mod._guarded_source("假源", lambda: (_ for _ in ()).throw(ValueError("解析崩了")))
+check(out == [] and any("假源" in e for e in mod.FETCH_ERRORS),
+      "源异常 → 空结果 + FETCH_ERRORS，不抛出", mod.FETCH_ERRORS)
+
+# P1-7：id 漂移成 None/"None" 或重复 → 丢弃并计数
+rows = [_row(1, "a"), _row(2, "b"), _row(3, "c"), _row(4, "d")]
+rows[0]["id"] = None
+rows[1]["id"] = "None"
+rows[2]["id"] = "1"
+rows[3]["id"] = "1"          # 与 rows[2] 重复
+kept, report = mod._validate_identities(rows)
+check(len(kept) == 1 and report["linuxsb"] == [4, 3],
+      "坏 id / 重复 id 全部丢弃并计入报告", (len(kept), report))
+mod.FETCH_ERRORS.clear()
+failed = mod._flag_identity_failures({"bad": [10, 6], "good": [10, 1]})
+check(failed == ["bad"], "坏行过半 → 判该源失败（good 只告警）", (failed, mod.FETCH_ERRORS))
+
+# P1-8：--limit 0 必须在联网前拒绝，且不许碰 store
+import subprocess as _sp, tempfile as _tf
+_tmp = _tf.mkdtemp(prefix="limit0-")
+_store = os.path.join(_tmp, "topics.jsonl")
+open(_store, "w", encoding="utf-8").write('{"id": "keep", "title": "keep", "url": "https://x/1", "source": "linuxsb_p1"}\n')
+_proc = _sp.run([sys.executable, FETCH_PY, "--limit", "0", "-o", _store],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+check(_proc.returncode != 0, "--limit 0 被拒绝（非零退出）", _proc.returncode)
+check("keep" in open(_store, encoding="utf-8").read(), "store 原样保留", open(_store, encoding="utf-8").read()[:80])
+
+
 passed = sum(results)
 print(f'\n{passed}/{len(results)} checks passed')
 sys.exit(0 if passed == len(results) else 1)
