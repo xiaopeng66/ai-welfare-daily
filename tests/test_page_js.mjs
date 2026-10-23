@@ -93,7 +93,7 @@ function makeEl(tag = 'div') {
     // script boots, so every shim element carries a safe zero set.
     scrollWidth: 0, clientWidth: 0, scrollLeft: 0, scrollBy() {},
     querySelector() { return (typeof getNullEl === 'function' ? getNullEl() : null); },
-    querySelectorAll: () => [],
+    querySelectorAll: (sel) => chipsFor(sel),
   };
   Object.defineProperty(el, 'innerHTML', {
     get() { return el.children.filter((c) => c.__html !== undefined).map((c) => c.__html).join('') || el._html; },
@@ -117,14 +117,48 @@ function nullEl() {
   e.querySelectorAll = () => []; e.dataset = {}; e.textContent = '';
   return e;
 }
+
+// --- P1-4b：筛选 chip 的假 DOM -------------------------------------------------
+// 真实浏览器里每个 chip 有 classList 与 aria-pressed；这里只实现 renderChips 用到
+// 的那两个写入点，用来断言"排序 chip 与「只看未看」各自的状态都来自 state"。
+const chipRegistry = new Map();
+function chip(dataset) {
+  const el = {
+    dataset, _classes: new Set(), _attrs: {},
+    classList: {
+      toggle: (name, on) => { if (on) el._classes.add(name); else el._classes.delete(name); },
+      contains: (name) => el._classes.has(name),
+      add: (name) => el._classes.add(name),
+      remove: (name) => el._classes.delete(name),
+    },
+    setAttribute: (k, v) => { el._attrs[k] = String(v); },
+    getAttribute: (k) => (k in el._attrs ? el._attrs[k] : null),
+  };
+  return el;
+}
+function chipsFor(sel) {
+  if (chipRegistry.has(sel)) return chipRegistry.get(sel);
+  let list = [];
+  if (sel === '#sorts .chip') {
+    list = [chip({ sort: 'latest' }), chip({ sort: 'score' }), chip({ seen: '1' }), chip({ sort: 'pick' })];
+  } else if (sel === '#sources .chip') {
+    list = [chip({ source: 'all' })];
+  } else if (sel === '#categories .chip') {
+    list = [chip({ category: 'all' })];
+  }
+  chipRegistry.set(sel, list);
+  return list;
+}
+
 function build(payloadScript) {
   registry.clear();
+  chipRegistry.clear();
   const sharedNull = nullEl();
   globalThis.getNullEl = () => sharedNull;
   const doc = {
     getElementById: byId,
     querySelector: (sel) => (sel.startsWith('#') ? byId(sel.slice(1)) : sharedNull),
-    querySelectorAll: () => [],
+    querySelectorAll: (sel) => chipsFor(sel),
     createElement: (tag) => makeEl(tag),
     documentElement: { dataset: {} },
     hidden: false,
@@ -132,7 +166,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,state};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -375,6 +409,27 @@ check(beijing.includes('10-02') && beijing.includes('04:00'),
   'a UTC timestamp renders as its Beijing wall time', beijing);
 const group = api.bjDay({ created_at: '2026-10-01T20:00:00Z' });
 check(group === '2026-10-02', 'and the day grouping agrees', group);
+
+console.log('\n== P1-4b: sort chips must not silently clear 「只看未看」 ==');
+const sorts = chipsFor('#sorts .chip');
+const seenChip = sorts[2];
+api.state.sort = 'latest';
+api.state.seenOnly = true;
+api.renderChips();
+check(seenChip.classList.contains('active') === true, 'seen-only chip is lit when the filter is on');
+check(seenChip.getAttribute('aria-pressed') === 'true', 'aria-pressed mirrors the filter state');
+api.state.sort = 'score';          // 等价于点击「匹配度」
+api.renderChips();
+check(seenChip.classList.contains('active') === true, 'switching sort keeps 只看未看 lit (线上实测的缺陷)');
+check(seenChip.getAttribute('aria-pressed') === 'true', 'aria-pressed stays true after a sort switch');
+check(sorts[1].getAttribute('aria-pressed') === 'true' && sorts[0].classList.contains('active') === false,
+  'the sort chip itself is painted from state');
+api.state.sort = 'latest';
+api.state.seenOnly = false;
+api.renderChips();
+check(seenChip.classList.contains('active') === false && seenChip.getAttribute('aria-pressed') === 'false',
+  'turning the filter off unlights the chip and clears aria-pressed');
+
 
 console.log();
 console.log(failed ? `${failed} FAILURE(S)` : 'all page-JS checks passed');

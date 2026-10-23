@@ -128,7 +128,9 @@ if ($MaxAgeMinutes -gt 0) {
         if ($age -lt $MaxAgeMinutes) {
             Write-Host "a run finished $age min ago (< $MaxAgeMinutes) - skipping"
             Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: a run finished ' + $age + ' min ago (< ' + $MaxAgeMinutes + ' min)' ) -Encoding UTF8
-            exit 0
+            # 75 = skipped（不是 success）。合并器据此不清零连击：一个"每轮都跳过"
+            # 的腿不许被洗成"每轮都正常"（2026-10-23 审计 P1-15）。
+            exit 75
         }
     }
 }
@@ -179,7 +181,8 @@ try {
 if (-not $locked) {
     Write-Host 'another run is already in progress - exiting'
     Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: another run holds the lock') -Encoding UTF8
-    exit 0
+    # 75 = skipped（不是 success）：合并器不把它当成功，也不清零连击。
+    exit 75
 }
 
 Log '=== update start ==='
