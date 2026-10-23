@@ -949,8 +949,8 @@ check(_proc.returncode != 0, "--limit 0 被拒绝（非零退出）", _proc.retu
 check("keep" in open(_store, encoding="utf-8").read(), "store 原样保留", open(_store, encoding="utf-8").read()[:80])
 
 
-print('
-== 无链接/未判定活动的合并（2026-10-24，zcode 与 hyxapi 案例）==')
+print()
+print('== 无链接/未判定活动的合并（2026-10-24，zcode 与 hyxapi 案例）==')
 
 _rows_ttl = [{"id": "1", "source": "linuxdo_welfare_p1", "url": "https://linux.do/t/topic/1",
               "title": "zcode 1024端内送5亿token额度"},
