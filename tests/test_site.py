@@ -228,6 +228,19 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
         check(isinstance(feat, list) and len(feat) > 0, 'the featured payload is a non-empty list', len(feat))
         bad = [c.get('f', {}).get('name') for c in feat if c.get('f', {}).get('kind') not in ('gift', 'lottery', 'free')]
         check(not bad, 'every featured card carries a valid kind', bad[:3])
+
+    # 访问统计的打点必须还在（2026-10-24 加）。
+    # 由头：打点代码只存在于 template.html，**改页面时删掉/改坏它，发布链完全无感** ——
+    # 实测把整段打点删掉后七套件仍然全绿（页面照发、CI 照绿），只有"打点链探针"能在
+    # 12 小时后发现。加这条断言，这类改动当场红，不必等半天。
+    page_text = b.decode('utf-8')
+    check('https://welfare-hit.1847531284.workers.dev/' in page_text,
+          'the visit beacon endpoint is baked into the committed page', None)
+    check('navigator.sendBeacon(HIT' in page_text,
+          'the beacon actually calls sendBeacon', None)
+    check(page_text.count('welfare-vid') >= 2,
+          'the visitor id is both read and written (welfare-vid)',
+          page_text.count('welfare-vid'))
 else:
     check(False, 'store and page are present in the repo')
 
