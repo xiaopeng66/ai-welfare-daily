@@ -104,6 +104,28 @@ check(not re.search(r'最近收录[^<]*\d{4}-\d{2}-\d{2}', html),
 check("Math.max(0,...cards.map(c=>stamp(c.fetched_at)))" in html,
       'the badge is computed client-side from max(fetched_at)', None)
 
+print('\n== placeholder tokens in a title never corrupt the payload ==')
+# 2026-10-23 审计 P0-2：六次顺序 str.replace 会重扫已插入的帖子 JSON —— 标题里只要
+# 出现 __SOURCE_LABELS_JSON__ 之类的字面量，JSON 就被改坏、cards 消失、整页白。
+# 单遍 re.sub 之后，这些字面量必须原样留在标题里，载荷仍可 raw_decode。
+_TOKENS = ['__CARDS_JSON__', '__SOURCE_LABELS_JSON__', '__CATEGORY_TONES_JSON__',
+           '__CATEGORY_ORDER_JSON__', '__FEATURED_JSON__', '__FEATURED_BAKED_AT__']
+_evil_title = '免费 ' + ' + '.join(_TOKENS) + ' 中转站'
+p = build([row(9100, _evil_title, '2026-10-01T10:00:00Z', '2026-10-01T12:00:00Z')], out, store)
+check(p.returncode == 0, 'generate.py exits 0 with placeholder tokens in the title', p.stderr[-300:])
+html = open(out, encoding='utf-8').read()
+try:
+    cards, _payload = cards_of(html)
+    ok_payload, why = True, ''
+except Exception as exc:                       # noqa: BLE001 - 断言要看到具体异常
+    cards, ok_payload, why = [], False, f'{type(exc).__name__}: {exc}'
+check(ok_payload, 'cards payload still parses (raw_decode) with every token in the title', why)
+check(bool(cards) and cards[0]['title'] == _evil_title,
+      'the token text survives verbatim inside the title',
+      cards[0]['title'] if cards else None)
+check(html.count('const labels=') == 1 and '"linuxsb"' in html,
+      'the real source-labels payload is still injected exactly once')
+
 print('\n== rendering the same store twice is a no-op ==')
 rows = [row(1, '额度 A', '2026-09-30T10:00:00Z', '2026-10-01T12:00:00Z'),
         row(2, '抽奖 </script><img src=x onerror=alert(1)>', '2026-10-01T10:00:00Z',

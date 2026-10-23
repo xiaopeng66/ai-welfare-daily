@@ -14,6 +14,7 @@ The "最近收录" badge is rendered client-side from max(fetched_at).
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import tempfile
@@ -121,25 +122,39 @@ def _js_payload(topics):
     )
 
 
+TOKEN_RE = re.compile(r"__[A-Z_]{3,}__")
+
+
 def render(topics, featured_payload=None, featured_baked_at=0):
     try:
         template = TEMPLATE.read_text(encoding="utf-8")
     except OSError as e:
         raise SystemExit(f"template missing: {TEMPLATE} ({e}); cannot render the page")
 
-    html = (
-        template
-        .replace("__FEATURED_JSON__", _js_payload(featured_payload))
-        .replace("__FEATURED_BAKED_AT__", str(int(featured_baked_at)))
-        .replace("__CARDS_JSON__", _js_payload(topics))
-        .replace("__SOURCE_LABELS_JSON__", json.dumps(SOURCE_LABELS, ensure_ascii=False))
-        .replace("__CATEGORY_TONES_JSON__", json.dumps(CATEGORY_TONES, ensure_ascii=False))
-        .replace("__CATEGORY_ORDER_JSON__", json.dumps(CATEGORY_ORDER, ensure_ascii=False))
-    )
-    for token in ("__CARDS_JSON__", "__SOURCE_LABELS_JSON__", "__CATEGORY_TONES_JSON__", "__CATEGORY_ORDER_JSON__",
-                  "__FEATURED_JSON__", "__FEATURED_BAKED_AT__"):
-        if token in html:
-            raise SystemExit(f"template still contains {token} after substitution")
+    # 单遍替换：re.sub 不会回头重扫已经插入的内容。
+    # 2026-10-23 审计 P0-2：原来是六次顺序 str.replace，__CARDS_JSON__ 先插入帖子
+    # 数据，后面替换 __SOURCE_LABELS_JSON__ 等会**重扫已插入的 JSON** —— 一个标题
+    # 只要含这些字面量，JSON 就被改坏 → <script> 语法错误 → cards 不存在 → 整页白。
+    # 末尾的"残留 token"检查抓不到（token 确实被替换了，只是替换进了数据里）。
+    table = {
+        "__FEATURED_JSON__": _js_payload(featured_payload),
+        "__FEATURED_BAKED_AT__": str(int(featured_baked_at)),
+        "__CARDS_JSON__": _js_payload(topics),
+        "__SOURCE_LABELS_JSON__": json.dumps(SOURCE_LABELS, ensure_ascii=False),
+        "__CATEGORY_TONES_JSON__": json.dumps(CATEGORY_TONES, ensure_ascii=False),
+        "__CATEGORY_ORDER_JSON__": json.dumps(CATEGORY_ORDER, ensure_ascii=False),
+    }
+
+    def substitute(match):
+        token = match.group(0)
+        if token not in table:
+            raise SystemExit(f"template contains unknown token {token}")
+        return table[token]
+
+    html = TOKEN_RE.sub(substitute, template)
+    # 注意：不能再对 html 做"残留 token"检查 —— 单遍替换后，数据里**合法地**含有
+    # 这些字面量（标题里就可能有 __FEATURED_JSON__），扫整页会把正常数据误判成
+    # 未替换。模板里的未知 token 已由 substitute 在替换时立刻报错。
     return html
 
 
