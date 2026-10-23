@@ -18,6 +18,7 @@ import urllib.error
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -576,6 +577,29 @@ if _orig_scrapling is not None:
     sys.modules['scrapling'] = _orig_scrapling
 else:
     sys.modules.pop('scrapling', None)
+
+# ---------------------------------------------------------------- 文档 ↔ 代码一致（2026-10-24 加）
+# 由头：审计发现 RULES.md 与实现有 5 处漂移（自足词多列了 `兑换码`、stealth 默认值写 4 而实现是 8…）。
+# 文档漂移没人会主动发现，所以把"两处最容易漂的"钉成断言：
+#   ① 第 3 档 A 级（自足词）列的词 = fetch.py 的 SELF_SUFFICIENT_KEYWORDS
+#   ② RULES.md 写的 stealth 每轮上限 = --content-stealth-limit 的实现默认值
+# 只钉这两条，是因为它们能机械比对；口径性的漂移仍然要靠人读（审计报告里有清单）。
+_rules_path = os.path.join(ROOT, 'RULES.md')
+_fetch_src = open(FETCH_PY, encoding='utf-8').read()
+if os.path.exists(_rules_path):
+    _rules = open(_rules_path, encoding='utf-8').read()
+    _line = next((l for l in _rules.splitlines() if '第 3 档 A 级（自足词）' in l), '')
+    # 只从这一行里取反引号里的词，**不做任何预过滤** —— 预过滤会让比对变成同义反复
+    # （注入漂移也测不出来，2026-10-24 自查时发现过一次）。
+    _doc_words = set(re.findall(r'`([^`]+)`', _line))
+    check(_doc_words == set(mod.SELF_SUFFICIENT_KEYWORDS),
+          'RULES.md 的自足词表与 SELF_SUFFICIENT_KEYWORDS 完全一致（漂移会在这里红）',
+          f'doc={sorted(_doc_words)} code={sorted(mod.SELF_SUFFICIENT_KEYWORDS)}')
+    _m = re.search(r'--content-stealth-limit"[\s\S]{0,200}?default=(\d+)', _fetch_src)
+    _doc_stealth = re.search(r'默认每轮 ≤(\d+) 条', _rules)
+    check(_m is not None and _doc_stealth is not None and _m.group(1) == _doc_stealth.group(1),
+          'RULES.md 写的 stealth 每轮上限 = 实现默认值',
+          f"doc={_doc_stealth.group(1) if _doc_stealth else None} code={_m.group(1) if _m else None}")
 
 print()
 bad = results.count(False)
