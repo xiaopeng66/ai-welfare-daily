@@ -668,7 +668,7 @@ setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventLis
   function vid(){try{var v=localStorage.getItem('welfare-vid');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('welfare-vid',v)}return v}catch(e){return ''}}
   function hit(p){try{if(typeof navigator==='undefined'||!navigator.sendBeacon)return;p.v=vid();try{p.p=location.pathname}catch(e){p.p=''}try{p.r=document.referrer||''}catch(e){p.r=''}navigator.sendBeacon(HIT,JSON.stringify(p))}catch(e){}}
   try{var later=function(){setTimeout(function(){hit({k:'view'})},1200)};if(document.readyState==='complete')later();else window.addEventListener('load',later)}catch(e){}
-  try{document.addEventListener('click',function(e){try{var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.href||'';if(!/^https?:/i.test(h))return;if(h.indexOf(location.host)===0)return;hit({k:'click',t:h.slice(0,600)})}catch(err){}},true)}catch(e){}
+  try{document.addEventListener('click',function(e){try{var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.href||'';if(!/^https?:/i.test(h))return;try{if(new URL(h).host===location.host)return}catch(e2){}hit({k:'click',t:h.slice(0,600)})}catch(err){}},true)}catch(e){}
 })();
 </script>
 <!-- 右下角悬浮按钮：返回顶部 / 刷新 -->
