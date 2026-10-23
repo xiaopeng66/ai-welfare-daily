@@ -94,23 +94,39 @@ jobs:
         env:
           FORCE: ${{ inputs.force || 'false' }}
         run: |
+          # 接管必须**可见**（2026-10-23 审计 P0-3）：CI 替本地腿发页面是"修复"，
+          # 但静默修复会让人以为本地那条链一直健康 —— 所以接管时打 warning 注解、
+          # 写 step summary，并在提交信息里带 [fallback]。
           if [ "$FORCE" = "true" ]; then
             echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "mode=manual" >> "$GITHUB_OUTPUT"
+            echo "::warning::手动 force=true → 本轮由 CI 接管抓取与提交（不是自动兜底）"
             echo "手动 force=true → 跳过停更检查，本轮接管抓取与提交"
             exit 0
           fi
           baked=$(grep -o 'const PICK_BAKED_AT=[0-9]*' docs/index.html | head -1 | cut -d= -f2)
           if [ -z "$baked" ]; then
             echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "mode=unreadable" >> "$GITHUB_OUTPUT"
+            echo "::warning::读不到 PICK_BAKED_AT（页面结构变了？）→ 按停更处理，本轮 CI 接管"
             echo "!! 读不到 PICK_BAKED_AT（页面结构变了？）→ 保守起见按停更处理"
             exit 0
           fi
           age=$(( $(date -u +%s) - baked ))
           if [ "$age" -lt 10800 ]; then
             echo "stale=0" >> "$GITHUB_OUTPUT"
+            echo "mode=fresh" >> "$GITHUB_OUTPUT"
             echo "提交版页面 ${age}s 前刚生成（< 3 小时）→ 本地腿在干活，本轮只跑离线套件、不提交"
           else
             echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "mode=stale" >> "$GITHUB_OUTPUT"
+            echo "::warning::页面已停更 ${age}s（≥ 3 小时）→ 本地腿沉默，本轮由 CI 兜底接管（提交信息带 [fallback]）"
+            {
+              echo "### ⚠️ CI 兜底接管"
+              echo ""
+              echo "页面已停更 ${age}s（≥ 3 小时）：本地那条腿已经不在更新，本轮由 CI 抓取并提交。"
+              echo "**本地管线需要人看一眼**（计划任务被丢弃 / 机器离线 / 连续失败）。"
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "页面已停更 ${age}s（≥ 3 小时）→ 本地腿沉默，本轮接管抓取与提交"
           fi
 
@@ -143,6 +159,8 @@ jobs:
 
       - name: Commit and push
         if: steps.stale.outputs.stale == '1'
+        env:
+          MODE: ${{ steps.stale.outputs.mode }}
         run: |
           git config --global user.name "linuxsb-daily-bot"
           git config --global user.email "bot@users.noreply.github.com"
@@ -159,7 +177,13 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "chore: daily welfare update $(date +%Y-%m-%d)"
+          # 兜底接管要在提交信息里留痕（P0-3）：git log 上一眼能看出"这一版不是
+          # 本地腿发的"。手动 force 不算兜底，不带标记。
+          suffix=""
+          if [ "$MODE" != "manual" ]; then
+            suffix=" [fallback]"
+          fi
+          git commit -m "chore: daily welfare update $(date +%Y-%m-%d)${suffix}"
           # The residential pipeline (Windows task :07/:37, Hermes cron :30) is
           # far more frequent than this 6-hourly run, so the branch can move
           # between our commit and our push.

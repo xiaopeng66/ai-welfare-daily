@@ -8,17 +8,17 @@ import datetime
 import sys
 from pathlib import Path
 
-# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
-# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
-# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
-# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
-
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import featured
 
@@ -103,6 +103,38 @@ for mod in (featured, sys.modules["content"] if "content" in sys.modules else No
         continue
     check("\x08" not in open(mod.__file__, encoding="utf-8").read(),
           f"{mod.__name__}.py 无控制字符残留（concrete 词表 api 后曾混入退格符）", mod.__file__)
+
+# ---------------------------------------------------------------- CI 复现（2026-10-24 加）
+# 云端 CI 检出仓库后**没有** data/cache/content（gitignored）—— 原来 load_cache 直接
+# os.listdir 抛异常 → featured.update 崩 → build_featured 兜底成空载荷 → 线上精选板整块消失。
+# P1-11 修的是"缺缓存不至于空板/自锁"；这里把判据钉死：**缓存缺失时，载荷必须逐字节
+# 等于仓库里已提交的那份板子**（不新增、不下架、内容不变）。
+#
+# 这条也回答了"正文缓存要不要入库"：不要。因为缓存缺失时 CI 渲染出的 FEATURED 段与已提交
+# 页面逐字节相同（2026-10-24 实测），入库只会多背 2.3MB 抓取正文。
+import json as _json
+import shutil as _shutil
+import tempfile as _tempfile
+
+_ROOTDIR = Path(__file__).resolve().parent.parent
+_STORE = _ROOTDIR / "data" / "topics.jsonl"
+_BOARD = _ROOTDIR / "data" / "featured.jsonl"
+if _STORE.exists() and _BOARD.exists():
+    _rows = [_json.loads(line) for line in _STORE.read_text(encoding="utf-8").splitlines() if line.strip()]
+    _committed = [_json.loads(line) for line in _BOARD.read_text(encoding="utf-8").splitlines() if line.strip()]
+    _committed_payload = [{k: v for k, v in it.items() if k not in featured.STATE_KEYS} for it in _committed]
+    _tmpdir = Path(_tempfile.mkdtemp(prefix="feat-ci-"))
+    _statefile = _tmpdir / "featured.jsonl"
+    _shutil.copy(_BOARD, _statefile)
+    _ci_payload, _ci_stats = featured.update(_rows, str(_tmpdir / "no-such-cache"), str(_statefile))
+    check(_json.dumps(_ci_payload, ensure_ascii=False, sort_keys=True)
+          == _json.dumps(_committed_payload, ensure_ascii=False, sort_keys=True),
+          "缓存缺失（CI）时载荷逐字节等于已提交板子",
+          f"{len(_ci_payload)} vs {len(_committed_payload)}")
+    check(len(_ci_payload) > 0, "缓存缺失不再产出空板", len(_ci_payload))
+    _shutil.rmtree(_tmpdir, ignore_errors=True)
+else:
+    check(True, "跳过 CI 复现用例（没有 store/board 数据文件）")
 
 print(f"\n{failed} failed" if failed else "\n全部通过")
 sys.exit(1 if failed else 0)
