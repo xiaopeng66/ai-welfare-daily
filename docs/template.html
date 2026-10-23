@@ -308,6 +308,17 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
    （页面级微调；正式上线时搬进 template.html 的移动端媒体查询） */
 @media(max-width:760px){#count{display:none}}
 
+
+/* —— 已看状态 —— 淡化 + 文字徽章双重表达（不靠颜色单独承载信息）—— */
+.card.seen{opacity:.62;filter:saturate(.5)}
+.card.seen:hover{opacity:.92;filter:none}
+.card.seen .title a{color:var(--muted)}
+.seen-tag{font-size:.66rem;line-height:1.3;padding:2px 7px;border-radius:999px;
+  border:1px solid #cfd6e4;background:#eef1f7;color:#6b7a93;font-weight:700;flex:none;cursor:pointer}
+.seen-tag:hover{border-color:#a9b6cb;color:#465a78}
+html[data-theme=dark] .seen-tag{border-color:#3b4658;background:#242e3f;color:#9fb0c7}
+html[data-theme=dark] .seen-tag:hover{border-color:#55637c;color:#c6d3e4}
+.pick-meta .seen-tag{align-self:center}
 </style>
 </head>
 <!-- v6 template: cards/labels/tones/order are injected by generate.py -->
@@ -322,8 +333,8 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
       <span class="ego">打开 →</span>
     </a>
     <section class="panel" aria-label="搜索与筛选">
-      <div class="searchline"><label class="search"><span class="glass" aria-hidden="true">⌕</span><input id="search" type="search" aria-label="搜索帖子标题" placeholder="搜索标题关键词…" autocomplete="off"></label><button id="reset" class="reset" type="button">重置筛选</button></div>
-      <div class="filter-row"><span class="filter-name">排序</span><div class="rail" id="sort-rail"><div id="sorts" class="scroller"><button class="chip active" type="button" data-sort="latest">最新发布</button><button class="chip" type="button" data-sort="score">匹配度</button><button class="chip" type="button" data-sort="pick">精选项目</button></div></div><span class="count" id="count" role="status" aria-live="polite"></span></div>
+      <div class="searchline"><label class="search"><span class="glass" aria-hidden="true">⌕</span><input id="search" type="search" aria-label="搜索帖子标题" placeholder="搜索标题关键词…" autocomplete="off"></label><button id="reset" class="reset" type="button">重置筛选</button><button id="clearseen" class="reset" type="button" title="清除全部已看标记">清除已看</button></div>
+      <div class="filter-row"><span class="filter-name">排序</span><div class="rail" id="sort-rail"><div id="sorts" class="scroller"><button class="chip active" type="button" data-sort="latest">最新发布</button><button class="chip" type="button" data-sort="score">匹配度</button><button class="chip" type="button" data-seen="1">只看未看</button><button class="chip" type="button" data-sort="pick">精选项目</button></div></div><span class="count" id="count" role="status" aria-live="polite"></span></div>
       <div class="filter-row"><span class="filter-name">来源</span><div class="rail" id="source-rail"><div id="sources" class="scroller"></div><button class="scroll-next" type="button" aria-label="向右滚动来源选项" data-rail="sources">›</button></div></div>
       <div class="filter-row"><span class="filter-name">类型</span><div class="rail" id="category-rail"><div id="categories" class="scroller"></div><button class="scroll-next" type="button" aria-label="向右滚动类型选项" data-rail="categories">›</button></div></div>
     </section>
@@ -366,6 +377,40 @@ function foldKeyOf(c){
   return ok || ('T:' + sourceKey(c.source) + '|#|' + title);
 }
 
+/* —— 已看状态 ——
+   键用 foldKeyOf(c)：它对**单张卡**也返回身份（活动 key/campaign，否则"来源+标题"），
+   所以同一份福利换个人重发、折叠后的代表帖换成新的，标记都不会丢；用 id 当键就会丢。
+   存 localStorage 且**键名带前缀**：xiaopeng66.github.io 这个 origin 下所有仓库的
+   Pages 共用一份存储（主站与副站现在就共用 promo-theme）。
+   ⚠ 这里的 localStorage 访问必须包在 try/catch 里：tests/test_page_js.mjs 的 DOM shim
+   只给了 getItem、没有 setItem，裸调会当场把套件弄红。 */
+const SEEN_LS='welfare-seen-v1';
+let SEEN=(()=>{try{const raw=JSON.parse(localStorage.getItem(SEEN_LS)||'{}');return (raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{}}catch(e){return {}}})();
+function seenKey(c){try{return foldKeyOf(c)||String((c&&c.id)||'')}catch(e){return String((c&&c.id)||'')}}
+function seenOf(c){const k=seenKey(c);return !!(k&&SEEN[k])}
+function seenSave(){try{localStorage.setItem(SEEN_LS,JSON.stringify(SEEN))}catch(e){}}
+function seenCountInView(){try{return state.entries.filter(x=>seenOf(x.c)).length}catch(e){return 0}}
+/* 自动清理：>90 天 或 >5000 条就淘汰最旧的。不清的话 localStorage 会一直涨。 */
+function seenPrune(){
+  try{
+    const now=Date.now();let dirty=false;
+    for(const k of Object.keys(SEEN)){if(!(now-SEEN[k]<90*864e5)){delete SEEN[k];dirty=true}}
+    const keys=Object.keys(SEEN);
+    if(keys.length>5000){keys.sort((a,b)=>SEEN[a]-SEEN[b]).slice(0,keys.length-5000).forEach(k=>{delete SEEN[k];dirty=true})}
+    if(dirty)seenSave();
+  }catch(e){}
+}
+seenPrune();
+/* 点开原帖后就地更新计数，不重排（重排会打断滚动位置） */
+function seenSyncSummary(){
+  try{
+    const el=$('#result-summary'); if(!el)return;
+    const base=String(el.textContent||'').replace(/ · 已看 \d+$/,'');
+    const n=seenCountInView();
+    el.textContent=(n&&!state.seenOnly)?(base+' · 已看 '+n):base;
+  }catch(e){}
+}
+
 function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&(c.offer.key||c.offer.campaign))?('O:'+(c.offer.key||c.offer.campaign)):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
 const view=foldCards(cards);
 /* 展开清单：该组每条的标题 + 北京时间，点任意一条去原帖。点击不整页重渲染（只挂/摘一个节点），
@@ -395,7 +440,7 @@ function pickMatches(c, q){
 function pickEntries(){
   const q = state.query;
   return PICK_KINDS.flatMap(k => FEATURED
-    .filter(c => c.f.kind === k && !PICK_EXPIRED.has(c.dupkey) && pickMatches(c, q))
+    .filter(c => c.f.kind === k && !PICK_EXPIRED.has(c.dupkey) && pickMatches(c, q) && (!state.seenOnly || !seenOf(c)))
     .map(c => ({c, key: 'pick:' + k})));
 }
 function pickCount(){ return new Set([...document.querySelectorAll('.pick-card')].map(c => c.dataset.pickKey)).size }
@@ -538,11 +583,14 @@ function pickCardHTML(c){
     : escapeHTML(f.amount || '免费福利');
   const lead = f.lines[0] ? hlText(f.lines[0]) : '';
   const sub = f.lines[1] ? hlText(f.lines[1]) : '';
-  return '<article class="card pick-card' + (f.level_class === 'luck' ? ' luck' : '') + '"'
+  const _pk_seen = seenOf(c);
+  return '<article class="card pick-card' + (f.level_class === 'luck' ? ' luck' : '') + (_pk_seen ? ' seen' : '') + '"'
+   + ' data-seenk="' + escapeHTML(seenKey(c)) + '"'
    + ' data-pick-key="' + escapeHTML(String(c.dupkey)) + '" data-pick-kind="' + escapeHTML(f.kind) + '">'
    + '<div class="pick-head"><span class="pick-id"><span class="pick-name">' + escapeHTML(f.name) + '</span>' + fresh + '</span>'
    + '<span class="pick-amt">' + amt + '</span></div>'
-   + '<div class="pick-meta"><span class="pick-tag ' + escapeHTML(f.level_class) + '">' + escapeHTML(f.level) + '</span>'
+   + '<div class="pick-meta">' + (_pk_seen ? '<span class="seen-tag" title="点一下取消已看标记">已看</span>' : '')
+   + '<span class="pick-tag ' + escapeHTML(f.level_class) + '">' + escapeHTML(f.level) + '</span>'
    + cdChip(f)
    + (f.brand ? '<span class="pick-sub">' + escapeHTML(f.brand) + '</span>' : '')
    + (f.expiry ? '<span class="pick-sub">' + escapeHTML(f.expiry) + '</span>' : '')
@@ -562,7 +610,7 @@ function pickCardHTML(c){
    + '</article>';
 }
 
-const state={sort:'latest',source:'all',category:'all',query:'',shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
+const state={sort:'latest',source:'all',category:'all',query:'',seenOnly:false,shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
 function updateRails(){['source','category'].forEach(updateRail)}
 function selected(id,field,val){$$('#'+id+' .chip').forEach(b=>{const on=b.dataset[field]===val;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
@@ -581,14 +629,14 @@ function isRecent(c){const t=time(c),delta=Date.now()-t;return !!t&&delta>=0&&de
    也要能被来源/类型/关键词找到（2026-10-15 审计：9 条成员筛不到、来源按钮还会消失）。 */
 function matches(c){return (state.source==='all'||sourceKey(c.source)===state.source)&&(state.category==='all'||(Array.isArray(c.tags)?c.tags:[]).includes(state.category))&&(!state.query||String(c.title||'').toLocaleLowerCase().includes(state.query))}
 function makeEntries(){if(state.sort==='pick'){return pickEntries()}
-const list=foldCards(cards.filter(matches));
+const list=foldCards(cards.filter(c=>matches(c)&&(!state.seenOnly||!seenOf(c))));
  list.sort((a,b)=>state.sort==='score'?((Number(b.score)||0)-(Number(a.score)||0)||stamp(b.fetched_at)-stamp(a.fetched_at)):time(b)-time(a));
  const enriched=list.map(c=>({c,key:state.sort==='score'?(isRecent(c)?'recent':'earlier'):bjDay(c)}));
  return state.sort==='score'?[...enriched.filter(x=>x.key==='recent'),...enriched.filter(x=>x.key==='earlier')]:enriched;
 }
 function renderCard(c){if(c.f)return pickCardHTML(c);const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
- const score=Number(c.score),dups=Number(c.dups)||0;return `<article class="card"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot"><span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
+ const score=Number(c.score),dups=Number(c.dups)||0;const _sk=seenKey(c),_seen=seenOf(c);return `<article class="card${_seen?' seen':''}" data-seenk="${escapeHTML(_sk)}"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot">${_seen?'<span class="seen-tag" title="点一下取消已看标记">已看</span>':''}<span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
 function sectionLabel(k){if(k==='pick:gift')return '赠送 · 送到账';if(k==='pick:lottery')return '抽奖 · 拼手气';if(k==='pick:free')return '免费 · 注册或直接用';if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
 function addBatch(){const total=state.entries.length;let end=Math.min(state.shown+40,total);
@@ -597,11 +645,11 @@ function addBatch(){const total=state.entries.length;let end=Math.min(state.show
  for(let i=state.shown;i<end;){const key=state.entries[i].key;let j=i+1;while(j<end&&state.entries[j].key===key)j++;let section=state.sections.get(key);
  if(!section){section=document.createElement('section');section.className='group';section.dataset.key=key;section.innerHTML=`<div class="group-head"><h2>${escapeHTML(sectionLabel(key))}</h2><div class="line"></div><span class="portion"></span></div><div class="cards"></div>`;$('#results').append(section);state.sections.set(key,section)}
  const batch=state.entries.slice(i,j);for(const x of batch)if(x.c.dups>1&&x.c.dupkey)cardByKey.set(x.c.dupkey,x.c);section.querySelector('.cards').insertAdjacentHTML('beforeend',batch.map(x=>renderCard(x.c)).join(''));section.querySelector('.portion').textContent=`显示 ${section.querySelectorAll('.card').length} / ${state.totals.get(key)} 条`;i=j}
- state.shown=end;$('#more').hidden=end>=state.entries.length;$('#more').textContent=`继续查看 · 剩余 ${state.entries.length-end} 条`;$('#result-summary').textContent=`显示 ${end} / ${state.entries.length} 条`;$('#count').textContent=state.sort==='pick'?`精选 ${pickCount()} 项`:`${state.entries.length} / ${view.length} 条`;
+ state.shown=end;$('#more').hidden=end>=state.entries.length;$('#more').textContent=`继续查看 · 剩余 ${state.entries.length-end} 条`;const _seenInView=seenCountInView();$('#result-summary').textContent=`显示 ${end} / ${state.entries.length} 条${(_seenInView&&!state.seenOnly)?` · 已看 ${_seenInView}`:''}`;$('#count').textContent=state.sort==='pick'?`精选 ${pickCount()} 项`:`${state.entries.length} / ${view.length} 条`;
 }
 function refresh(){state.entries=makeEntries();state.shown=0;state.sections=new Map();state.totals=new Map();for(const x of state.entries)state.totals.set(x.key,(state.totals.get(x.key)||0)+(x.c.dups||1));   /* 帖子口径：折叠卡代表 dups 条 */state.recentSignature=state.sort==='score'?state.entries.filter(x=>x.key==='recent').map(x=>x.c.id).join('|'):'';
  $('#results').replaceChildren();
- if(state.sort==='pick'){$('#results').classList.add('pick-mode');} else {$('#results').classList.remove('pick-mode');}if(!state.entries.length){$('#results').innerHTML='<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else{addBatch();insertPickNav()}
+ if(state.sort==='pick'){$('#results').classList.add('pick-mode');} else {$('#results').classList.remove('pick-mode');}if(!state.entries.length){$('#results').innerHTML=state.seenOnly?'<div class="no-results"><strong>当前筛选下没有未看的了</strong><p>切换「只看未看」看全部，或清除已看标记重新开始。</p><button class="reset" data-seen="1" type="button">显示全部</button></div>':'<div class="no-results"><strong>没有找到匹配的信息</strong><p>换个关键词，或清除筛选条件。</p><button class="reset" data-clear="true" type="button">清除筛选</button></div>';$('#count').textContent=`0 / ${view.length} 条`;$('#result-summary').textContent='0 条';$('#more').hidden=true}else{addBatch();insertPickNav()}
  $('#reset').classList.toggle('dirty',state.query!==''||state.source!=='all'||state.category!=='all'||state.sort!=='latest');
  try{history.replaceState(null,'',state.sort==='pick'?'?sort=pick':location.pathname)}catch{}
 }
@@ -670,6 +718,30 @@ setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventLis
   try{var later=function(){setTimeout(function(){hit({k:'view'})},1200)};if(document.readyState==='complete')later();else window.addEventListener('load',later)}catch(e){}
   try{document.addEventListener('click',function(e){try{var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.href||'';if(!/^https?:/i.test(h))return;try{if(new URL(h).host===location.host)return}catch(e2){}hit({k:'click',t:h.slice(0,600)})}catch(err){}},true)}catch(e){}
 })();
+
+/* —— 已看状态的交互（与应用脚本同作用域）——
+   点开原帖 = 已看（强信号，准确）。不做"滚过就算看过"：滚一遍会把 300 条全标上，记录当场作废。 */
+function paintSeen(card,on){
+  if(!card)return;
+  const foot=card.querySelector('.card-foot')||card.querySelector('.pick-meta');
+  card.classList.toggle('seen',!!on);
+  const old=card.querySelector('.seen-tag');
+  if(on&&!old&&foot){const b=document.createElement('span');b.className='seen-tag';b.textContent='已看';b.title='点一下取消已看标记';foot.insertBefore(b,foot.firstChild)}
+  if(!on&&old)old.remove();
+}
+document.addEventListener('click',function(e){
+  try{
+    const badge=e.target.closest&&e.target.closest('.seen-tag');
+    if(badge){const card=badge.closest('[data-seenk]');if(card){const k=card.dataset.seenk;if(k){delete SEEN[k];seenSave();paintSeen(card,false);if(state.seenOnly)refresh();else seenSyncSummary()}}return}
+    const chip=e.target.closest&&e.target.closest('[data-seen]');
+    if(chip){state.seenOnly=!state.seenOnly;const on=state.seenOnly;document.querySelectorAll('[data-seen]').forEach(b=>b.classList.toggle('active',on));refresh();return}
+    const clear=e.target.closest&&e.target.closest('#clearseen');
+    if(clear){SEEN={};seenSave();refresh();return}
+    const link=e.target.closest&&e.target.closest('.card a[href]');
+    if(link){const card=link.closest('[data-seenk]');const k=card&&card.dataset.seenk;
+      if(k&&!SEEN[k]){SEEN[k]=Date.now();seenSave();paintSeen(card,true);seenSyncSummary()}}
+  }catch(err){}
+},true);
 </script>
 <!-- 右下角悬浮按钮：返回顶部 / 刷新 -->
 <div class="modal" id="foldModal" hidden>
