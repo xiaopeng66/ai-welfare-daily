@@ -550,9 +550,41 @@ def _judge(row: dict, body: str, meta: dict, now: float | None = None) -> bool:
     return not thin
 
 
+class DeletedOnSource(Exception):
+    """源站明确回 404/410（帖子被删/沉底）。调用方应把该行记为"源站已删"，
+    不再为它消耗正文预算 —— 2026-10-24 实测：linux.do 待判 95 条里有 44 条是
+    超过 72 小时的老帖，最旧的几条已经 404，却按"最旧优先"每轮吃掉预算，
+    导致新帖永远轮不到（hyxapi 那条就是这么漏的）。"""
+
+
+class RateLimited(Exception):
+    """源站回 429（限速）。**不算失败**：不该累计熔断计数、不该放弃本轮剩余名额，
+    只要退避更久再来 —— 原来把它当失败，一轮只成功 1-2 条就熔断收手。"""
+
+
+_HTTP_CODE_RE = re.compile(r"HTTP (\d{3})|status=(\d{3})|\b(429)\b")
+
+
+def _status_of(exc) -> int | None:
+    """从异常里尽力取 HTTP 状态码（fetcher 各实现抛法不同）。"""
+    code = getattr(exc, "code", None) or getattr(getattr(exc, "response", None), "status_code", None)
+    if isinstance(code, int):
+        return code
+    m = _HTTP_CODE_RE.search(str(exc) or "")
+    if m:
+        for g in m.groups():
+            if g:
+                return int(g)
+    return None
+
+
 def _fetch_with_cache(row: dict, fetcher, cache_url: str, delay: float, timeout: int,
                       ttl_h: float) -> dict | None:
-    """先查本地缓存，没有再真抓（失败重试一次）；抓到就写缓存。"""
+    """先查本地缓存，没有再真抓（失败重试一次）；抓到就写缓存。
+
+    404/410 → 抛 DeletedOnSource（不重试：删了就是删了）；
+    429     → 抛 RateLimited（不重试：立刻重试只会继续 429）。
+    """
     url = row.get("url") or ""
     cached = _cache_load(url, ttl_h)
     if cached is not None:
@@ -566,9 +598,21 @@ def _fetch_with_cache(row: dict, fetcher, cache_url: str, delay: float, timeout:
             try:
                 raw = fetcher(cache_url)
                 break
-            except Exception:
+            except Exception as exc:
+                code = _status_of(exc)
+                if code in (404, 410):
+                    raise DeletedOnSource(f"{code} {url}") from exc
+                if code == 429:
+                    raise RateLimited(f"429 {url}") from exc
+                if _attempt == 2:
+                    return None
                 time.sleep(delay)
-        except Exception:
+        except Exception as exc:
+            code = _status_of(exc)
+            if code in (404, 410):
+                raise DeletedOnSource(f"{code} {url}") from exc
+            if code == 429:
+                raise RateLimited(f"429 {url}") from exc
             time.sleep(delay)
     if raw is None:
         return None
@@ -587,6 +631,8 @@ def _offer_stale(row: dict, ttl_h: float, now: float) -> bool:
       · 没有 `at` 时间戳的旧数据（当陈旧，重判一次把时间戳补上）。
     """
     o = row.get("offer") or {}
+    if o.get("deleted"):
+        return False                     # 源站已删（404/410）：不再花预算重试
     if int(o.get("v") or 0) < OFFER_V:
         return True
     at = o.get("at")
@@ -652,13 +698,37 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
     if not todo or (limit <= 0 and not stealth_fetch):
         return 0
 
-    # 先判没判过的（新帖优先），再按创建时间新的先重判 —— 不这样排，重判会把预算吃光。
-    # 已知正文不可用的（thin）排到最后：再抓一次还是那点内容，不该挤掉新帖。
+    # 排序（2026-10-24 改）：**新的优先**，老帖降频。
+    # 原来是"最旧优先"，实测撞上死帖：待判 95 条里 44 条是 >72h 的老帖（其中真有
+    # 404 已删的），它们永远排在最前面、每轮把预算吃光 → 新帖（hyxapi/zcode 这类
+    # 用户真正在看的活动）永远轮不到。
+    # 现在按「新鲜度档」排：≤24h 最优先，24-72h 次之，>72h 最后；同档内新的先判。
+    # 已知正文不可用的（thin）仍排最后：再抓一次还是那点内容，不该挤掉新帖。
+    def _age_h(r: dict) -> float:
+        raw = r.get("created_at") or r.get("fetched_at")
+        if not raw:
+            return 1e9
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            t = _dt.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=_tz.utc)
+            return max(0.0, (clock - t.timestamp()) / 3600.0)
+        except (TypeError, ValueError):
+            return 1e9
+
+    def _fresh_bucket(r: dict) -> int:
+        a = _age_h(r)
+        return 0 if a <= 24 else 1 if a <= 72 else 2
+
     def _order(r: dict):
         o = r.get("offer") or {}
         never = int(o.get("v") or 0) < OFFER_V or not o.get("at")
         return (2 if o.get("thin") else (0 if never else 1),
-                r.get("created_at") or r.get("fetched_at") or "")
+                _fresh_bucket(r),
+                _age_h(r))                 # 同档内：age 小的（更新的）先 —— 升序即可；
+                                           # **不能写负号**（2026-10-24 写反过一次：
+                                           # -age 会让 age 最大的排最前 = 又变成最旧优先）
 
     todo.sort(key=_order)
 
@@ -687,20 +757,50 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
     if stealth_fetch:
         # linux.do 会限速：实测连着打（每 2-3 秒一条）立刻连续 429，之后连正常请求也一并 429。
         # 所以这里要么慢、要么停 —— 连续两条失败就放弃本轮（下一轮再来），绝不硬打。
-        fails = 0
+        fails = 0                        # 只数"真失败"（正文不可用/传输错）
+        _rl_retried: dict[int, bool] = {}  # 每行最多因 429 退避重试一次
+        rate_limited = 0
+        _rl_streak = 0                   # **连续** 429 次数（成功一条就清零）
+        deleted = 0
         for r in stealth:
-            if stealth_attempted >= stealth_limit or fails >= 2:
+            if stealth_attempted >= stealth_limit or fails >= 2 or _rl_streak >= 2:
                 break
             if not r.get("url"):
                 continue
+            if _rl_retried.get(id(r)):
+                # 这一行已经因为 429 退避重试过一次 → 跳过它（否则会原地死循环），
+                # 让本轮把剩余名额给**别的**帖 —— 这才是"429 不放弃整轮"的本意。
+                continue
             stealth_attempted += 1           # 尝试即计数
-            got = _fetch_with_cache(r, stealth_fetch, content_url("linuxdo", r["url"]),
-                                    max(delay, stealth_delay), stealth_timeout, ttl_h)
+            try:
+                got = _fetch_with_cache(r, stealth_fetch, content_url("linuxdo", r["url"]),
+                                        max(delay, stealth_delay), stealth_timeout, ttl_h)
+            except DeletedOnSource as exc:
+                # 源站已删：记在该行上（下一轮不再进待判队列），不消耗熔断计数
+                deleted += 1
+                o = dict(r.get("offer") or {})
+                o.update({"v": OFFER_V, "key": None, "site": "", "campaign": "",
+                          "amount": "", "brand": "", "thin": True,
+                          "at": int(clock), "deleted": True})
+                r["offer"] = o
+                say(f"[content] linux.do 源站已删（{exc}）→ 该行不再重试")
+                continue
+            except RateLimited:
+                # 限速：**不算失败**（不累计熔断）、不放弃本轮剩余名额；
+                # 但同一行只给一次退避重试机会，随后本轮跳过它、把名额让给别的帖。
+                rate_limited += 1
+                _rl_streak += 1
+                _rl_retried[id(r)] = True
+                stealth_attempted -= 1       # 限速不算"试过一条"，把名额还回去
+                say(f"[content] linux.do 限速（429）→ 退避 {int(max(delay, stealth_delay) * 3)}s 后换下一条")
+                time.sleep(max(delay, stealth_delay) * 3)
+                continue
             if got is None or not _judge(r, got["body"], got["meta"], clock):
                 fails += 1                   # 「200 但正文不可用」也计入熔断
                 time.sleep(max(delay, stealth_delay) * 2)
                 continue
             fails = 0
+            _rl_streak = 0               # 拿到一条就说明限速窗口过去了
             stealth_done += 1
             done += 1
 

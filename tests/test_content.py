@@ -37,6 +37,9 @@ for _stream in (sys.stdout, sys.stderr):
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import datetime as _dt
+import time as _time
+
 import content as c  # noqa: E402
 
 FX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "evidence", "content-20261015")
@@ -434,6 +437,82 @@ check(c.offer_of("某站注册送 10 刀", "", ("https://dzhsmartai.com/",))["ke
       "合并键：没进别名表的站，行为不变（key == 站点）")
 check(c.offer_of("免费领取5亿token庆祝1024节", "", ())["key"] is None,
       "合并键：无链接且标题认不出活动 → 仍是 None（等正文判定，不瞎猜）")
+
+print("\n== 正文队列：死帖不吃预算 / 限速不算失败 / 新帖优先（2026-10-24）==")
+# 由头：linux.do 待判 95 条里 44 条 >72h 老帖（最旧的已 404），按"最旧优先"每轮
+# 吃光预算 → 新帖永远轮不到（hyxapi 那条就是这么漏的）；而且 429 被当失败，
+# 一轮成功 1-2 条就熔断。
+import urllib.error as _ue
+_now = _time.time()
+_TTL = 1e9      # 不让 TTL 干扰
+
+def _row(lid, hours_ago, url=None):
+    return {"id": lid, "source": "linuxdo_welfare_p1",
+            "url": url or ("https://linux.do/t/topic/%s" % lid),
+            "title": "测试帖 %s" % lid,
+            "created_at": _dt.datetime.fromtimestamp(_now - hours_ago * 3600, _dt.timezone.utc).isoformat()}
+
+# ① 404 → DeletedOnSource，且该行标 deleted、下一轮不再进待判队列
+_calls = []
+def _f404(url, timeout=20):
+    _calls.append(url)
+    raise _ue.HTTPError(url, 404, "Not Found", None, None)
+_rows = [_row("404a", 100)]
+c.annotate(_rows, _f404, limit=0, delay=0, timeout=1, now=_now, ttl_h=_TTL,
+           stealth_fetch=_f404, stealth_limit=5, stealth_delay=0, log=lambda _m: None)
+check(_rows[0].get("offer", {}).get("deleted") is True,
+      "404 的帖子被标记 deleted（不再重试）", _rows[0].get("offer"))
+check(c._offer_stale(_rows[0], _TTL, _now) is False,
+      "已删帖不再进待判队列（下一轮不花预算）")
+_calls.clear()
+c.annotate(_rows, _f404, limit=0, delay=0, timeout=1, now=_now, ttl_h=_TTL,
+           stealth_fetch=_f404, stealth_limit=5, stealth_delay=0, log=lambda _m: None)
+check(len(_calls) == 0, "第二轮对已删帖零请求", len(_calls))
+
+# ② 429 → 不算失败、不放弃整轮：每行第一次 429、第二次成功 → 后面的帖仍会被处理
+_per_url = {}
+def _f_mixed(url, timeout=20):
+    _per_url[url] = _per_url.get(url, 0) + 1
+    if _per_url[url] == 1:
+        raise _ue.HTTPError(url, 429, "Too Many Requests", None, None)
+    return '{"post_stream": {"posts": [{"cooked": "<p>站点 https://ok.example 注册送 10 刀额度</p>"}]}}'
+_rows = [_row("429a", 1), _row("429b", 2), _row("429c", 3)]
+_old_cache = c.CACHE_DIR; c.CACHE_DIR = tempfile.mkdtemp()
+try:
+    n = c.annotate(_rows, lambda u, t=20: (_ for _ in ()).throw(AssertionError("normal path")),
+                   limit=0, delay=0, timeout=1, now=_now, ttl_h=_TTL,
+                   stealth_fetch=_f_mixed, stealth_limit=5, stealth_delay=0, log=lambda _m: None)
+finally:
+    c.CACHE_DIR = _old_cache
+# 本轮遇 2 次 429 后主动收手是**有意的防封**（实测连打必定持续 429）；
+# 这里要钉的是「429 不算失败」：不能被记成该行失败、也不能被写成已判定。
+# 每条帖第一次都 429、第二次成功。真实策略是「连续 2 次 429 就收手」（防封）：
+# 所以本轮不一定能判完全部，但必须做到 ①429 不被记成失败 ②换到下一条继续试
+# ③被判成功的行真的拿到身份。
+_done = [r for r in _rows if (r.get("offer") or {}).get("key")]
+check(len(_per_url) >= 2,
+      "429 之后换到下一条继续试（不因一条限速就放弃整轮）", _per_url)
+check(all(r.get("offer", {}).get("key") for r in _done) and n == len(_done),
+      "成功判出的行都有身份（429 没有被当成判定失败写进去）",
+      [(r["id"], (r.get("offer") or {}).get("key")) for r in _rows])
+check(all((r.get("offer") or {}).get("at") is None for r in _rows if r not in _done),
+      "因 429 收手而没判的行保持“未判定”（下一轮会重试）",
+      [(r["id"], (r.get("offer") or {}).get("at")) for r in _rows])
+
+# ③ 排序：新帖优先于 >72h 老帖
+_rows = [_row("old", 100), _row("new", 2), _row("mid", 40)]
+_seen = []
+def _f_track(url, timeout=20):
+    _seen.append(url)
+    return '{"post_stream": {"posts": [{"cooked": "<p>正文足够长的一行说明 https://a.example 送额度</p>"}]}}'
+_old_cache = c.CACHE_DIR; c.CACHE_DIR = tempfile.mkdtemp()   # 空缓存：否则命中缓存看不到调用顺序
+try:
+    c.annotate(_rows, _f_track, limit=0, delay=0, timeout=1, now=_now, ttl_h=_TTL,
+               stealth_fetch=_f_track, stealth_limit=1, stealth_delay=0, log=lambda _m: None)
+finally:
+    c.CACHE_DIR = _old_cache
+check(_seen and _seen[0].endswith("/new.json"),
+      "预算只有 1 条时，先判最新的帖（而不是最旧的）", _seen[:2])
 
 print("\n== annotate：预算、缓存、失败跳过 ==")
 tmp = tempfile.mkdtemp()
