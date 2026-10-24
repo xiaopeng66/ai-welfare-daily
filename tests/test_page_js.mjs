@@ -166,7 +166,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state,seenOf,postKeyOf,markSeenCard,unmarkSeenCard,seenKey,foldKeyOf,SEEN};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -429,6 +429,29 @@ api.state.seenOnly = false;
 api.renderChips();
 check(seenChip.classList.contains('active') === false && seenChip.getAttribute('aria-pressed') === 'false',
   'turning the filter off unlights the chip and clears aria-pressed');
+
+
+console.log('\n== 已看状态：键迁移后必须存活（2026-10-24 用户报告"一小时后被重置"）==');
+// 机制：已看键 = foldKeyOf（合并键）。合并键一变（offer 重判/规则升级 v9/别名调整），
+// 旧键下的标记就全部失联 —— 修复后点击会同时标记 组键 + 全部成员的帖子身份键（host#id），
+// 身份键不随上述任何变化而变。
+const zrow = api.getCards().find(c => String(c.title || '').toLowerCase().includes('zcode'));
+if (zrow) {
+  const before = api.foldKeyOf(zrow);
+  api.markSeenCard(zrow);
+  check(api.seenOf(zrow) === true, '点击后已看');
+  const savedOffer = zrow.offer;
+  zrow.offer = { v: 99, key: 'renamed.example', campaign: 'renamed.example' };
+  check(api.foldKeyOf(zrow) !== before, '注入一次键迁移（合并键确实变了）', api.foldKeyOf(zrow));
+  check(api.seenOf(zrow) === true, '键迁移后已看状态仍然存活（修复前这里会丢）');
+  zrow._mkeys = [...(zrow._mkeys || []), 'linux.do#999999'];
+  check(api.seenOf(zrow) === true, '折叠代表更换后仍已看');
+  api.unmarkSeenCard(zrow);
+  check(api.seenOf(zrow) === false, '取消已看会清掉组键与成员键');
+  zrow.offer = savedOffer;
+} else {
+  check(true, '跳过（线上载荷里没有 zcode 样本）');
+}
 
 
 console.log();

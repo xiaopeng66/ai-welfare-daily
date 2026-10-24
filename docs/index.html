@@ -387,7 +387,18 @@ function foldKeyOf(c){
 const SEEN_LS='welfare-seen-v1';
 let SEEN=(()=>{try{const raw=JSON.parse(localStorage.getItem(SEEN_LS)||'{}');return (raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{}}catch(e){return {}}})();
 function seenKey(c){try{return foldKeyOf(c)||String((c&&c.id)||'')}catch(e){return String((c&&c.id)||'')}}
-function seenOf(c){const k=seenKey(c);return !!(k&&SEEN[k])}
+/* 帖子身份：host#id —— 不随 offer 重判 / 折叠代表更换 / 规则升级（v9）而变。
+   已看状态之前直接挂在合并键上，合并键一变（2026-10-24 v9 迁移，40+ 张卡）
+   标记就全部失联，用户看到的就是"已看被重置"。现在组键与成员键都标记，
+   两边任一命中即已看。 */
+function postKeyOf(c){try{const host=(String(c.url||'').match(/^https?:\/\/([^/]+)/)||[])[1]||'';
+  return host+'#'+String((c&&c.id)==null?'':c.id)}catch(e){return ''}}
+function memberKeysOf(c){return Array.isArray(c._mkeys)?c._mkeys:[]}
+function seenOf(c){try{
+  const g=seenKey(c); if(g&&SEEN[g])return true;
+  const own=postKeyOf(c); if(own&&SEEN[own])return true;
+  for(const k of memberKeysOf(c))if(SEEN[k])return true;
+  return false}catch(e){return false}}
 function seenSave(){try{localStorage.setItem(SEEN_LS,JSON.stringify(SEEN))}catch(e){}}
 function seenCountInView(){try{return state.entries.filter(x=>seenOf(x.c)).length}catch(e){return 0}}
 /* 自动清理：>90 天 或 >5000 条就淘汰最旧的。不清的话 localStorage 会一直涨。 */
@@ -411,7 +422,9 @@ function seenSyncSummary(){
   }catch(e){}
 }
 
-function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&(c.offer.key||c.offer.campaign))?('O:'+(c.offer.key||c.offer.campaign)):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}return [...groups.values()].map(g=>g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''}))}):g.card)}
+function foldCards(list){const groups=new Map();let lone=0;for(const c of list){const title=String(c.title||'').trim();const ok=(c.offer&&(c.offer.key||c.offer.campaign))?('O:'+(c.offer.key||c.offer.campaign)):null;if(!ok&&!title){groups.set('|#|lone'+(lone++),{card:c,n:1,key:'',offer:false,members:[c]});continue}const key=ok||('T:'+sourceKey(c.source)+'|#|'+title);let g=groups.get(key);if(!g){g={card:c,n:1,key:key,offer:!!ok,members:[c]};groups.set(key,g)}else{g.n+=1;g.members.push(c);if(time(c)>time(g.card))g.card=c}}
+ return [...groups.values()].map(g=>{const mkeys=g.members.map(postKeyOf);
+  return g.n>1?Object.assign({},g.card,{dups:g.n,dupwhy:g.offer?'offer':'title',dupkey:g.key,dupsList:g.members.slice().sort((a,b)=>time(b)-time(a)).map(m=>({t:m.title||'',u:safeURL(m.url)||'',at:m.created_at||m.fetched_at||''})),_mkeys:mkeys}):Object.assign({},g.card,{_mkeys:mkeys})})}
 const view=foldCards(cards);
 /* 展开清单：该组每条的标题 + 北京时间，点任意一条去原帖。点击不整页重渲染（只挂/摘一个节点），
    展开状态记在 state.expanded —— 切筛选/排序后重新渲染仍保持展开。 */
@@ -733,17 +746,26 @@ function paintSeen(card,on){
   if(on&&!old&&foot){const b=document.createElement('span');b.className='seen-tag';b.textContent='已看';b.title='点一下取消已看标记';foot.insertBefore(b,foot.firstChild)}
   if(!on&&old)old.remove();
 }
+/* 标记/取消都以**数据卡**为单位：组键 + 全部成员键一起动（2026-10-24）。
+   之前只动组键 —— 组键随合并口径迁移时（v9），40+ 张卡的标记一夜失联。 */
+function markSeenCard(c){try{const k=seenKey(c);if(k)SEEN[k]=Date.now();
+  for(const mk of memberKeysOf(c))SEEN[mk]=Date.now();seenSave()}catch(e){}}
+function unmarkSeenCard(c){try{const k=seenKey(c);if(k)delete SEEN[k];
+  for(const mk of memberKeysOf(c))delete SEEN[mk];seenSave()}catch(e){}}
+function seenCardByKey(k){const v=foldMap.get(k);if(v)return v;
+  for(const c of cards)if(seenKey(c)===k)return c;return null}
 document.addEventListener('click',function(e){
   try{
     const badge=e.target.closest&&e.target.closest('.seen-tag');
-    if(badge){const card=badge.closest('[data-seenk]');if(card){const k=card.dataset.seenk;if(k){delete SEEN[k];seenSave();paintSeen(card,false);if(state.seenOnly)refresh();else seenSyncSummary()}}return}
+    if(badge){const card=badge.closest('[data-seenk]');if(card){const k=card.dataset.seenk;if(k){unmarkSeenCard(seenCardByKey(k)||{});paintSeen(card,false);if(state.seenOnly)refresh();else seenSyncSummary()}}return}
     const chip=e.target.closest&&e.target.closest('[data-seen]');
     if(chip){state.seenOnly=!state.seenOnly;refresh();return}
     const clear=e.target.closest&&e.target.closest('#clearseen');
     if(clear){SEEN={};seenSave();refresh();return}
     const link=e.target.closest&&e.target.closest('.card a[href]');
     if(link){const card=link.closest('[data-seenk]');const k=card&&card.dataset.seenk;
-      if(k&&!SEEN[k]){SEEN[k]=Date.now();seenSave();paintSeen(card,true);seenSyncSummary()}}
+      const data=seenCardByKey(k);
+      if(k&&data&&!seenOf(data)){markSeenCard(data);paintSeen(card,true);seenSyncSummary()}}
   }catch(err){}
 },true);
 </script>
