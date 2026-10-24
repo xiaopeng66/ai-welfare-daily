@@ -89,6 +89,27 @@ def cards_of(html):
 d = tempfile.mkdtemp(prefix='site-test-')
 store, out = os.path.join(d, 'topics.jsonl'), os.path.join(d, 'index.html')
 
+print('\n== 发布出来的页面不许是半截（2026-10-24 加）==')
+# 由头：2026-10-24 复检时两次撞见 GitHub Pages 部署中间态（线上 15067 / 32005 字节，
+# 正常约 382000）。那两次是部署过程中的瞬时状态，但如果哪天真把半截页面提交上去，
+# 现在没有任何检查会发现 —— CI 只比对 cards 载荷，页面外壳被截断它看不出来。
+# 判据用"页面必须远大于某个下限"而不是精确字节数：内容会随数据增长，下限只要
+# 能挡住"明显被截断"（经验值：截断态是 1.5-3 万，正常是 35-40 万）。
+if os.path.exists(PAGE):
+    _page_bytes = os.path.getsize(PAGE)
+    check(_page_bytes > 200_000,
+          'committed docs/index.html 体积正常（未被截断）',
+          f'{_page_bytes} bytes（下限 200000，正常约 380000）')
+    _page_text = open(PAGE, encoding='utf-8').read()
+    check(_page_text.rstrip().endswith('</html>'),
+          'committed docs/index.html 结构完整（以 </html> 结尾）',
+          repr(_page_text[-40:]))
+    check(_page_text.count('<script') >= 2 and _page_text.count('</script>') == _page_text.count('<script'),
+          'committed docs/index.html 的 script 标签成对',
+          (_page_text.count('<script'), _page_text.count('</script>')))
+else:
+    check(False, 'docs/index.html 存在')
+
 print('== the "最近收录" badge comes from the data, not the clock ==')
 # The v6 page computes the badge client-side from max(fetched_at), so the
 # rendered HTML must NOT bake in any wall-clock value, and the badge code must
