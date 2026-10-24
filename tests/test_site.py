@@ -230,7 +230,7 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
         check(not bad, 'every featured card carries a valid kind', bad[:3])
 
     # 访问统计的打点必须还在（2026-10-24 加）。
-    # 由头：打点代码只存在于 template.html，**改页面时删掉/改坏它，发布链完全无感** ——
+    # 由头：打点代码只存在于根目录的 template.html，**改页面时删掉/改坏它，发布链完全无感** ——
     # 实测把整段打点删掉后七套件仍然全绿（页面照发、CI 照绿），只有"打点链探针"能在
     # 12 小时后发现。加这条断言，这类改动当场红，不必等半天。
     page_text = b.decode('utf-8')
@@ -313,7 +313,7 @@ print('\n== 右下角悬浮按钮（返回顶部 / 刷新）==')
 # 与 ai-welfare-promo-health.html 用同一套实现。模板是唯一真源，产物由 generate.py
 # 渲染，所以两边都要盯：只查产物的话，模板丢了 fab 要等下次重新生成才暴露；
 # 只查模板的话，占位符替换出错也会漏掉。
-_tpl = open(os.path.join(ROOT, 'docs', 'template.html'), encoding='utf-8').read()
+_tpl = open(os.path.join(ROOT, 'template.html'), encoding='utf-8').read()
 _FAB = [
     ('返回顶部按钮存在', 'id="fabTop"'),
     ('刷新按钮存在', 'id="fabReload"'),

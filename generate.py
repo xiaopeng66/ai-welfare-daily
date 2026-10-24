@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the single-page site from topics.jsonl (v6 template).
 
-The page shell lives in docs/template.html (design v6). This script only:
+The page shell lives in template.html at the repo root (design v6). This script only:
   1. loads the store,
   2. embeds the rows as the `const cards=[...]` payload the template's JS renders,
   3. injects the source-label / category-order / category-tone maps from the
@@ -21,7 +21,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-TEMPLATE = Path(__file__).resolve().parent / "docs" / "template.html"
+TEMPLATE = Path(__file__).resolve().parent / "template.html"
 FEATURED_STATE = Path(__file__).resolve().parent / "data" / "featured.jsonl"
 FEATURED_CACHE = Path(__file__).resolve().parent / "data" / "cache" / "content"
 
