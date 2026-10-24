@@ -132,6 +132,16 @@ check(mod.topic_key(rows[0]) == mod.topic_key(
     {'id': '777', 'url': 'https://baipiao.org/bbs/d/777'}),
     'fallback row and API row share one merge key')
 
+print('\n== baipiao 分页：Flarum 用 page[offset]，?page=N 会被静默忽略 ==')
+check(mod._baipiao_api_url(1).endswith("?page[offset]=0&page[limit]=20&sort=-createdAt"),
+      'page 1 starts at offset 0', mod._baipiao_api_url(1))
+check(mod._baipiao_api_url(2).endswith("?page[offset]=20&page[limit]=20&sort=-createdAt"),
+      'page 2 starts at offset 20', mod._baipiao_api_url(2))
+check(mod._baipiao_api_url(3).endswith("?page[offset]=40&page[limit]=20&sort=-createdAt"),
+      'page 3 starts at offset 40', mod._baipiao_api_url(3))
+check("?page=2" not in mod._baipiao_api_url(2),
+      'no ignored ?page=N parameter left', mod._baipiao_api_url(2))
+
 print('\n== HTML 回退解析：锚点文本可能分多次回调（换行前缀 / 内嵌 span）==')
 # 审计用合法 HTML 复现过两个形状：旧写法只认第一个 handle_data ——
 # 前导换行让整条丢失；内嵌 <span>（已结束）</span> 让后缀丢、失效帖被当有效收。
@@ -925,18 +935,27 @@ out = mod._guarded_source("假源", lambda: (_ for _ in ()).throw(ValueError("�
 check(out == [] and any("假源" in e for e in mod.FETCH_ERRORS),
       "源异常 → 空结果 + FETCH_ERRORS，不抛出", mod.FETCH_ERRORS)
 
-# P1-7：id 漂移成 None/"None" 或重复 → 丢弃并计数
+# P1-7：id 漂移成 None/"None" → 丢弃并计数；重复只丢弃、**不计入身份非法**
 rows = [_row(1, "a"), _row(2, "b"), _row(3, "c"), _row(4, "d")]
 rows[0]["id"] = None
 rows[1]["id"] = "None"
 rows[2]["id"] = "1"
-rows[3]["id"] = "1"          # 与 rows[2] 重复
+rows[3]["id"] = "1"          # 与 rows[2] 重复（多版块同帖 / 分页参数失效）
 kept, report = mod._validate_identities(rows)
-check(len(kept) == 1 and report["linuxsb"] == [4, 3],
-      "坏 id / 重复 id 全部丢弃并计入报告", (len(kept), report))
+check(len(kept) == 1 and report["linuxsb"] == [4, 2],
+      "坏 id 丢弃计数；重复 id 丢弃但不计入身份非法", (len(kept), report))
+# 2026-10-25 baipiao：分页参数失效 → 40/60 重复。重复若计入非法率会整源判失败。
+_rows_dup = [{"id": str(i), "source": f"baipiao_p{p}", "url": f"https://baipiao.org/bbs/d/{i}"}
+             for p in (1, 2, 3) for i in range(20)]
+_kept_dup, _rep_dup = mod._validate_identities(_rows_dup)
+check(len(_kept_dup) == 20 and _rep_dup["baipiao"] == [60, 0],
+      "三页重复只留首条，非法率仍为 0（不判整源失败）", (len(_kept_dup), _rep_dup))
 mod.FETCH_ERRORS.clear()
 failed = mod._flag_identity_failures({"bad": [10, 6], "good": [10, 1]})
 check(failed == ["bad"], "坏行过半 → 判该源失败（good 只告警）", (failed, mod.FETCH_ERRORS))
+mod.FETCH_ERRORS.clear()
+check(not mod._flag_identity_failures({"baipiao": [60, 0]}),
+      "分页退化（60 行 20 唯一）不再判该源失败", mod.FETCH_ERRORS)
 
 # P1-8：--limit 0 必须在联网前拒绝，且不许碰 store
 import subprocess as _sp, tempfile as _tf

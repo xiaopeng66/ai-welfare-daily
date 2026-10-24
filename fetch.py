@@ -976,10 +976,25 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
     return all_topics
 
 
+BAIPIAO_PAGE_SIZE = 20
+
+
+def _baipiao_api_url(page: int) -> str:
+    """Flarum JSON:API 的分页是 page[offset]/page[limit]，`?page=N` 会被静默忽略。
+
+    2026-10-25 实测：page=1/2/3 返回同一批 20 条 → 60 行只有 20 个唯一 id，
+    身份闸门把 40 行重复判成"非法"（67% ≥ 50%）→ 整源停更。API 自己的
+    links.next 也是 `page%5Boffset%5D=20` 的形式，以此为准。
+    """
+    return (f"{BASE_BAIPIAO}/bbs/api/discussions"
+            f"?page[offset]={(page - 1) * BAIPIAO_PAGE_SIZE}"
+            f"&page[limit]={BAIPIAO_PAGE_SIZE}&sort=-createdAt")
+
+
 def fetch_baipiao() -> list:
     all_topics = []
     for page in range(1, 4):
-        api_url = f"{BASE_BAIPIAO}/bbs/api/discussions?page={page}&sort=-createdAt"
+        api_url = _baipiao_api_url(page)
         html_url = f"{BASE_BAIPIAO}/bbs/all?page={page}"
         try:
             try:
@@ -1496,13 +1511,14 @@ def _validate_identities(rows: list) -> tuple[list, dict]:
         total, bad = report.get(src, [0, 0])
         total += 1
         ok = _valid_identity(row)
+        if ok and (src, str(row.get("id"))) in seen:
+            # 同一源内的重复（多版块同帖 / 分页参数失效）不是"身份非法"：
+            # 丢弃重复行，但不推高非法率 —— 否则分页退化会把整个源判失败。
+            #（2026-10-25 baipiao 实测：?page=N 被忽略 → 40/60 重复 → 整源停更）
+            report[src] = [total, bad]
+            continue
         if ok:
-            key = (src, str(row.get("id")))
-            if key in seen:
-                ok = False                        # 同批重复 id（同一源内）
-            else:
-                seen.add(key)
-        if ok:
+            seen.add((src, str(row.get("id"))))
             keep.append(row)
         else:
             bad += 1
