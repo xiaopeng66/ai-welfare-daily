@@ -98,11 +98,37 @@ check(kind_of("【Nexo】每周四免费抽奖",
       "种类：窗口无发放动词而全帖抽奖 → 保守 lottery")
 
 # ---------------------------------------------------------------- 控制字符卫生
+# 2026-10-24 体检：原检查只查 \x08 一个字符，其它控制字符（\x00-\x1f、\x7f）混进
+# 源码照样绿。现在查整个 C0/C1 区（\t\n\r 除外）—— 退格符只是当年抓到的那一个，
+# 这一族的问题是"看不见的字符被复制进词表"，所以按类查。
+import re as _re
+_CTRL = _re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 for mod in (featured, sys.modules["content"] if "content" in sys.modules else None):
     if mod is None:
         continue
-    check("\x08" not in open(mod.__file__, encoding="utf-8").read(),
-          f"{mod.__name__}.py 无控制字符残留（concrete 词表 api 后曾混入退格符）", mod.__file__)
+    _src = open(mod.__file__, encoding="utf-8").read()
+    _bad = _CTRL.findall(_src)
+    check(not _bad,
+          f"{mod.__name__}.py 无控制字符残留（C0/C1 全区，不只退格符）",
+          sorted({"U+%04X" % ord(ch) for ch in _bad}))
+
+# ---------------------------------------------------------------- 常量不得重复定义（2026-10-24 加）
+# 由头：featured.py 里 WINDOW_DAYS / LIFE_DAYS / MAX_ITEMS 各定义了**两遍**，
+# 后一份静默覆盖前一份 —— 与「双份 build_items」事故同一形态（改上面那份不生效）。
+# 这条断言用 AST 查模块级赋值是否重名，一旦再有重复定义立刻红。
+import ast as _ast
+_TOOL = Path(__file__).resolve().parent.parent
+for _name in ("featured.py", "content.py", "fetch.py", "generate.py"):
+    _tree = _ast.parse((_TOOL / _name).read_text(encoding="utf-8"))
+    _assigned = {}
+    for _node in _tree.body:                      # 只看模块级
+        if isinstance(_node, _ast.Assign):
+            for _t in _node.targets:
+                if isinstance(_t, _ast.Name):
+                    _assigned.setdefault(_t.id, []).append(_node.lineno)
+    _dups = {k: v for k, v in _assigned.items() if len(v) > 1}
+    check(not _dups, f"{_name} 无模块级常量重复定义（静默覆盖会在这里红）", _dups)
+
 
 # ---------------------------------------------------------------- 活动别名表同步（2026-10-24 加）
 # featured.py 与 content.py 各有一份 CAMPAIGN_ALIASES（"双份 build_items"事故的同族）。

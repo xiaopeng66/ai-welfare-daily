@@ -89,13 +89,10 @@ def update(rows, cache_or_dir, state_path, now: datetime | None = None):
     return payload, stats
 
 
-CST = timezone(timedelta(hours=8))
-REPO = "E:/AI/Hermes/scripts/linuxsb-daily"
-OUT = "E:/AI/Zcode/tmp/featured-draft-20261016"
-WINDOW_DAYS = 3
-LIFE_DAYS = 15
-MAX_ITEMS = 300          # 安全上限；真正的边界是"15 天"和"限时到期"两条规则
-STATE = OUT + "/featured-state.json"   # 精选板自己的状态（正式形态：data/featured.jsonl）
+# 常量只在这里定义一次（2026-10-24 体检）：WINDOW_DAYS / LIFE_DAYS / MAX_ITEMS
+# 原来在文件里出现了两遍，后一份静默覆盖前一份 —— 与当年「双份 build_items」事故
+# 同一形态（改上面那份不生效）。REPO / OUT / STATE 三个旧草稿路径只有定义没有使用，
+# 一并删掉。tests/test_featured.py 加了「常量不得重复定义」的断言防止回潮。
 MIN_SCORE = 5.0            # 赠送/抽奖类门槛（用户 2026-10-16：调高一点）
 CNY_PER_USD = 7.0
 MIN_AMOUNT_USD = 10.0     # 币种额度下限（用户口径：限制10$）；token 类不折算、不受此限
