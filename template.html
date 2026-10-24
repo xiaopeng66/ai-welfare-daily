@@ -313,7 +313,7 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
 .card.seen{opacity:.62;filter:saturate(.5)}
 .card.seen:hover{opacity:.92;filter:none}
 .card.seen .title a{color:var(--muted)}
-.seen-tag{font-size:.66rem;line-height:1.3;padding:2px 7px;border-radius:999px;
+.seen-tag{font:inherit;font-size:.66rem;line-height:1.3;padding:2px 7px;border-radius:999px;
   border:1px solid #cfd6e4;background:#eef1f7;color:#6b7a93;font-weight:700;flex:none;cursor:pointer}
 .seen-tag:hover{border-color:#a9b6cb;color:#465a78}
 html[data-theme=dark] .seen-tag{border-color:#3b4658;background:#242e3f;color:#9fb0c7}
@@ -370,9 +370,13 @@ const safeURL=s=>{try{const u=new URL(s);return (u.protocol==='https:'||u.protoc
    分隔符**不能用 NUL**：它写进 data-fold 属性后按 HTML5 规则会变成 U+FFFD，
    点击角标时查不到分组、弹窗打不开（2026-10-15 审计复现 1 组）。用 '|#|' 这种可打印串。 */
 function foldKeyOf(c){
-  /* 与 foldCards 的折叠键同构：活动身份（key/campaign）优先，否则 来源+标题（展开/收起按 key 找成员） */
+  /* 与 foldCards 的折叠键同构：活动身份（key/campaign）优先，否则 来源+标题（展开/收起按 key 找成员）。
+     精选卡没有 offer 字段、键是 F:<活动键> 形态 —— 认这个前缀，让精选卡与主列表
+     同活动的卡落进同一把键（A2：两边已看状态互通；对不上的活动由成员 URL 键兜底）。 */
   const title = String(c.title || '').trim();
-  const ok = (c.offer && (c.offer.key || c.offer.campaign)) ? ('O:' + (c.offer.key || c.offer.campaign)) : null;
+  const dk = String(c.dupkey || '');
+  const ok = (c.offer && (c.offer.key || c.offer.campaign)) ? ('O:' + (c.offer.key || c.offer.campaign))
+           : (dk.indexOf('F:') === 0 ? ('O:' + dk.slice(2)) : null);
   if (!ok && !title) return null;
   return ok || ('T:' + sourceKey(c.source) + '|#|' + title);
 }
@@ -393,7 +397,15 @@ function seenKey(c){try{return foldKeyOf(c)||String((c&&c.id)||'')}catch(e){retu
    两边任一命中即已看。 */
 function postKeyOf(c){try{const host=(String(c.url||'').match(/^https?:\/\/([^/]+)/)||[])[1]||'';
   return host+'#'+String((c&&c.id)==null?'':c.id)}catch(e){return ''}}
-function memberKeysOf(c){return Array.isArray(c._mkeys)?c._mkeys:[]}
+/* 从帖子 URL 推身份键（host#末段数字 id）——精选卡的 dupsList 只有 URL，
+   没有整行数据；用它把精选与主列表的"已看"接上（A2）。 */
+function urlPostKey(u){try{const m=String(u||'').match(/^https?:\/\/([^/]+)\/.+?([0-9]{2,})(?:[/?#]|$)/);
+  return m?(m[1]+'#'+m[2]):''}catch(e){return ''}}
+function memberKeysOf(c){try{
+  if(Array.isArray(c._mkeys))return c._mkeys;
+  const dl=c.dupsList; if(!dl)return [];
+  const ks=[urlPostKey(c.url)]; for(const m of dl)ks.push(urlPostKey(m&&m.u));
+  return ks.filter(Boolean)}catch(e){return []}}
 function seenOf(c){try{
   const g=seenKey(c); if(g&&SEEN[g])return true;
   const own=postKeyOf(c); if(own&&SEEN[own])return true;
@@ -431,8 +443,8 @@ const view=foldCards(cards);
 const foldMap=new Map();for(const c of view)if(c.dups>1&&c.dupkey)foldMap.set(c.dupkey,c);
 function foldModalHTML(c){const rows=(c.dupsList||[]).map(m=>`<a class="fold-row" href="${escapeHTML(m.u||'#')}" target="_blank" rel="noopener noreferrer"><span class="fold-row-t">${escapeHTML(m.t)}</span><time class="fold-row-time">${m.at?formatTime(m.at):'时间未知'}</time></a>`).join('');return `<div class="fold-list">${rows}</div>`}
 const cardByKey=new Map();
-function openFoldModal(key){const c=cardByKey.get(key)||foldMap.get(key);if(!c)return;const m=$('#foldModal');const offer=c.dupwhy==='offer';$('#foldModalTitle').textContent=(offer?'同一份福利':'同来源同标题')+' · 共 '+c.dups+' 条';$('#foldModalSub').textContent=(offer?'按正文判定（同一份 offer）':'标题完全相同')+' · 新 → 旧 · 点任意一条打开原帖';$('#foldModalBody').innerHTML=foldModalHTML(c);m.hidden=false;document.documentElement.style.overflow='hidden';const x=m.querySelector('.modal-x');x&&x.focus&&x.focus({preventScroll:true});document.addEventListener('keydown',foldModalEsc)}
-function closeFoldModal(){const m=$('#foldModal');if(!m||m.hidden)return;m.hidden=true;document.documentElement.style.overflow='';$('#foldModalBody').innerHTML='';document.removeEventListener('keydown',foldModalEsc)}
+function openFoldModal(key){state.foldOpenKey=key;const c=cardByKey.get(key)||foldMap.get(key);if(!c)return;const m=$('#foldModal');const offer=c.dupwhy==='offer';$('#foldModalTitle').textContent=(offer?'同一份福利':'同来源同标题')+' · 共 '+c.dups+' 条';$('#foldModalSub').textContent=(offer?'按正文判定（同一份 offer）':'标题完全相同')+' · 新 → 旧 · 点任意一条打开原帖';$('#foldModalBody').innerHTML=foldModalHTML(c);m.hidden=false;document.documentElement.style.overflow='hidden';const x=m.querySelector('.modal-x');x&&x.focus&&x.focus({preventScroll:true});document.addEventListener('keydown',foldModalEsc)}
+function closeFoldModal(){state.foldOpenKey=null;const m=$('#foldModal');if(!m||m.hidden)return;m.hidden=true;document.documentElement.style.overflow='';$('#foldModalBody').innerHTML='';document.removeEventListener('keydown',foldModalEsc)}
 function foldModalEsc(e){if(e.key==='Escape')closeFoldModal()}
 const FEATURED=__FEATURED_JSON__;
 const PICK_BAKED_AT=__FEATURED_BAKED_AT__;
@@ -505,11 +517,17 @@ function tickPickCountdowns(){
     el.classList.toggle('urgent', ms < 3600e3);
   });
 }
-if (typeof setInterval === 'function') setInterval(() => {
-  if (document.hidden) return;
-  tickPickCountdowns();
-  if (state.sort === 'pick') highlightPickNav();     // 限流环境里 scroll 事件不派发时的兜底
-}, 1000);
+/* 自适应节流（2026-10-24 体检 B3）：有 <1 小时的元素才需要每秒走秒；
+   其余时候显示粒度是"小时/分"，15 秒一跳绰绰有余 —— 常驻空扫降 93%。 */
+if (typeof setTimeout === 'function') (function cdLoop() {
+  setTimeout(() => {
+    if (!document.hidden) {
+      tickPickCountdowns();
+      if (state.sort === 'pick') highlightPickNav();   // 限流环境里 scroll 事件不派发时的兜底
+    }
+    cdLoop();
+  }, document.querySelector('.pick-cd.urgent') ? 1000 : 15000);
+})();
 window.addEventListener('scroll', highlightPickNav, {passive: true});   // 正常浏览器里实时跟随
 
 /* 数字高亮：先按"金额/额度"切段、再逐段转义（反过来会把 &quot; 里的 39 当成数字） */
@@ -602,13 +620,13 @@ function pickCardHTML(c){
    + ' data-pick-key="' + escapeHTML(String(c.dupkey)) + '" data-pick-kind="' + escapeHTML(f.kind) + '">'
    + '<div class="pick-head"><span class="pick-id"><span class="pick-name">' + escapeHTML(f.name) + '</span>' + fresh + '</span>'
    + '<span class="pick-amt">' + amt + '</span></div>'
-   + '<div class="pick-meta">' + (_pk_seen ? '<span class="seen-tag" title="点一下取消已看标记">已看</span>' : '')
+   + '<div class="pick-meta">' + (_pk_seen ? '<button type="button" class="seen-tag" title="点一下取消已看标记" aria-label="取消已看标记">已看</button>' : '')
    + '<span class="pick-tag ' + escapeHTML(f.level_class) + '">' + escapeHTML(f.level) + '</span>'
    + cdChip(f)
    + (f.brand ? '<span class="pick-sub">' + escapeHTML(f.brand) + '</span>' : '')
    + (f.expiry ? '<span class="pick-sub">' + escapeHTML(f.expiry) + '</span>' : '')
    + (f.n > 1 ? '<button class="dups hot" type="button" data-fold="' + escapeHTML(String(c.dupkey)) + '" data-n="' + f.n + '"'
-       + ' aria-haspopup="dialog" title="同一个活动共 ' + f.n + ' 条，点击展开清单">▸ ×' + f.n + '</button>' : '')
+       + ' aria-haspopup="dialog" title="同一个活动共 ' + f.n + ' 条，点击展开清单" aria-label="展开共 ' + f.n + ' 条的清单">▸ ×' + f.n + '</button>' : '')
    + '</div>'
    + (lead ? '<p class="pick-lead">' + lead + '</p>' : '')
    + (sub ? '<p class="pick-sub2">' + sub + '</p>' : '')
@@ -623,7 +641,7 @@ function pickCardHTML(c){
    + '</article>';
 }
 
-const state={sort:'latest',source:'all',category:'all',query:'',seenOnly:false,shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:''};
+const state={sort:'latest',source:'all',category:'all',query:'',seenOnly:false,shown:0,entries:[],sections:new Map(),totals:new Map(),recentSignature:'',foldOpenKey:null};
 function updateRail(id){const rail=$('#'+id+'-rail'),box=rail.querySelector('.scroller');const overflow=box.scrollWidth>box.clientWidth+2;rail.dataset.more=String(overflow);rail.dataset.end=String(box.scrollLeft+box.clientWidth>=box.scrollWidth-3);const btn=rail.querySelector('.scroll-next');if(btn){const end=rail.dataset.end==='true';btn.textContent=end?'‹':'›';btn.setAttribute('aria-label',(end?'向左':'向右')+'滚动'+(id==='source'?'来源':'类型')+'选项')}}
 function updateRails(){['source','category'].forEach(updateRail)}
 function paintChip(b,on){b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))}
@@ -653,7 +671,7 @@ const list=foldCards(cards.filter(c=>matches(c)&&(!state.seenOnly||!seenOf(c))))
 }
 function renderCard(c){if(c.f)return pickCardHTML(c);const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
- const score=Number(c.score),dups=Number(c.dups)||0;const _sk=seenKey(c),_seen=seenOf(c);return `<article class="card${_seen?' seen':''}" data-seenk="${escapeHTML(_sk)}"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot">${_seen?'<span class="seen-tag" title="点一下取消已看标记">已看</span>':''}<span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
+ const score=Number(c.score),dups=Number(c.dups)||0;const _sk=seenKey(c),_seen=seenOf(c);return `<article class="card${_seen?' seen':''}" data-seenk="${escapeHTML(_sk)}"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot">${_seen?'<button type="button" class="seen-tag" title="点一下取消已看标记" aria-label="取消已看标记">已看</button>':''}<span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单" aria-label="展开共 ${dups} 条的清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
 function sectionLabel(k){if(k==='pick:gift')return '赠送 · 送到账';if(k==='pick:lottery')return '抽奖 · 拼手气';if(k==='pick:free')return '免费 · 注册或直接用';if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
 function addBatch(){const total=state.entries.length;let end=Math.min(state.shown+40,total);
@@ -743,7 +761,7 @@ function paintSeen(card,on){
   const foot=card.querySelector('.card-foot')||card.querySelector('.pick-meta');
   card.classList.toggle('seen',!!on);
   const old=card.querySelector('.seen-tag');
-  if(on&&!old&&foot){const b=document.createElement('span');b.className='seen-tag';b.textContent='已看';b.title='点一下取消已看标记';foot.insertBefore(b,foot.firstChild)}
+  if(on&&!old&&foot){const b=document.createElement('button');b.type='button';b.className='seen-tag';b.textContent='已看';b.title='点一下取消已看标记';b.setAttribute('aria-label','取消已看标记');foot.insertBefore(b,foot.firstChild)}
   if(!on&&old)old.remove();
 }
 /* 标记/取消都以**数据卡**为单位：组键 + 全部成员键一起动（2026-10-24）。
@@ -762,10 +780,14 @@ document.addEventListener('click',function(e){
     if(chip){state.seenOnly=!state.seenOnly;refresh();return}
     const clear=e.target.closest&&e.target.closest('#clearseen');
     if(clear){SEEN={};seenSave();refresh();return}
-    const link=e.target.closest&&e.target.closest('.card a[href]');
-    if(link){const card=link.closest('[data-seenk]');const k=card&&card.dataset.seenk;
+    const link=e.target.closest&&e.target.closest('.card a[href],.fold-row a[href]');
+    if(link){
+      /* A1：折叠清单里的链接不在 .card 里 —— 用弹窗打开时记下的组键找到整组数据卡 */
+      const inModal=link.closest('#foldModal');
+      const card=link.closest('[data-seenk]');
+      const k=inModal?state.foldOpenKey:(card&&card.dataset.seenk);
       const data=seenCardByKey(k);
-      if(k&&data&&!seenOf(data)){markSeenCard(data);paintSeen(card,true);seenSyncSummary()}}
+      if(k&&data&&!seenOf(data)){markSeenCard(data);if(card)paintSeen(card,true);seenSyncSummary()}}
   }catch(err){}
 },true);
 </script>

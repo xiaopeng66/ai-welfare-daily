@@ -166,7 +166,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state,seenOf,postKeyOf,markSeenCard,unmarkSeenCard,seenKey,foldKeyOf,SEEN};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state,seenOf,postKeyOf,markSeenCard,unmarkSeenCard,seenKey,foldKeyOf,SEEN,urlPostKey,memberKeysOf};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -452,6 +452,44 @@ if (zrow) {
 } else {
   check(true, '跳过（线上载荷里没有 zcode 样本）');
 }
+
+
+console.log('\n== 体检修复：A1 折叠清单标已看 / A2 精选与主列表互通 / B1 键盘 ==');
+// A2：urlPostKey 从 URL 推身份键
+check(api.urlPostKey('https://linux.sb/topic/27863') === 'linux.sb#27863',
+      'urlPostKey：linux.sb 帖子 URL → host#id', api.urlPostKey('https://linux.sb/topic/27863'));
+check(api.urlPostKey('https://linux.do/t/topic/3066848') === 'linux.do#3066848',
+      'urlPostKey：linux.do 帖子 URL → host#id', api.urlPostKey('https://linux.do/t/topic/3066848'));
+check(api.urlPostKey('') === '' && api.urlPostKey(null) === '',
+      'urlPostKey：空/坏输入 → 空串（不抛）');
+// A2：foldKeyOf 认 F: 前缀（精选卡与主列表同键）
+const fakeFeatured = { title: '精选卡', source: 'linuxsb_福利放送', dupkey: 'F:zcode', dupsList: [
+  { u: 'https://linux.do/t/topic/3066060' }, { u: 'https://linux.sb/topic/27863' }] };
+check(api.foldKeyOf(fakeFeatured) === 'O:zcode',
+      'foldKeyOf：F: 前缀的精选卡 → 与主列表同活动的同一个键', api.foldKeyOf(fakeFeatured));
+// A2：精选成员键从 dupsList 推导
+const mks = api.memberKeysOf ? api.memberKeysOf(fakeFeatured) : [];
+check(mks.includes('linux.do#3066060') && mks.includes('linux.sb#27863'),
+      'memberKeysOf：精选卡从 dupsList 推出成员身份键', mks);
+// A2：用一对合成的"主列表卡 + 精选卡"测双向互通（不依赖载荷里恰好有 zcode）
+const mainCard = { id: '7001', title: '互通测试主卡', source: 'linuxsb_福利放送',
+  url: 'https://linux.sb/topic/7001', offer: { key: 'testcamp', campaign: 'testcamp' } };
+const featCard = { title: '互通测试精选卡', source: 'linuxsb_福利放送', dupkey: 'F:testcamp',
+  dupsList: [{ u: 'https://linux.sb/topic/7001' }] };
+check(api.foldKeyOf(mainCard) === 'O:testcamp' && api.foldKeyOf(featCard) === 'O:testcamp',
+      '同一活动：主列表卡与精选卡落进同一个键', [api.foldKeyOf(mainCard), api.foldKeyOf(featCard)]);
+api.markSeenCard(mainCard);
+check(api.seenOf(featCard) === true, '主列表标记 → 精选同活动卡已看（组键互通）');
+api.unmarkSeenCard(mainCard);
+check(api.seenOf(featCard) === false, '取消后精选也不再已看');
+api.markSeenCard(featCard);                      // 反向：精选点开（标 O:testcamp + 成员 URL 键）
+check(api.seenOf(mainCard) === true, '精选标记 → 主列表成员帖已看（URL 身份键互通）');
+api.unmarkSeenCard(featCard);
+check(api.seenOf(mainCard) === false, '精选取消 → 主列表同步取消');
+// B1：markSeenCard/unmarkSeenCard 幂等（连点两次不炸）
+api.markSeenCard(fakeFeatured); api.markSeenCard(fakeFeatured);
+check(api.seenOf(fakeFeatured) === true, 'markSeenCard 幂等');
+api.unmarkSeenCard(fakeFeatured);
 
 
 console.log();
