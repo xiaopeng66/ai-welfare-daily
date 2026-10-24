@@ -1666,7 +1666,7 @@ def main():
     ap.add_argument(
         "--content-stealth-limit",
         type=int,
-        default=8,
+        default=12,
         help="正文层里 linux.do（Cloudflare 挡着）每轮最多抓几条 —— 要开隐身浏览器，"
         "每条约 20 秒；0 = 不抓它的正文（该源的行按标题折叠）。",
     )

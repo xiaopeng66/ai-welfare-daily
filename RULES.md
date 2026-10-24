@@ -307,7 +307,7 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
 - **抓什么（六源全覆盖）**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、
   nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、nodeloc/vibex 的 `/t/topic/{id}.json`
   → `post_stream.posts[0].cooked`；**linux.do 同一端点但匿名 403**（Cloudflare），走 scrapling
-  隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（**默认每轮 ≤8 条**、每条间隔 ≥15 秒；
+  隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（**默认每轮 ≤12 条**、每条间隔 ≥15 秒；
   实现默认值见 `fetch.py` 的同名参数与 `content.annotate(stealth_limit=8, stealth_delay=15)`。本行原先写 4/20，
   与实现对不上 —— 2026-10-24 按实现改正）；
   装不上 scrapling（如 CI）或 `LINUXDO_ENABLED=0` 时该源不抓正文，行为同 v1。

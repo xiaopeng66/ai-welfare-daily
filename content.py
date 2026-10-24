@@ -630,7 +630,7 @@ def apply_cached_offers(rows: list[dict], ttl_h: float = DEFAULT_TTL_H,
 def annotate(rows: list[dict], fetch: Callable[..., str],
              limit: int = 60, delay: float = 0.4, timeout: int = 20,
              ttl_h: float = DEFAULT_TTL_H, now: float | None = None,
-             stealth_fetch: Callable[..., str] | None = None, stealth_limit: int = 8,
+             stealth_fetch: Callable[..., str] | None = None, stealth_limit: int = 12,
              stealth_delay: float = 15.0, stealth_timeout: int = 60,
              log: Callable[[str], None] | None = None) -> int:
     """给缺 offer（过期/版本落后也算）的行补判。就地改 rows，返回判定成功条数。
