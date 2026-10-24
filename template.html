@@ -752,6 +752,30 @@ setInterval(()=>{if(!document.hidden)refreshClock()},60000);document.addEventLis
   function hit(p){try{if(typeof navigator==='undefined'||!navigator.sendBeacon)return;p.v=vid();try{p.p=location.pathname}catch(e){p.p=''}try{p.r=document.referrer||''}catch(e){p.r=''}navigator.sendBeacon(HIT,JSON.stringify(p))}catch(e){}}
   try{var later=function(){setTimeout(function(){hit({k:'view'})},1200)};if(document.readyState==='complete')later();else window.addEventListener('load',later)}catch(e){}
   try{document.addEventListener('click',function(e){try{var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.href||'';if(!/^https?:/i.test(h))return;try{if(new URL(h).host===location.host)return}catch(e2){}hit({k:'click',t:h.slice(0,600)})}catch(err){}},true)}catch(e){}
+
+  /* 3) 精选货架曝光（2026-10-24）：回答"把活动放精选到底值不值"。
+     只报**一次**：同一次页面加载里货架多次进出视口只算一次曝光（否则滚动抖动会
+     刷出几十条）。上报的是"看到了精选区"，不是"看到了某张卡"——后者会给每张卡
+     发一条，打点量会翻 20 倍，而额度是账号级的。
+     守卫同上（sendBeacon / IntersectionObserver / 页面可能没有精选区都要能过）。 */
+  try{
+    if(typeof IntersectionObserver==='function'){
+      var pickSeen=false;
+      var pickRoot=document.getElementById('picks')||document.querySelector('.pick-rail')||document.querySelector('.pick-card');
+      var target=pickRoot&&(pickRoot.closest?pickRoot.closest('#picks,.pick-rail')||pickRoot:pickRoot);
+      if(target){
+        var io=new IntersectionObserver(function(es){
+          try{
+            if(pickSeen)return;
+            for(var i=0;i<es.length;i++){
+              if(es[i].isIntersecting&&es[i].intersectionRatio>=0.3){pickSeen=true;hit({k:'pick_view'});io.disconnect();break}
+            }
+          }catch(e){}
+        },{threshold:[0.3]});
+        io.observe(target);
+      }
+    }
+  }catch(e){}
 })();
 
 /* —— 已看状态的交互（与应用脚本同作用域）——
