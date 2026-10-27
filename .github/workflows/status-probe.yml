@@ -1,0 +1,50 @@
+name: status-probe
+
+# 第二观测点：从 GitHub 的网络抓打点探针（/status）。
+# 本机的 promo-alert.py 在「探针抓不到」时，用本工作流最近一次的红绿
+# 区分「本机断网」（观测点绿）和「打点链真挂了」（观测点也红）。
+# 判定（任一不满足即红）：HTTP 200 + JSON 字段完整 + age_hours <= stale_hours + 无涌量。
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: probe hit-chain status
+        env:
+          HIT_URL: https://welfare-hit.1847531284.workers.dev/status
+          KEY: ${{ secrets.HIT_DASH_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -m 20 -o status.json -w '%{http_code}' \
+            -H 'User-Agent: status-probe/1' \
+            -G "$HIT_URL" --data-urlencode "k=$KEY")
+          if [ "$code" != "200" ]; then
+            echo "probe failed: http=$code"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          d = json.load(open("status.json", encoding="utf-8"))
+          missing = [k for k in ("age_hours", "stale_hours", "last_ts", "n1h", "n24")
+                     if d.get(k) is None]
+          if missing:
+              print("probe failed: missing fields", missing)
+              raise SystemExit(1)
+          age, limit = float(d["age_hours"]), float(d["stale_hours"])
+          if age > limit:
+              print(f"probe failed: stale {age}h > {limit}h (n24={d['n24']})")
+              raise SystemExit(1)
+          if d.get("burst_alert") is True:
+              print(f"probe failed: burst n1h={d['n1h']} baseline={d.get('baseline_hourly')}")
+              raise SystemExit(1)
+          print(f"probe ok: age={age}h limit={limit}h n1h={d['n1h']} "
+                f"n24={d['n24']} total={d.get('total')}")
+          PY
