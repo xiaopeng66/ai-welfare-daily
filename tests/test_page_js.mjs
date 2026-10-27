@@ -166,7 +166,7 @@ function build(payloadScript) {
   };
   const api = new Function('document', 'localStorage', 'matchMedia', 'setInterval',
     'requestAnimationFrame', 'ResizeObserver', 'window',
-    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state,seenOf,postKeyOf,markSeenCard,unmarkSeenCard,seenKey,foldKeyOf,SEEN,urlPostKey,memberKeysOf};`)(
+    `${payloadScript};return {refresh,isRecent,formatTime,bjDay,getCards:()=>cards,getView:()=>view,foldCards,foldModalHTML,sectionLabel,makeEntries,renderCard,renderChips,state,seenOf,postKeyOf,markSeenCard,unmarkSeenCard,seenKey,foldKeyOf,SEEN,urlPostKey,memberKeysOf,hasNewPostOf};`)(
     doc,
     { getItem: () => null },
     () => ({ matches: false }),
@@ -321,7 +321,7 @@ check(campaignBuilt.api.renderCard(museCampaign).includes('data-fold="O:muse"'),
 
 console.log('\n== 折叠键不含 NUL（HTML 属性解析会把它变成 U+FFFD）==');
 const keyProbe = memberBuilt.api.foldCards(memberCards);
-check(keyProbe.every((c) => !String(c.dupkey || '').includes(' ')),
+check(keyProbe.every((c) => !String(c.dupkey || '').includes('\x00')),
   'offer/标题折叠键里没有 NUL', keyProbe.map((c) => c.dupkey));
 
 console.log('\n== same-offer folding (offer.key, 正文层判定) ==');
@@ -490,6 +490,35 @@ check(api.seenOf(mainCard) === false, '精选取消 → 主列表同步取消');
 api.markSeenCard(fakeFeatured); api.markSeenCard(fakeFeatured);
 check(api.seenOf(fakeFeatured) === true, 'markSeenCard 幂等');
 api.unmarkSeenCard(fakeFeatured);
+
+
+console.log('\n== 已看 · 有新帖（2026-10-27 方案 B，用户选定）==');
+// 同活动两次重发：501（早）/ 502（新，代表）。用户的标记发生在 502 发布之前。
+const repostCards = [
+  { ...row('501', '甲站投资 首发', iso(t - 3 * HOUR), iso(t - 3 * HOUR)),
+    offer: { v: 9, key: 'repost.example', site: 'repost.example', campaign: 'repost.example' } },
+  { ...row('502', '甲站投资 重发', iso(t - 1 * HOUR), iso(t - 1 * HOUR)),
+    offer: { v: 9, key: 'repost.example', site: 'repost.example', campaign: 'repost.example' } },
+];
+const rb = build(inlineJs.replace(payload, JSON.stringify(repostCards)));
+const rc = rb.api.getView().find((c) => c.dups === 2);
+check(rc && rc.id === '502', '夹具：两次重发折叠成一张，代表是最新的 502', rc && rc.id);
+rb.api.SEEN[rb.api.seenKey(rc)] = t - 2 * HOUR;   // 标记发生在 502 发布（t-1h）之前
+check(rb.api.hasNewPostOf(rc) === true, '代表帖发布时间晚于标记时间 → 有新帖');
+check(rb.api.renderCard(rc).includes('已看 · 有新帖'), '角标文案「已看 · 有新帖」');
+check(rb.api.renderCard(rc).includes('seen-tag new'), '角标带 new 样式类（提示色）');
+rb.api.state.seenOnly = true;
+check(rb.api.makeEntries().every((x) => x.c.id !== '502'), '语义不变：有新帖也不重回「只看未看」');
+rb.api.state.seenOnly = false;
+rb.api.markSeenCard(rc);                          // 点完新条目 → 标记时间刷新到现在
+check(rb.api.hasNewPostOf(rc) === false, '重新标记后不再提示');
+check(!rb.api.renderCard(rc).includes('有新帖'), '角标回到普通「已看」');
+const neverSeen = { ...row('503', '从没看过的', iso(t - 1 * HOUR), iso(t - 1 * HOUR)) };
+check(rb.api.hasNewPostOf(neverSeen) === false && !rb.api.renderCard(neverSeen).includes('已看'),
+      '未看过：无角标、不误报');
+const noTime = { ...row('504', '无时间戳', null, null), offer: { v: 9, key: 'notime.example', campaign: 'notime.example' } };
+rb.api.SEEN[rb.api.seenKey(noTime)] = Date.now();
+check(rb.api.hasNewPostOf(noTime) === false, '代表帖无时间戳 → 不提示（没有证据不瞎猜）');
 
 
 console.log();
