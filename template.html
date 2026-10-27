@@ -316,8 +316,10 @@ html[data-theme=dark] .pick-go{background:linear-gradient(135deg,#5b5ff0,#9d7bff
 .seen-tag{font:inherit;font-size:.66rem;line-height:1.3;padding:2px 7px;border-radius:999px;
   border:1px solid #cfd6e4;background:#eef1f7;color:#6b7a93;font-weight:700;flex:none;cursor:pointer}
 .seen-tag:hover{border-color:#a9b6cb;color:#465a78}
+.seen-tag.new{border-color:#f0b463;background:#fff4dd;color:#b45309;font-weight:700}
 html[data-theme=dark] .seen-tag{border-color:#3b4658;background:#242e3f;color:#9fb0c7}
 html[data-theme=dark] .seen-tag:hover{border-color:#55637c;color:#c6d3e4}
+html[data-theme=dark] .seen-tag.new{border-color:#6b5730;background:#3a2f16;color:#f0b463}
 .pick-meta .seen-tag{align-self:center}
 </style>
 </head>
@@ -411,6 +413,21 @@ function seenOf(c){try{
   const own=postKeyOf(c); if(own&&SEEN[own])return true;
   for(const k of memberKeysOf(c))if(SEEN[k])return true;
   return false}catch(e){return false}}
+/* 「已看 · 有新帖」（2026-10-27 用户选定方案 B）：**不改已看语义**——活动级已看保持
+   不变，有重发也不会让卡片重回「只看未看」；只在**代表帖（组里最新一条）的发布时间
+   晚于上次标记该活动的时间**时给角标加一档提示：你标记之后它又重发了。点击卡片里的
+   链接（含 ▸ 清单里的新条目）会把标记时间刷新到现在 → 角标自动回到普通「已看」。 */
+function seenNewestOf(c){try{
+  let n=0;
+  const g=seenKey(c); if(g&&SEEN[g])n=Math.max(n,SEEN[g]);
+  const own=postKeyOf(c); if(own&&SEEN[own])n=Math.max(n,SEEN[own]);
+  for(const k of memberKeysOf(c))if(SEEN[k])n=Math.max(n,SEEN[k]);
+  return n}catch(e){return 0}}
+function hasNewPostOf(c){try{
+  if(!seenOf(c))return false;
+  const t=time(c); if(!t)return false;        /* 无时间戳：没有证据，不提示（也不瞎猜） */
+  const m=seenNewestOf(c);
+  return !!m&&t>m}catch(e){return false}}
 function seenSave(){try{localStorage.setItem(SEEN_LS,JSON.stringify(SEEN))}catch(e){}}
 function seenCountInView(){try{return state.entries.filter(x=>seenOf(x.c)).length}catch(e){return 0}}
 /* 自动清理：>90 天 或 >5000 条就淘汰最旧的。不清的话 localStorage 会一直涨。 */
@@ -671,7 +688,7 @@ const list=foldCards(cards.filter(c=>matches(c)&&(!state.seenOnly||!seenOf(c))))
 }
 function renderCard(c){if(c.f)return pickCardHTML(c);const href=safeURL(c.url),tagList=Array.isArray(c.tags)?c.tags:[],title=escapeHTML(c.title||'未命名帖子');const titleHTML=href?`<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${title}</a>`:`<a aria-disabled="true">${title}</a>`;
  const tagHTML=tagList.map(t=>`<button type="button" class="tag" data-tag="${escapeHTML(t)}" ${tones[t]?`data-tone="${tones[t]}"`:''} aria-pressed="${String(state.category===t)}" title="只看${escapeHTML(t)}">${escapeHTML(t)}</button>`).join('');
- const score=Number(c.score),dups=Number(c.dups)||0;const _sk=seenKey(c),_seen=seenOf(c);return `<article class="card${_seen?' seen':''}" data-seenk="${escapeHTML(_sk)}"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot">${_seen?'<button type="button" class="seen-tag" title="点一下取消已看标记" aria-label="取消已看标记">已看</button>':''}<span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单" aria-label="展开共 ${dups} 条的清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
+ const score=Number(c.score),dups=Number(c.dups)||0;const _sk=seenKey(c),_seen=seenOf(c),_np=_seen&&hasNewPostOf(c);return `<article class="card${_seen?' seen':''}" data-seenk="${escapeHTML(_sk)}"><div class="title-wrap"><h3 class="title">${titleHTML}</h3></div><div class="tags">${tagHTML}</div><div class="card-foot">${_seen?(_np?'<button type="button" class="seen-tag new" title="标记后这个活动又发了新帖（点 ▸ 展开看新的那条）；点这里取消已看" aria-label="已看，有新帖">已看 · 有新帖</button>':'<button type="button" class="seen-tag" title="点一下取消已看标记" aria-label="取消已看标记">已看</button>'):''}<span class="source">${escapeHTML(sourceName(c.source))}</span>${dups>1?`<button type="button" class="dups${c.dupwhy==='offer'?' hot':''}" data-fold="${escapeHTML(String(c.dupkey||''))}" data-n="${dups}" aria-haspopup="dialog" title="${c.dupwhy==='offer'?`同一份福利共 ${dups} 条（按正文判定），已显示最新一条`:`同来源同标题共 ${dups} 条，已折叠显示最新一条`}；点击展开清单" aria-label="展开共 ${dups} 条的清单">▸ ×${dups}</button>`:''}<span class="score" title="关键词命中数">匹配 ${Number.isFinite(score)?score:0}</span><time class="post-time" ${c.created_at||c.fetched_at?`datetime="${escapeHTML(c.created_at||c.fetched_at)}"`:''} title="${c.created_at?'发布时间':'收录时间'} · 北京时间">${c.created_at?'':'收录于 '}${formatTime(c.created_at||c.fetched_at)}</time></div></article>`
 }
 function sectionLabel(k){if(k==='pick:gift')return '赠送 · 送到账';if(k==='pick:lottery')return '抽奖 · 拼手气';if(k==='pick:free')return '免费 · 注册或直接用';if(k==='recent')return '近 24 小时';if(k==='earlier')return '更早的信息';const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);return k===today?'今天 · '+k:k}
 function addBatch(){const total=state.entries.length;let end=Math.min(state.shown+40,total);
