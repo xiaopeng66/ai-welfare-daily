@@ -18,9 +18,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: probe hit-chain status
-        if: vars.WELFARE_HIT_BASE != ''
         env:
-          HIT_URL: ${{ vars.WELFARE_HIT_BASE }}/status
+          HIT_URL: https://welfare-hit.1847531284.workers.dev/status
           KEY: ${{ secrets.HIT_DASH_KEY }}
         run: |
           set -euo pipefail

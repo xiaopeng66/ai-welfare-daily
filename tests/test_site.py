@@ -255,7 +255,7 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
     # 实测把整段打点删掉后七套件仍然全绿（页面照发、CI 照绿），只有"打点链探针"能在
     # 12 小时后发现。加这条断言，这类改动当场红，不必等半天。
     page_text = b.decode('utf-8')
-    check('https://welfare-hit.example.workers.dev/' in page_text,
+    check('https://welfare-hit.1847531284.workers.dev/' in page_text,
           'the visit beacon endpoint is baked into the committed page', None)
     check('navigator.sendBeacon(HIT' in page_text,
           'the beacon actually calls sendBeacon', None)

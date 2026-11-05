@@ -35444,7 +35444,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshSta
    location / localStorage 都要存在性守卫 + try/catch；只发字符串 body（简单请求）。 */
 (function(){
   try{if(location.protocol!=='http:'&&location.protocol!=='https:')return}catch(e){return}
-  var HIT='https://welfare-hit.example.workers.dev/';
+  var HIT='https://welfare-hit.1847531284.workers.dev/';
   function vid(){try{var v=localStorage.getItem('welfare-vid');if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('welfare-vid',v)}return v}catch(e){return ''}}
   function hit(p){try{if(typeof navigator==='undefined'||!navigator.sendBeacon)return;p.v=vid();try{p.p=location.pathname}catch(e){p.p=''}try{p.r=document.referrer||''}catch(e){p.r=''}navigator.sendBeacon(HIT,JSON.stringify(p))}catch(e){}}
   try{var later=function(){setTimeout(function(){hit({k:'view'})},1200)};if(document.readyState==='complete')later();else window.addEventListener('load',later)}catch(e){}
