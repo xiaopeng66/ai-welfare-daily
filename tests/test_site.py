@@ -345,7 +345,7 @@ _FAB = [
     ('返回顶部默认是收起的', '.fab-btn.top{opacity:0'),
     ('刷新点击时图标转圈', '@keyframes fabspin'),
     ('初始化等 DOM 解析完（同步取元素会静默失效）', 'DOMContentLoaded'),
-    ('窄屏适配', 'max-width:600px')
+    ('窄屏适配', 'max-width:600px'),
 ]
 for _label, _needle in _FAB:
     check(_needle in _tpl, 'template: ' + _label, _needle)
@@ -386,7 +386,7 @@ _FOLD = [
     # 筛选/搜索要在原始行上做（被折掉的成员才搜得到）；弹窗按当前渲染的那张卡取组员。
     ('折叠键无 NUL', "'|#|'"),
     ('筛选用原始行', 'function matches(c){'),
-    ('弹窗读当前渲染卡', 'cardByKey')
+    ('弹窗读当前渲染卡', 'cardByKey'),
 ]
 for _label, _needle in _FOLD:
     check(_needle in _tpl, 'template: ' + _label, _needle)
