@@ -1,0 +1,397 @@
+# -NoPublish: produce the page and stop before any git write. Used by the merged
+# publisher (scripts\merge_publish.py), which runs this leg and the promo leg in
+# PARALLEL and then makes ONE commit+push for both products.
+#
+# Why it exists: this script and the promo chain both commit into the same repo.
+# They used to be kept apart by staggering their triggers (:00 vs :07/:37), which
+# meant 4 triggers an hour fetching, generating and racing for .git/index.lock.
+# With -NoPublish neither leg touches git, so the staggering is no longer
+# load-bearing. Everything up to and including the guard suites still runs here --
+# this leg must never hand a page to the publisher that its own guards rejected.
+param([int]$MaxAgeMinutes = 0, [switch]$NoPublish)
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$ErrorActionPreference = 'Continue'
+
+# Hide the console window. The scheduled task launches powershell.exe with a
+# visible console on every hourly trigger unless -WindowStyle Hidden is on it (the
+# task XML and the Hermes cron wrapper both pass that flag now); this block is
+# the second layer, so a manual run or a task registered without the flag is
+# invisible too.
+#
+# Use GetConsoleWindow(), NOT (Get-Process -Id $PID).MainWindowHandle. Measured
+# 2026-10-02: MainWindowHandle is 0 whenever powershell was started from WSL, so
+# ShowWindow(0, 0) was a silent no-op there, and it only happened to work from
+# Task Scheduler. GetConsoleWindow() returns the real console handle on both
+# launch paths.
+$Console = Add-Type -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@ -Name Con -Namespace Native -PassThru
+$hWnd = $Console::GetConsoleWindow()
+if ($hWnd -ne [IntPtr]::Zero) { [void]$Console::ShowWindow($hWnd, 0) }
+
+
+# Repo root = the directory this script lives in (no machine-specific path).
+$repo = $PSScriptRoot
+$log  = Join-Path $repo 'update.log'
+$git  = 'C:\Program Files\Git\cmd\git.exe'
+if (-not (Test-Path $git)) { $git = 'git' }
+
+function Log($msg) {
+    $line = '[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] ' + $msg
+    Write-Host $line
+    Add-Content -LiteralPath $log -Value $line -Encoding UTF8
+}
+
+# Network git commands with a direct-connection retry. Clash only starts at
+# logon, so a run triggered while nobody is logged on (Hermes cron) has no
+# proxy to reach, and the user-level http.proxy setting would fail the command.
+# Abort a transfer that stalls instead of hanging on it for the whole run.
+$gitStall = @('-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=45')
+
+function Invoke-Git {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
+    & $git @gitStall @GitArgs 2>&1 | ForEach-Object { Log $_ }
+    if ($LASTEXITCODE -eq 0) { return 0 }
+
+    # Retry over a direct connection. Two different things point git at Clash:
+    # the user-level http.proxy setting, and the HTTP(S)_PROXY env vars Hermes
+    # passes down to cmd.exe. When Clash is not running -- e.g. a run triggered
+    # with nobody logged on, since Clash itself starts at logon -- both have to
+    # be bypassed, not just the config, or the retry fails the same way.
+    Log "  [retry] git $($GitArgs -join ' ') - proxy unreachable, retrying direct"
+    $names = @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy')
+    $saved = @{}
+    foreach ($n in $names) {
+        $saved[$n] = [Environment]::GetEnvironmentVariable($n)
+        [Environment]::SetEnvironmentVariable($n, $null)
+    }
+    & $git @gitStall -c http.proxy= -c https.proxy= @GitArgs 2>&1 | ForEach-Object { Log $_ }
+    $rc = $LASTEXITCODE
+    foreach ($n in $names) {
+        if ($saved[$n]) { [Environment]::SetEnvironmentVariable($n, $saved[$n]) }
+    }
+    return $rc
+}
+
+$py = 'python'
+
+# Run a python step and copy its output into the log.
+#
+# Do NOT go back to `& $py ... 2>&1 | ForEach-Object { Log $_ }`: that pipeline
+# waits for EOF on the child stdout handle, and Playwright's fingerprint helper
+# processes inherit it. When the fetch's python exits but a helper survives, EOF
+# never arrives and the run blocks forever at 0% CPU (observed: wedged 14+
+# minutes mid-fetch). Redirecting to files and waiting on the process handle is
+# immune to that, and the timeout guarantees no run can wedge indefinitely.
+function Run-Py {
+    param([string]$Label, [string[]]$PyArgs)
+    $outFile = Join-Path $env:TEMP ('lsb-out-' + [guid]::NewGuid().ToString('N') + '.log')
+    $errFile = Join-Path $env:TEMP ('lsb-err-' + [guid]::NewGuid().ToString('N') + '.log')
+    # python on Windows writes the ANSI code page when stdout is redirected, which
+    # the log read below then renders as mojibake. Pin both sides to UTF-8.
+    $env:PYTHONIOENCODING = 'utf-8'
+    # -Wait is required: PowerShell 5.1 only fills in ExitCode when Start-Process
+    # is called with it (verified: -PassThru alone leaves it empty even after
+    # WaitForExit). A step that still wedges is killed by the reaper at the top
+    # of the next trigger, which is what the mutex makes safe.
+    $proc = Start-Process -FilePath $py -ArgumentList $PyArgs -NoNewWindow -Wait -PassThru `
+                          -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+    $rc = $proc.ExitCode
+    if ($null -eq $rc) { $rc = 1 }
+    foreach ($f in @($outFile, $errFile)) {
+        if (Test-Path $f) {
+            Get-Content -LiteralPath $f -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Log ("$Label exit code $rc")
+    return $rc
+}
+
+Set-Location $repo
+
+# Freshness gate, opt-in via -MaxAgeMinutes. The Hermes cron fallback passes 50:
+# it fires 30 min after the Windows task, so when the task just ran there is
+# nothing to do -- and when the task's trigger was DROPPED (LogonType=
+# InteractiveToken drops it outright and rolls to the next hour instead of
+# catching up), the marker is stale and this run proceeds. Without the gate the
+# two triggers fetch the same five forums every hour for nothing.
+#
+# Runs BEFORE the reaper and the mutex: skipping should be as cheap as possible,
+# and a wedged run never writes the marker, so it cannot make us skip.
+if ($MaxAgeMinutes -gt 0) {
+    $marker = Join-Path $repo 'data\.last_run'
+    if (Test-Path $marker) {
+        $age = [math]::Round(((Get-Date) - (Get-Item -LiteralPath $marker).LastWriteTime).TotalMinutes, 1)
+        if ($age -lt $MaxAgeMinutes) {
+            Write-Host "a run finished $age min ago (< $MaxAgeMinutes) - skipping"
+            Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: a run finished ' + $age + ' min ago (< ' + $MaxAgeMinutes + ' min)' ) -Encoding UTF8
+            # 75 = skipped（不是 success）。合并器据此不清零连击：一个"每轮都跳过"
+            # 的腿不许被洗成"每轮都正常"（2026-10-23 审计 P1-15）。
+            exit 75
+        }
+    }
+}
+
+# Reap a run that wedged. Both triggers can fire close together, and a wedged
+# run holds the resources the next one needs.
+#
+# Threshold 30 min, NOT 10: a normal run measures 144-548s (9.1 min worst case,
+# from update.log), so the old 10-minute cutoff left under a minute of headroom
+# and a slow-but-healthy run could be killed mid-fetch by the next trigger.
+# 30 min is ~3x the worst observed run and still well below the 60 min cadence,
+# so a truly wedged run is always reaped before it can block the next hour.
+$self = $PID
+foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'")) {
+    if ($proc.ProcessId -ne $self -and $proc.CommandLine -match 'run-update\.ps1' -and
+        $proc.CreationDate -lt (Get-Date).AddMinutes(-30)) {
+        Write-Host ('reaping wedged run PID ' + $proc.ProcessId)
+        & taskkill /T /F /PID $proc.ProcessId 2>&1 | Out-Null
+    }
+}
+
+# One run at a time: the two triggers fire on the same wall clock and two
+# concurrent fetches fight over Cloudflare and the git branch. Verified on
+# 2026-10-01 20:00: without a working lock the scheduled task and the Hermes cron
+# both fetched and both committed into the same worktree.
+$mutex = $null
+$locked = $false
+try {
+    $mutex = New-Object System.Threading.Mutex($false, 'Global\ai-welfare-daily-run')
+    $locked = $mutex.WaitOne(0)
+} catch [System.Threading.AbandonedMutexException] {
+    $locked = $true   # holder was killed - ownership is ours now
+} catch {
+    # Global\ creation can be refused outright (no SeCreateGlobalPrivilege).
+    # Falling straight through would disable the lock silently, so retry under
+    # Local\ - both triggers run in the same user session.
+    Log ('global mutex unavailable (' + $_.Exception.GetType().Name + ') - retrying under Local\')
+    try {
+        $mutex = New-Object System.Threading.Mutex($false, 'Local\ai-welfare-daily-run')
+        $locked = $mutex.WaitOne(0)
+    } catch [System.Threading.AbandonedMutexException] {
+        $locked = $true
+    } catch {
+        Log ('no mutex available (' + $_.Exception.GetType().Name + ') - proceeding unlocked')
+        $locked = $true
+    }
+}
+if (-not $locked) {
+    Write-Host 'another run is already in progress - exiting'
+    Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '] skipped: another run holds the lock') -Encoding UTF8
+    # 75 = skipped（不是 success）：合并器不把它当成功，也不清零连击。
+    exit 75
+}
+
+Log '=== update start ==='
+
+# Self-heal a checkout left mid-rebase/mid-merge by an earlier interrupted run
+# (shutdown or task kill while pulling). Without this every later automated run
+# dies on "a rebase is in progress" and needs a human to unblock it.
+$gitDir = Join-Path $repo '.git'
+if ((Test-Path (Join-Path $gitDir 'rebase-merge')) -or (Test-Path (Join-Path $gitDir 'rebase-apply'))) {
+    Log 'stale rebase found - aborting before sync'
+    & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
+}
+if (Test-Path (Join-Path $gitDir 'MERGE_HEAD')) {
+    Log 'stale merge found - aborting before sync'
+    & $git merge --abort 2>&1 | ForEach-Object { Log $_ }
+}
+
+# Sync BEFORE fetching. GitHub Actions runs the same job on the same wall-clock
+# schedule (see the cron in daily-update.yml), so starting from a stale tip
+# makes the push below non-fast-forward and loses this run's data.
+#
+# A tracked file left dirty outside data/docs is committed by nothing here and
+# makes the rebase refuse to run ("cannot rebase: You have unstaged changes").
+# That is exactly how the 2026-10-01 20:00 GitHub Actions run went red after
+# .gitattributes landed and renormalized run-update.ps1. Print the dirty list so
+# the next occurrence is diagnosable instead of invisible.
+$dirty = @(& $git status --porcelain)
+if ($dirty.Count -gt 0) {
+    Log 'working tree not clean:'
+    $dirty | ForEach-Object { Log ('  ' + $_) }
+}
+
+Log 'step 0/3 sync with origin'
+$rc = Invoke-Git pull --rebase --autostash origin main
+if ($rc -ne 0) {
+    # Do not lose the whole update over a sync problem: clear any half-applied
+    # rebase and carry on with the fetch. The push path below reconciles with
+    # origin and still fails loudly if it cannot.
+    Log "WARN git pull --rebase exit=$rc - clearing any partial rebase and continuing"
+    & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
+}
+
+# The scraper deps live in Miniconda; do not assume `python` is on PATH in the
+# task scheduler / Hermes cron context.
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    $condaPy = 'C:\ProgramData\Miniconda3\python.exe'
+    if (Test-Path $condaPy) { $py = $condaPy; Log "python not on PATH - using $condaPy" }
+    else { Log 'FAIL python not found on PATH or in Miniconda'; exit 1 }
+}
+
+Log 'step 1/3 fetch'
+$rc = Run-Py -Label 'fetch' -PyArgs @('fetch.py', '-o', 'data/topics.jsonl')
+if ($rc -ne 0) { Log "FAIL fetch exit=$rc"; exit 1 }
+
+# fetch.py writes data\.fetch_errors when a source failed but the run is still
+# survivable (cached rows kept). CI turns that marker into a red build; nothing
+# on this box read it, so a source silently vanishing stayed invisible here.
+# That matters most for linux.do: it is only fetched from this residential IP,
+# so a linux.do failure never shows up in CI either. Log it.
+$fetchErr = Join-Path $repo 'data\.fetch_errors'
+if (Test-Path $fetchErr) {
+    Log 'WARN partial fetch - cached rows kept for the sources below:'
+    Get-Content -LiteralPath $fetchErr -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Log ('  ' + $_) }
+}
+
+Log 'step 2/3 generate'
+$rc = Run-Py -Label 'generate' -PyArgs @('generate.py', '-i', 'data/topics.jsonl', '-o', 'docs/index.html')
+if ($rc -ne 0) { Log "FAIL generate exit=$rc"; exit 1 }
+
+# Guard suites, and the same set CI enforces: the page about to be published must
+# be exactly what the committed generator produces from the committed store.
+# Running them here turns an hour of red CI plus a mail into a local, loud,
+# zero-side-effect refusal.
+#
+# All five suites run, not just test_site.py（test_content.py 2026-10-15 接入：
+# 正文层的 offer 判定此前不被任何守卫覆盖）: the parsers encode the markup
+# anomalies that silently dropped rows, and test_guards injects each failure
+# mode. Before 2026-10-12 this step ran test_site.py alone, so a parser
+# regression was only caught by CI (or by hand) -- the local pipeline could
+# publish a page built by a broken parser.
+#
+# Measured cost of all four: 4.2s total (vs 1.8s for test_site alone). Cheap
+# enough to run on every trigger.
+Log 'step 2.5/3 guard suites (parsers / guards / site / ab-rules)'
+foreach ($suite in @('tests/test_guards.py', 'tests/test_parsers.py',
+                     'tests/test_site.py', 'tests/test_ab_rules.py',
+                     'tests/test_content.py')) {
+    $rc = Run-Py -Label $suite -PyArgs @($suite)
+    if ($rc -ne 0) {
+        Log "FAIL $suite exit=$rc - refusing to commit: the generated page does not match the store/generator"
+        exit 1
+    }
+}
+
+# Page-JS suite: tests.yml and daily-update.yml both run it, and it is the only
+# guard on the generated page's own JavaScript. It is a .mjs, so it needs node,
+# not Run-Py (which launches python). Do NOT turn a missing node into a silent
+# pass -- say so explicitly in the log (CI still covers it).
+$node = 'C:\Program Files\nodejs\node.exe'
+if (-not (Test-Path $node)) { $node = $null }
+if (-not $node) {
+    $cmd = Get-Command node -ErrorAction SilentlyContinue
+    if ($cmd) { $node = $cmd.Source }
+}
+if ($node) {
+    $jsOut = Join-Path $env:TEMP ('lsb-js-' + [guid]::NewGuid().ToString('N') + '.log')
+    $jsErr = Join-Path $env:TEMP ('lsb-jserr-' + [guid]::NewGuid().ToString('N') + '.log')
+    $jp = Start-Process -FilePath $node -ArgumentList @('tests/test_page_js.mjs') -NoNewWindow -Wait -PassThru `
+                        -RedirectStandardOutput $jsOut -RedirectStandardError $jsErr
+    $jsrc = $jp.ExitCode
+    if ($null -eq $jsrc) { $jsrc = 1 }
+    foreach ($f in @($jsOut, $jsErr)) {
+        if (Test-Path $f) {
+            Get-Content -LiteralPath $f -Encoding UTF8 -ErrorAction SilentlyContinue | ForEach-Object { Log $_ }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Log "tests/test_page_js.mjs exit code $jsrc"
+    if ($jsrc -ne 0) {
+        Log "FAIL tests/test_page_js.mjs exit=$jsrc - refusing to commit: generated page JS is broken"
+        exit 1
+    }
+} else {
+    Log 'WARN node not found - page-JS suite SKIPPED locally (node is not on PATH and not in Program Files; CI still runs it)'
+}
+
+Log 'step 3/3 commit + push'
+
+# -NoPublish: the merged publisher owns git. Return the success/failure signal the
+# publisher needs, but do not touch the index or the remote.
+#
+# data\.last_run IS still written here: the freshness gate above is what stops a
+# dropped trigger from going unnoticed, and it must mean "this leg finished a
+# fetch", not "someone called the publisher".
+if ($NoPublish) {
+    Log 'step 3/3 skipped (-NoPublish: merge_publish.py commits both legs together)'
+    Set-Content -LiteralPath (Join-Path $repo 'data\.last_run') -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding ascii
+    Log '=== update end (no publish) ==='
+    exit 0
+}
+
+# Guard: publishing the page is only safe when the generator that produced it
+# is the one in the repo. The step below stages all of data/ and docs/, so a
+# dirty tracked file OUTSIDE those two dirs means this run would commit a page
+# generated by uncommitted code. CI then regenerates the page with the
+# committed generator, the 'index.html is up to date' guard fails, and every
+# hourly run goes red until someone notices (2026-10-06: 8 in a row, and the
+# resulting mail was read as an infrastructure problem for hours).
+# Blocking is deliberate: the data is cumulative in data/topics.jsonl and is
+# committed by the next run once the code state is clean again.
+$dirtyCode = @()
+foreach ($line in @(& $git status --porcelain --untracked-files=no)) {
+    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+    $path = $line.Substring(3).Trim('"')
+    if ($path -notlike 'data/*' -and $path -notlike 'docs/*') { $dirtyCode += $line.Trim() }
+}
+if ($dirtyCode.Count -gt 0) {
+    $dirtyCode | ForEach-Object { Log "  dirty: $_" }
+    $msg = "FAIL uncommitted code changes outside data/ and docs/ ({0} file(s)) - " +
+           "refusing to commit the page; commit or stash the code first"
+    Log ($msg -f $dirtyCode.Count)
+    exit 1
+}
+
+& $git config user.name 'ai-welfare-daily-bot'
+& $git config user.email 'bot@users.noreply.github.com'
+
+# -A over the two data dirs: tolerates a missing data/ file instead of
+# failing the whole run on git add.
+& $git add -A -- data docs
+if ($LASTEXITCODE -ne 0) { Log "FAIL git add exit=$LASTEXITCODE"; exit 1 }
+
+& $git diff --cached --quiet
+if ($LASTEXITCODE -eq 0) {
+    Log 'no changes to commit'
+} else {
+    & $git commit -m ('chore: daily welfare update ' + (Get-Date -Format 'yyyy-MM-dd HH:mm')) 2>&1 | ForEach-Object { Log $_ }
+    if ($LASTEXITCODE -ne 0) { Log "FAIL git commit exit=$LASTEXITCODE"; exit 1 }
+    # Retry once: the other runner may still have pushed while we were fetching.
+    $rc = Invoke-Git push origin main
+    if ($rc -ne 0) {
+        Log 'push rejected - rebasing onto origin and retrying once'
+        $rc = Invoke-Git pull --rebase --autostash origin main
+        if ($rc -eq 0) {
+            $rc = Invoke-Git push origin main
+        }
+        if ($rc -ne 0) {
+            # Rows are only rewritten when they change now, so the two runners
+            # mostly touch disjoint lines and a rebase usually just works. If it
+            # does not, keep this run's snapshot - it is a complete fetch.
+            Log 'rebase conflicted - aborting and merging onto origin'
+            & $git rebase --abort 2>&1 | ForEach-Object { Log $_ }
+            # --autostash: a dirty tracked file outside data/docs must not make
+            # this fallback refuse - that would drop this run's entire fetch.
+            $rc = Invoke-Git pull --no-rebase --autostash -X ours origin main
+            if ($rc -eq 0) {
+                $rc = Invoke-Git push origin main
+            }
+        }
+        if ($rc -ne 0) { Log "FAIL git push exit=$rc"; exit 1 }
+    }
+    Log 'push ok'
+}
+# Freshness marker for the gate at the top: only a run that reached the end
+# (fetch + generate + commit/push settled) writes it. A run that died mid-fetch
+# leaves it stale ON PURPOSE, so the fallback trigger gets to retry.
+# -Encoding ascii, NOT utf8: PowerShell 5.1 writes a UTF-8 BOM with utf8, which the
+# next thing that parses this file will trip over. The value is a plain
+# timestamp, so ascii is exact.
+Set-Content -LiteralPath (Join-Path $repo 'data\.last_run') -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Encoding ascii
+Log '=== update end ==='
+exit 0

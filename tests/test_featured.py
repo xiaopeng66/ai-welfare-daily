@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""精选规则（featured.py）的单元测试：上限值口径 / 灌水免疫 / 种类窗口 / 控制字符卫生。
+
+2026-10-17 建立——双份 build_items 事故（三个修复打了死代码上、潜伏两天）的直接教训：
+featured.py 此前没有任何直接单测，规则回归只能靠整板肉眼。
+"""
+import datetime
+import sys
+from pathlib import Path
+
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import featured
+
+CST = featured.CST
+NOW = datetime.datetime.now(CST)
+failed = 0
+
+
+def check(ok, msg, extra=None):
+    global failed
+    if not ok:
+        failed += 1
+    print(("ok    " if ok else "FAIL  ") + msg + ("" if ok else f" :: {extra}"))
+
+
+# ---------------------------------------------------------------- R1 上限值口径
+muse = featured.amount_of("回到你的muse即可看到30亿token , 最高可🉐300亿")
+check(muse[1] == "3B", "R1 上限词不抢显示：显示确定发放的 30亿（R7 统一为 3B）", muse)
+check(muse[0] == 4.0, "R1 分数仍按上限值计（板位不掉）", muse)
+check(featured.amount_of("最高可🉐300亿")[1] == "30B", "R1 只有上限值时照抄上限（R7 统一为 30B）")
+check(featured.amount_of("注册送20刀，最高可🉐100刀")[1] == "20$", "R1 确定值优先于上限值（显示统一）")
+check(featured.amount_of("免费领取20美元额度，月费99美元") == (4.0, "20$", "usd", 20.0),
+      "R1 不影响既有价格语境判定（99美元 是价格、20美元 是发放）")
+
+# ---------------------------------------------------------------- R6 额度下限 + 显示统一
+check(featured.amount_of("注册送100刀，先到先得") == (5.0, "100$", "usd", 100.0),
+      "R6 刀 → $，显示为 数字+符号")
+check(featured.amount_of("注册送99元")[1] == "99￥", "R6 元 → ￥", featured.amount_of("注册送99元"))
+check(featured.amount_of("送 25 刀 额度")[1] == "25$", "R6 挤掉空格")
+check(featured.amount_of("送10美元 额度")[1] == "10$", "R6 美元 → $")
+check(featured.amount_of("注册送30亿token 额度")[3] is None, "R6 token 类不折算美元（不受下限影响）")
+check(featured.amount_of("注册送2刀 额度")[3] == 2.0, "R6 币种候选带美元值（供下限门槛判）")
+
+# ---------------------------------------------------------------- R4 灌水免疫
+padded = "核心工作经历：主导核心业务交易引擎的底层重构，将单体架构迁移至分布式微服务架构，系统吞吐量提升。" * 3
+real = ("注册就送 claude 和 gpt 的免费额度，每天都能领，无需付费，模型随便用。"
+        "另外还有图像和视频模型的免费试用名额，先到先得。")
+check(featured.relevant_len(padded) < 60, "R4 无主题词的灌水长文不计字数", featured.relevant_len(padded))
+check(featured.relevant_len(real) >= 60, "R4 真实福利描述行计字数", featured.relevant_len(real))
+
+
+# ------------------------------------------------------- 种类由额度 ±10 字窗口定
+def row(key, title, body, hours_ago=6):
+    t = (NOW - datetime.timedelta(hours=hours_ago)).isoformat()
+    return {"id": key, "title": title, "url": f"https://x.test/post/{key}",
+            "created_at": t, "fetched_at": t, "published_verified": True,
+            "tags": [], "score": 0, "source": "test",
+            "offer": {"v": 8, "key": key, "site": key, "campaign": key,
+                      "amount": "", "brand": "", "at": t}}
+
+
+def kind_of(title, body):
+    r = row("probe", title, body)
+    cache = {r["url"]: {"body": body, "meta": {"links": []}}}
+    items = featured.build_items([r], cache, NOW)
+    return items[0]["f"]["kind"] if items else None
+
+
+# docode 实测：标题带"每日无条件抽奖"，但 300刀来自「使用邀请码赠送300刀」→ 送的，不是抽的
+check(kind_of("【DoCode 专属福利】注册即送300刀免费额度，每日无条件抽奖",
+              "注册后在控制台创建 API Key，复制接口地址。注册充值五重好礼："
+              "1、使用邀请码赠送300刀。2、使用专属agent可领额度。一定要使用邀请码才可以获得300刀额度。"
+              ) == "gift",
+      "种类：额度行是「赠送」→ gift，不被标题里的抽奖带偏")
+
+# undy 实测：额度就在抽奖句里（「评论抽奖送$500」）→ 抽奖
+check(kind_of("【 Undy 】评论抽奖",
+              "回帖参与评论抽奖，送$500 额度，10个名额，周五开奖。模型支持 gemini 和 gpt，注册即可使用。"
+              ) == "lottery",
+      "种类：额度行带「抽奖」→ lottery")
+
+# nexotoken 实测：额度在奖品表里（窗口无抽奖也无发放动词），全帖在聊抽奖 → 保守按抽奖
+check(kind_of("【Nexo】每周四免费抽奖",
+              "本周奖品如下。奖品 名额 有效期：$10 平台虚拟额度 2 份，到账后 14 天。"
+              "每周四开奖，请关注公告。"
+              ) == "lottery",
+      "种类：窗口无发放动词而全帖抽奖 → 保守 lottery")
+
+# ---------------------------------------------------------------- 控制字符卫生
+# 2026-10-24 体检：原检查只查 \x08 一个字符，其它控制字符（\x00-\x1f、\x7f）混进
+# 源码照样绿。现在查整个 C0/C1 区（\t\n\r 除外）—— 退格符只是当年抓到的那一个，
+# 这一族的问题是"看不见的字符被复制进词表"，所以按类查。
+import re as _re
+_CTRL = _re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+for mod in (featured, sys.modules["content"] if "content" in sys.modules else None):
+    if mod is None:
+        continue
+    _src = open(mod.__file__, encoding="utf-8").read()
+    _bad = _CTRL.findall(_src)
+    check(not _bad,
+          f"{mod.__name__}.py 无控制字符残留（C0/C1 全区，不只退格符）",
+          sorted({"U+%04X" % ord(ch) for ch in _bad}))
+
+# ---------------------------------------------------------------- 常量不得重复定义（2026-10-24 加）
+# 由头：featured.py 里 WINDOW_DAYS / LIFE_DAYS / MAX_ITEMS 各定义了**两遍**，
+# 后一份静默覆盖前一份 —— 与「双份 build_items」事故同一形态（改上面那份不生效）。
+# 这条断言用 AST 查模块级赋值是否重名，一旦再有重复定义立刻红。
+import ast as _ast
+_TOOL = Path(__file__).resolve().parent.parent
+for _name in ("featured.py", "content.py", "fetch.py", "generate.py"):
+    _tree = _ast.parse((_TOOL / _name).read_text(encoding="utf-8"))
+    _assigned = {}
+    for _node in _tree.body:                      # 只看模块级
+        if isinstance(_node, _ast.Assign):
+            for _t in _node.targets:
+                if isinstance(_t, _ast.Name):
+                    _assigned.setdefault(_t.id, []).append(_node.lineno)
+    _dups = {k: v for k, v in _assigned.items() if len(v) > 1}
+    check(not _dups, f"{_name} 无模块级常量重复定义（静默覆盖会在这里红）", _dups)
+
+
+# ---------------------------------------------------------------- 活动别名表同步（2026-10-24 加）
+# featured.py 与 content.py 各有一份 CAMPAIGN_ALIASES（"双份 build_items"事故的同族）。
+# 2026-10-24 给两份同时加了 zcode / hyxapi；这条断言钉住"以后只改一份必红"。
+import content as _content_mod
+check(featured.CAMPAIGN_ALIASES == _content_mod.CAMPAIGN_ALIASES,
+      "featured 与 content 的活动别名表完全一致（漂移会在这里红）",
+      f"featured={sorted(featured.CAMPAIGN_ALIASES)} content={sorted(_content_mod.CAMPAIGN_ALIASES)}")
+
+
+# ---------------------------------------------------------------- CI 复现（2026-10-24 加）
+# 云端 CI 检出仓库后**没有** data/cache/content（gitignored）—— 原来 load_cache 直接
+# os.listdir 抛异常 → featured.update 崩 → build_featured 兜底成空载荷 → 线上精选板整块消失。
+# P1-11 修的是"缺缓存不至于空板/自锁"；这里把判据钉死：**缓存缺失时，载荷必须逐字节
+# 等于仓库里已提交的那份板子**（不新增、不下架、内容不变）。
+#
+# 这条也回答了"正文缓存要不要入库"：不要。因为缓存缺失时 CI 渲染出的 FEATURED 段与已提交
+# 页面逐字节相同（2026-10-24 实测），入库只会多背 2.3MB 抓取正文。
+import json as _json
+import shutil as _shutil
+import tempfile as _tempfile
+
+_ROOTDIR = Path(__file__).resolve().parent.parent
+_STORE = _ROOTDIR / "data" / "topics.jsonl"
+_BOARD = _ROOTDIR / "data" / "featured.jsonl"
+if _STORE.exists() and _BOARD.exists():
+    _rows = [_json.loads(line) for line in _STORE.read_text(encoding="utf-8").splitlines() if line.strip()]
+    _committed = [_json.loads(line) for line in _BOARD.read_text(encoding="utf-8").splitlines() if line.strip()]
+    _committed_payload = [{k: v for k, v in it.items() if k not in featured.STATE_KEYS} for it in _committed]
+    _tmpdir = Path(_tempfile.mkdtemp(prefix="feat-ci-"))
+    _statefile = _tmpdir / "featured.jsonl"
+    _shutil.copy(_BOARD, _statefile)
+    _ci_payload, _ci_stats = featured.update(_rows, str(_tmpdir / "no-such-cache"), str(_statefile))
+    check(_json.dumps(_ci_payload, ensure_ascii=False, sort_keys=True)
+          == _json.dumps(_committed_payload, ensure_ascii=False, sort_keys=True),
+          "缓存缺失（CI）时载荷逐字节等于已提交板子",
+          f"{len(_ci_payload)} vs {len(_committed_payload)}")
+    check(len(_ci_payload) > 0, "缓存缺失不再产出空板", len(_ci_payload))
+    _shutil.rmtree(_tmpdir, ignore_errors=True)
+else:
+    check(True, "跳过 CI 复现用例（没有 store/board 数据文件）")
+
+print(f"\n{failed} failed" if failed else "\n全部通过")
+sys.exit(1 if failed else 0)

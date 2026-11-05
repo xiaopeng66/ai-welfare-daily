@@ -1,0 +1,222 @@
+name: Daily Welfare Update
+
+on:
+  schedule:
+    # 兜底用，不是主节奏：linux.do 在 CI 里被关掉了（数据中心 IP 会被 429），
+    # 所以这条路径抓到的是与家宽侧相同的四源结果，真正带 linux.do 的完整抓取
+    # 只能在家宽上跑（Windows 任务每 30 分钟 :07/:37 + Hermes cron 每小时 :30）。
+    # 保持 6 小时一次只为兜底；**常规写者只有家宽那条腿** —— 下面的"停更门"会让
+    # 平时的轮次只跑离线套件、不碰 git（单写者原则，2026-10-18 分叉死锁的根治）。
+    #
+    # 刻意选 01:00 UTC（北京 09:00）以外的位置：GitHub 官方说明 schedule 在高负载时
+    # 会被延迟，且"每小时整点"是最堵的时段；实测这条 cron 曾连续多日延迟 3h45m~5h30m。
+    - cron: '17 */6 * * *'
+  workflow_dispatch:  # 允许手动触发
+    inputs:
+      force:
+        description: '无视停更检查，强制抓取并提交（本地机器离线/应急用）'
+        type: boolean
+        default: false
+
+# The Windows scheduled task (\hermes-merged-publish, every 30 minutes) and the
+# Hermes cron job (hourly on the half hour) run the same merged publisher
+# (merge_publish.py) on a residential IP: it runs the main-site and promo-page
+# legs in parallel, then commits and pushes both legs' output in ONE commit.
+# merge_publish.py owns all git operations, so the two legs never race for
+# .git/index.lock. They all share one `concurrency` group so interleaving is
+# absorbed by the pull --rebase below instead of racing for the branch.
+concurrency:
+  group: daily-welfare-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    # Pinned, not ubuntu-latest: the label migrates to Ubuntu 26 on 2026-10-19
+    # and this job installs browser binaries through scrapling, which is exactly
+    # the kind of thing a surprise base-image change breaks unattended.
+    runs-on: ubuntu-24.04
+    env:
+      # linux.do answers GitHub runner (datacenter) IPs with 429, so this source
+      # is only fetched by the Windows scheduled task on a residential IP.
+      # Flip to "1" (the install step below is kept ready for it) if that
+      # ever stops being true — otherwise every scheduled run goes red on
+      # "linux.do welfare page 1: status=429".
+      LINUXDO_ENABLED: "0"
+    steps:
+      # Pinned to commit SHAs: a moving major tag lets an upstream force-push
+      # change what runs in a job that holds contents:write.
+      # v7.0.1 / v7.0.0 are the first lines on the node24 runtime; the previous
+      # v4/v5 pins still ran on node20 and were being force-upgraded on every
+      # run ("Node.js 20 is deprecated").
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Real history: the commit step rebases onto origin, which a depth-1
+          # shallow clone cannot do reliably.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # linux.do is Cloudflare-protected and is fetched through Scrapling's
+      # StealthyFetcher. The core wheel alone is not enough: the [fetchers]
+      # extra brings playwright/patchright AND click, which the `scrapling` CLI
+      # needs. Without this the CI run is red on "scrapling not installed".
+      #
+      # Skipped while LINUXDO_ENABLED=0 (the default here): fetch.py skips that
+      # source entirely, so the install only bought a browser download and a
+      # fresh failure surface on every scheduled run. Flip the env var back to
+      # "1" and this step comes back automatically.
+      - name: Install scraper deps (Cloudflare-protected sources)
+        if: env.LINUXDO_ENABLED != '0'
+        run: |
+          pip install "scrapling[fetchers]==0.4.8"
+          scrapling install
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: '22'
+
+      # 单写者门（2026-10-18 凌晨事故的根治）：本机计划任务每小时更新，这里**平时
+      # 不再提交**，只在页面确实停更（生成时刻距今 ≥3 小时 = 本地腿连续 3 轮没成功 /
+      # 机器离线）时才接管。两个写者同时提交同一批生成物 ⇒ push 非快进 + rebase 在
+      # 产物文件上冲突 ⇒ 连红告警、站点停更（2026-10-18 01:43 就是）。
+      # 判据 = 页内 PICK_BAKED_AT（生成时刻，epoch 秒）：不依赖 git 历史，
+      # 也正好就是"线上那一版的年龄"；读不到时按停更处理（fail-open 到发布侧）。
+      # 手动应急：Actions 里 dispatch 本工作流、force 勾 true。
+      - name: Single-writer gate (take over only if the site went stale)
+        id: stale
+        env:
+          FORCE: ${{ inputs.force || 'false' }}
+        run: |
+          # 接管必须**可见**（2026-10-23 审计 P0-3）：CI 替本地腿发页面是"修复"，
+          # 但静默修复会让人以为本地那条链一直健康 —— 所以接管时打 warning 注解、
+          # 写 step summary，并在提交信息里带 [fallback]。
+          if [ "$FORCE" = "true" ]; then
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "mode=manual" >> "$GITHUB_OUTPUT"
+            echo "::warning::手动 force=true → 本轮由 CI 接管抓取与提交（不是自动兜底）"
+            echo "手动 force=true → 跳过停更检查，本轮接管抓取与提交"
+            exit 0
+          fi
+          baked=$(grep -o 'const PICK_BAKED_AT=[0-9]*' docs/index.html | head -1 | cut -d= -f2)
+          if [ -z "$baked" ]; then
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "mode=unreadable" >> "$GITHUB_OUTPUT"
+            echo "::warning::读不到 PICK_BAKED_AT（页面结构变了？）→ 按停更处理，本轮 CI 接管"
+            echo "!! 读不到 PICK_BAKED_AT（页面结构变了？）→ 保守起见按停更处理"
+            exit 0
+          fi
+          age=$(( $(date -u +%s) - baked ))
+          if [ "$age" -lt 10800 ]; then
+            echo "stale=0" >> "$GITHUB_OUTPUT"
+            echo "mode=fresh" >> "$GITHUB_OUTPUT"
+            echo "提交版页面 ${age}s 前刚生成（< 3 小时）→ 本地腿在干活，本轮只跑离线套件、不提交"
+          else
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+            echo "mode=stale" >> "$GITHUB_OUTPUT"
+            echo "::warning::页面已停更 ${age}s（≥ 3 小时）→ 本地腿沉默，本轮由 CI 兜底接管（提交信息带 [fallback]）"
+            {
+              echo "### ⚠️ CI 兜底接管"
+              echo ""
+              echo "页面已停更 ${age}s（≥ 3 小时）：本地那条腿已经不在更新，本轮由 CI 抓取并提交。"
+              echo "**本地管线需要人看一眼**（计划任务被丢弃 / 机器离线 / 连续失败）。"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "页面已停更 ${age}s（≥ 3 小时）→ 本地腿沉默，本轮接管抓取与提交"
+          fi
+
+      # Pre-flight: all four suites are hermetic (no network, every source
+      # injected) and cover the "do not lose data | do not garble the page"
+      # paths - including the parsers, whose fixtures encode the markup
+      # anomalies that silently dropped rows and mis-paired timestamps, and the
+      # page-JS suite, which this job is the last line of defence for: tests.yml
+      # only runs after the push, so without it a garbled page is already live.
+      # Fail closed here rather than let such a run write anything.
+      - name: Guard tests (offline)
+        run: |
+          python3 tests/test_guards.py
+          python3 tests/test_parsers.py
+          python3 tests/test_site.py
+          python3 tests/test_ab_rules.py
+          python3 tests/test_content.py
+          python3 tests/test_featured.py
+          node tests/test_page_js.mjs
+
+      - name: Fetch topics from linux.sb
+        if: steps.stale.outputs.stale == '1'
+        run: |
+          python3 fetch.py -o data/topics.jsonl
+
+      - name: Generate static site
+        if: steps.stale.outputs.stale == '1'
+        run: |
+          python3 generate.py -i data/topics.jsonl -o docs/index.html
+
+      - name: Commit and push
+        if: steps.stale.outputs.stale == '1'
+        env:
+          MODE: ${{ steps.stale.outputs.mode }}
+        run: |
+          git config --global user.name "ai-welfare-daily-bot"
+          git config --global user.email "bot@users.noreply.github.com"
+          # Stage the whole tree here, unlike run-update.ps1 which stages only
+          # data docs. The asymmetry is deliberate: this checkout is ephemeral
+          # and holds nothing but this job's output, so `-A` guarantees the tree
+          # is clean for the rebase below (an unstaged tracked file makes it
+          # refuse, and then the autostash cannot be reapplied). On the user's
+          # machine the tree can hold unrelated edits, so the PS1 stages only
+          # what the run itself produced.
+          git add -A
+          git status --short
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          # 兜底接管要在提交信息里留痕（P0-3）：git log 上一眼能看出"这一版不是
+          # 本地腿发的"。手动 force 不算兜底，不带标记。
+          suffix=""
+          if [ "$MODE" != "manual" ]; then
+            suffix=" [fallback]"
+          fi
+          git commit -m "chore: daily welfare update $(date +%Y-%m-%d)${suffix}"
+          # The residential pipeline (Windows task :07/:37, Hermes cron :30) is
+          # far more frequent than this 6-hourly run, so the branch can move
+          # between our commit and our push.
+          if git push; then
+            echo "push ok"
+          else
+            echo "push rejected - rebasing onto origin and retrying once"
+            git fetch origin main
+            if git rebase origin/main && git push; then
+              echo "push ok after rebase"
+            else
+              # Rows are only rewritten when they change, so the two runners now
+              # touch mostly disjoint lines and a rebase usually just works. If
+              # it does not, keep this run's snapshot: it is a complete fetch and
+              # the other side's rows are a subset of it.
+              git rebase --abort 2>/dev/null || true
+              # --autostash: without it a dirty tracked file anywhere in the tree
+              # makes this fallback refuse, and then the run's whole fetch is
+              # dropped at the "FAIL git push" below.
+              git pull --no-rebase --autostash -X ours origin main
+              git push
+              echo "push ok after merge (kept this run's data)"
+            fi
+          fi
+
+      # Runs last so a partial fetch still publishes good data, but marks the
+      # build red so the failure is not silently swallowed.
+      - name: Report partial fetch
+        if: always()
+        run: |
+          if [ -f data/.fetch_errors ]; then
+            echo "::error::Partial fetch - some sources failed, cached data kept:"
+            cat data/.fetch_errors
+            exit 1
+          fi
+          echo "All sources fetched cleanly"

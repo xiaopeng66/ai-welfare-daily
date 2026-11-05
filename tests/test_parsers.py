@@ -1,0 +1,1009 @@
+#!/usr/bin/env python3
+"""Parser-level guards for fetch.py.
+
+Why this exists: test_guards injects every source function, so not a single
+parser or regex in fetch.py is ever executed by it - which is how a broken URL,
+a mis-paired timestamp and an order-sensitive meta regex all survived a green
+suite. Every fixture below is the markup shape a real defect was found in, so
+the same defect cannot come back quietly.
+
+Usage:
+    python3 tests/test_parsers.py [path/to/fetch.py]
+
+Hermetic: parses strings, never touches the network.
+"""
+import importlib.util
+import json
+import os
+import re
+import sys
+
+# 自己的 stdio 也钉成 UTF-8：断言文案/失败详情里会出现非 GBK 字符（✕ 🔥 🉐 等），
+# 一旦 stdout 被重定向而 PYTHONIOENCODING 没设（手工 `python tests/xxx.py > log`），
+# print 会当场 UnicodeEncodeError —— 与内容正确性无关的崩溃，还可能专挑打印失败详情
+# 时炸，把真正的失败盖掉。reconfigure 不可用（stdout 被换成 StringIO 等）就跳过。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FETCH_PY = os.environ.get('FETCH_PY') or (
+    sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'fetch.py')
+)
+
+spec = importlib.util.spec_from_file_location('fetcher', FETCH_PY)
+assert spec and spec.loader, f'cannot load {FETCH_PY}'
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+results = []
+
+
+def check(ok, msg, extra=None):
+    results.append(bool(ok))
+    detail = '' if extra is None else f' :: {extra}'
+    print(('ok    ' if ok else 'FAIL  ') + msg + (detail if not ok else ''))
+
+
+# --------------------------------------------------------------------------
+print('== linux.sb listing: each row owns its own timestamp ==')
+# Two ordinary rows: the anchor carries the title, the row's own <span> the time.
+page = (
+    '<div class="post-title-row"><a class="post-title" href="/topic/111">鸡蛋 大放送</a></div>'
+    '<span data-performance-time="1700000000">刚刚</span>'
+    '<div class="post-title-row"><a class="post-title" href="/topic/222">中转站 体验金</a></div>'
+    '<span data-performance-time="1700009999">1 小时前</span>'
+)
+rows = mod.parse_linuxsb_listing(page)
+check(len(rows) == 2, 'two rows parsed', len(rows))
+check([r['id'] for r in rows] == ['111', '222'], 'ids in document order', [r['id'] for r in rows])
+check(rows[0]['created_at'] and rows[1]['created_at']
+      and rows[0]['created_at'] < rows[1]['created_at'],
+      'each row keeps its own time', [r['created_at'] for r in rows])
+check(rows[0]['url'] == f'{mod.BASE_LINUXSB}/topic/111', 'url built from the id', rows[0]['url'])
+
+print('\n== 已知行里「已结束」的标题必须放行（否则旧行永远删不掉）==')
+# 2026-10-15 审计：源站把标题改成「…（已结束）」后，已知行被整行跳过 → main 看不到它
+# → store 里那一行留着旧的有效标题。这里钉住源级例外。
+_lsb_page = (
+    '<div class="post-title-row"><a class="post-title" href="/topic/701">公益站 A</a></div>'
+    '<span data-performance-time="1700000000">刚刚</span>'
+    '<div class="post-title-row"><a class="post-title" href="/topic/702">公益站 B（已结束）</a></div>'
+    '<span data-performance-time="1700000001">刚刚</span>'
+)
+_known = {'701', '702'}
+_real_fetch = mod.fetch
+mod.fetch = lambda *a, **k: _lsb_page
+try:
+    _kept = mod.fetch_linuxsb(_known)
+finally:
+    mod.fetch = _real_fetch
+_ids = sorted({t['id'] for t in _kept})
+check(_ids == ['702'],
+      '只有已结束的已知行漏出来（活跃的已知行照旧跳过、省请求）', _ids)
+check(all(mod.ended_title(t) for t in _kept), '漏出来的行确实都带结束标记', [t['title'] for t in _kept])
+
+print('\n== a row that lost its <span> must not eat its neighbour ==')
+# Regression: the old whole-page regex used `.*?` across row boundaries, so this
+# page yielded ONE row (222 with 111's timestamp stolen) instead of two.
+page = (
+    '<div class="post-title-row"><a class="post-title" href="/topic/111">鸡蛋 大放送</a></div>'
+    '<div class="post-title-row"><a class="post-title" href="/topic/222">中转站 体验金</a></div>'
+    '<span data-performance-time="1700009999">1 小时前</span>'
+)
+rows = mod.parse_linuxsb_listing(page)
+check(len(rows) == 2, 'the following row is still parsed', len(rows))
+check(rows[0]['created_at'] is None, 'the anomalous row gets no timestamp', rows[0]['created_at'])
+check(rows[1]['created_at'] is not None and rows[1]['created_at'].startswith('2023-11-1'),
+      'and its neighbour keeps its own', rows[1]['created_at'])
+
+print('\n== the daily-hot block nests a reply count inside the anchor ==')
+page = (
+    '<li><a href="/topic/333"><span class="daily-hot-topics-content">'
+    '<span class="daily-hot-topics-title">免费订阅</span>'
+    '<span class="daily-hot-topics-count">近 24 小时 29 回复</span></span></a></li>'
+)
+rows = mod.parse_linuxsb_listing(page)
+check(len(rows) == 1 and rows[0]['title'] == '免费订阅',
+      'title taken from the title element, not the whole anchor',
+      rows[0]['title'] if rows else 'no row')
+
+print('\n== a pagination link inside a row is not a second row ==')
+page = (
+    '<div class="post-title-row"><a class="post-title" href="/topic/555">鸡蛋 大放送</a>'
+    '<span class="topic-pages"><a href="/topic/555?p=2">2</a></span></div>'
+    '<span data-performance-time="1700000000">刚刚</span>'
+)
+rows = mod.parse_linuxsb_listing(page)
+check(len(rows) == 1 and rows[0]['id'] == '555',
+      'the ?p=2 link is not a topic', [r['id'] for r in rows])
+
+print('\n== baipiao HTML fallback builds a real topic url ==')
+rows = mod.parse_topics('<a href="/bbs/d/777">求一个中转站</a>', mod.BaipiaoHTMLParser)
+check(len(rows) == 1, 'one row', len(rows))
+check(rows[0]['url'] == 'https://baipiao.org/bbs/d/777',
+      'url is the topic page, not https://baipiao.org777', rows[0]['url'])
+check(mod._site_of(rows[0]['url']) == 'baipiao.org',
+      'and its host matches the JSON API path, so the two never duplicate')
+check(mod.topic_key(rows[0]) == mod.topic_key(
+    {'id': '777', 'url': 'https://baipiao.org/bbs/d/777'}),
+    'fallback row and API row share one merge key')
+
+print('\n== baipiao 分页：Flarum 用 page[offset]，?page=N 会被静默忽略 ==')
+check(mod._baipiao_api_url(1).endswith("?page[offset]=0&page[limit]=20&sort=-createdAt"),
+      'page 1 starts at offset 0', mod._baipiao_api_url(1))
+check(mod._baipiao_api_url(2).endswith("?page[offset]=20&page[limit]=20&sort=-createdAt"),
+      'page 2 starts at offset 20', mod._baipiao_api_url(2))
+check(mod._baipiao_api_url(3).endswith("?page[offset]=40&page[limit]=20&sort=-createdAt"),
+      'page 3 starts at offset 40', mod._baipiao_api_url(3))
+check("?page=2" not in mod._baipiao_api_url(2),
+      'no ignored ?page=N parameter left', mod._baipiao_api_url(2))
+
+print('\n== HTML 回退解析：锚点文本可能分多次回调（换行前缀 / 内嵌 span）==')
+# 审计用合法 HTML 复现过两个形状：旧写法只认第一个 handle_data ——
+# 前导换行让整条丢失；内嵌 <span>（已结束）</span> 让后缀丢、失效帖被当有效收。
+_rows = mod.parse_topics('<a href="/bbs/d/777">\n  求一个中转站\n</a>', mod.BaipiaoHTMLParser)
+check(len(_rows) == 1 and _rows[0]['title'] == '求一个中转站',
+      '前导换行的锚点不再整条丢失', [r['title'] for r in _rows])
+_rows2 = mod.parse_topics('<a href="/t/topic/999">公益站 体验金<span>（已结束）</span></a>', mod.NodeLocHTMLParser)
+check(len(_rows2) == 1 and _rows2[0]['title'] == '公益站 体验金（已结束）',
+      '内嵌 span 的后缀不再被截断（（已结束）要能被 stale 判据看到）', [r['title'] for r in _rows2])
+_rows3 = mod.parse_topics('<a href="/bbs/d/778">鸡蛋 大放送</a><a href="/bbs/d/779"><span>x</span></a>',
+                          mod.BaipiaoHTMLParser)
+check([r['id'] for r in _rows3] == ['778'],
+      '相邻锚点互不串味（短文本锚点照旧被 >2 字门槛挡住）', [r['id'] for r in _rows3])
+
+print('\n== nodeloc listing urls ==')
+rows = mod.parse_topics('<a href="/t/topic/999">公益站 体验金</a>', mod.NodeLocHTMLParser)
+check(len(rows) == 1 and rows[0]['url'] == f'{mod.BASE_NODELOC}/t/topic/999',
+      'url built from the id', rows[0]['url'] if rows else 'no row')
+check(rows and mod._site_of(rows[0]['url']) == 'nodeloc.com',
+      'and its host normalizes to a single namespace (www. stripped)',
+      mod._site_of(rows[0]['url']) if rows else 'no row')
+
+print('\n== publish time extraction accepts either attribute order ==')
+property_first = ('<meta property="article:published_time" content="2026-09-30T12:00:00+08:00">')
+content_first = ('<meta content="2026-09-30T12:00:00+08:00" property="article:published_time">')
+for label, html in (('property first', property_first), ('content first', content_first)):
+    got = mod.extract_published_time(html)
+    check(got == '2026-09-30T04:00:00+00:00', f'{label} -> utc iso', got)
+check(mod.extract_published_time('<meta property="og:title" content="x">') is None,
+      'no meta tag -> None')
+check(mod.extract_published_time(
+    '<meta property="article:published_time" content="not-a-date">') is None,
+    'garbage date -> None instead of raising')
+
+print('\n== topic_key needs a usable namespace even without a url ==')
+k = mod.topic_key({'id': '42', 'url': None, 'source': 'nodeloc'})
+check(k == 'nodeloc#42', 'a url-less row falls back to its source namespace', k)
+two = mod.deduplicate([
+    {'id': '42', 'url': None, 'source': 'nodeloc', 'title': 'A'},
+    {'id': '42', 'url': None, 'source': 'linuxdo_welfare', 'title': 'B'},
+])
+check(len(two) == 2, 'two url-less rows from different sites both survive dedupe',
+      [t['source'] for t in two])
+check(mod.topic_key({'id': '42', 'url': 'https://linux.sb/topic/42'}) == 'linux.sb#42',
+      'a normal row is namespaced by host')
+check(mod.topic_key({'id': '42', 'url': 'https://www.linux.sb/topic/42'}) == 'linux.sb#42',
+      'www. is not a separate site')
+
+
+print('\n== published_verified must mean "this is the publish time" ==')
+
+
+def with_mocked_fetch(payload, fn):
+    """Run a fetch_* function against a canned API payload."""
+    real = mod.fetch
+    mod.fetch = lambda *a, **k: json.dumps(payload)
+    try:
+        return fn()
+    finally:
+        mod.fetch = real
+
+
+topics_json = {'topic_list': {'topics': [
+    {'id': 77, 'title': '公益站 体验金', 'bumped_at': '2026-10-01T09:00:00.000Z'},
+    {'id': 78, 'title': '中转站 额度', 'created_at': '2026-10-01T09:00:00.000Z'},
+]}}
+rows = {r['id']: r for r in with_mocked_fetch(topics_json, mod.fetch_nodeloc)}
+check(rows.get('77', {}).get('created_at') == '2026-10-01T09:00:00.000Z',
+      'a topic without created_at still gets a usable timestamp',
+      rows.get('77', {}).get('created_at'))
+check(not rows.get('77', {}).get('published_verified'),
+      'but a reply time is not claimed as a verified publish time',
+      rows.get('77', {}).get('published_verified'))
+check(rows.get('78', {}).get('published_verified'),
+      'created_at is a verified publish time', rows.get('78', {}).get('published_verified'))
+
+
+print('\n== vibex (心流AI社区) welfare board ==')
+vibex_json = {'topic_list': {'topics': [
+    {'id': 5, 'title': '关于“iFlow 补给站”类别', 'pinned': True,
+     'created_at': '2025-08-23T02:00:00.000Z'},
+    {'id': 6773, 'title': '免费公益站 GPT+Claude Code 每日登录送25刀',
+     'created_at': '2026-10-01T07:10:00.000Z'},
+    {'id': 6770, 'title': '领鸡蛋 DeepSeek官方客户端',
+     'bumped_at': '2026-10-02T03:00:00.000Z'},
+]}}
+
+
+def with_paged_fetch(pages, fn):
+    """Mock fetch so each page argument gets its own payload.
+
+    The single-payload mock above is fine for a one-page function, but vibex
+    walks pages 1-3: handing every page the same body makes the last page's row
+    overwrite the first one's source, which looks like a source-naming bug when
+    it is really the fixture not modelling pagination.
+    """
+    real = mod.fetch
+
+    def fake(url, *a, **k):
+        m = re.search(r'page=(\d+)', url)
+        page = int(m.group(1)) if m else 1
+        return json.dumps(pages.get(page, {'topic_list': {'topics': []}}))
+
+    mod.fetch = fake
+    try:
+        return fn()
+    finally:
+        mod.fetch = real
+
+
+vrows = {r['id']: r for r in with_paged_fetch({1: vibex_json}, mod.fetch_vibex_welfare)}
+check('5' not in vrows, 'the pinned board description is not a welfare post', sorted(vrows))
+check(vrows.get('6773', {}).get('url') == 'https://vibex.iflow.cn/t/topic/6773',
+      'url built from BASE_VIBEX', vrows.get('6773', {}).get('url'))
+check(vrows.get('6773', {}).get('source') == 'vibex_welfare_p1',
+      'source is namespaced per page', vrows.get('6773', {}).get('source'))
+check(vrows.get('6773', {}).get('published_verified'),
+      'created_at is a verified publish time', vrows.get('6773', {}).get('published_verified'))
+check(vrows.get('6770', {}).get('created_at') == '2026-10-02T03:00:00.000Z'
+      and not vrows.get('6770', {}).get('published_verified'),
+      'a bumped_at fallback is usable but not claimed as verified',
+      (vrows.get('6770', {}).get('created_at'), vrows.get('6770', {}).get('published_verified')))
+check(set(r['source'] for r in with_paged_fetch(
+          {1: {'topic_list': {'topics': [{'id': 1, 'title': 'a', 'created_at': '2026-01-01T00:00:00.000Z'}]}},
+           2: {'topic_list': {'topics': [{'id': 2, 'title': 'b', 'created_at': '2026-01-02T00:00:00.000Z'}]}},
+           3: {'topic_list': {'topics': [{'id': 3, 'title': 'c', 'created_at': '2026-01-03T00:00:00.000Z'}]}},
+          }, mod.fetch_vibex_welfare)) == {'vibex_welfare_p1', 'vibex_welfare_p2', 'vibex_welfare_p3'},
+      'each page keeps its own source label')
+
+
+# --------------------------------------------------------------------------
+# Relevance gate (two-tier) and 公益站 tagging.
+#
+# Why the gate is two-tier instead of one keyword list: measured on the full
+# 2026-10-04 corpus (607 fetched / 509 unique titles) the single-layer gate had
+# two opposite defects -- it dropped 194 AI-额度 posts (「注册送1刀」「0.0001倍率」
+# 「放粮」「号池」) because the shop talk contains none of the 8 gate words, and it
+# kept 24 non-AI ones, ALL from 「抽奖」 (VPS/esim/TG号/域名/会员 lotteries).
+# Both directions are pinned below, so a future "simplify the filter" edit that
+# reintroduces either one fails here instead of quietly on the live site.
+# --------------------------------------------------------------------------
+def relevant(title):
+    return mod.is_relevant_title(title)
+
+
+# ① Self-sufficient terms: enough on their own (they *are* an AI welfare site
+#    or an explicit quota giveaway), so they must survive without any other hit.
+for title in ['🥚【露娜半公益中转站】🥚 都是免费登！',
+              '（公益生图站）发一些兑换码',
+              'Zynk公益复活! 进来兑换额度',
+              '【Zynk 公益】国庆第二波福利，GPT 6.1 Sol 蹬 $1000',
+              '🆕 无限deepseek 持续公益 已送【2.5】亿',
+              '国庆福利 纯grok heavy号池',
+              'token 多到溢出拿來燒水,滞销!今天開門放糧！']:
+    check(relevant(title), 'a self-sufficient title passes the relevance gate', title)
+
+check('公益站' in mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'],
+      'a bare-公益 title is tagged into the 公益站 category',
+      mod.score_topic({'title': '🆕 无限deepseek 持续公益 已送【2.5】亿'})['tags'])
+
+# ② Domain ∧ Offer: the actual 中转站 shop talk, which the old gate missed
+#    because it names no gate word -- it says 「注册送N刀」/「倍率」/「签到」.
+for title in ['0.0001倍率 注册送一刀 还可以签到',
+              '0.5倍率的claude max！注册送1刀！回复id再送5刀',
+              '0.04超低倍率GPT 5.6，注册就送1刀，还能每日签到',
+              '领10刀0.4xgpt谷歌登录',
+              '织云站点 限时开放注册 赠送200刀 可签到',
+              'LongCat邀请新用户实名，各得1000万Tokens！拼团返现']:
+    check(relevant(title), 'domain AND offer talk passes the relevance gate', title)
+
+# ③ A domain term ALONE is not a freebie ("Claude 注册防封经验" is a how-to).
+for title in ['Claude 注册防封经验：这些细节真的容易翻车',
+              '快用不起了，ds涨价后，go的额度也下降了']:
+    check(not relevant(title), 'a domain term without a giveaway still fails', title)
+
+# ④ An offer ALONE is not AI (this is the 「抽奖」 noise that used to leak).
+for title in ['【抽奖】十一快乐月付香港小鸡一台',
+              '[已开奖]抽20台香港nat小鸡 国际精品BGP|大带宽|原生IP全解锁',
+              '[已开奖]「抽奖」一张中港澳1G流量esim，钞我🥵',
+              '[已开奖]【抽奖】临期域名一枚（sss.kim）',
+              '[已开奖]【抽奖】哔哩哔哩大会员月卡',
+              '[已开奖]抽奖tg号 直接30分钟开奖',
+              '抽奖，9HTTP代理IP送点动态住宅代理',
+              '[已开奖]Gridly Mac 下的轻巧的窗口管理软件抽奖啦',
+              '感谢饼友打赏，抽奖送称号（已经全部发放完成）']:
+    check(not relevant(title), 'a non-AI lottery fails the relevance gate', title)
+
+# ⑤ The old noise floor must stay rejected (免费 is not a domain term on its own).
+for title in ['大毛大毛！！支付宝 微信境外支付参加活动利润最低40+ 速撸',
+              'VMISS 薅羊无保姆级教程：支付宝「境外支付笔笔减」',
+              '微信支付宝境外支付有礼',
+              '分享免费苹果共享ID网站',
+              '天翼云手机2天卡，可无限续杯～']:
+    check(not relevant(title), 'an unrelated 羊毛 post still fails the gate', title)
+
+# ⑥ CJK-adjacent model names: r"\bgpt\b" does NOT match 「月gpt」 because Python
+#    treats 月 as a word char, so the gate uses ASCII lookarounds instead.
+check(relevant('【抽奖】吐血福利免费送4个月gpt额度抽奖'),
+      'a model name glued to Chinese still matches (ASCII lookaround)',
+      '月gpt')
+check(relevant('GPT6免费瞪？！') and relevant('GLM-5.3 已上线可获得 2000万Tokens'),
+      'model names with a version suffix still match (GPT6 / GLM-5.3)')
+# 直接钉住边界规则本身。上面那些「整句过闸」的断言钉不住它：`白嫖福利，富哥请吃
+# deepseekv4flash` 即使模型名匹配不上也有 `白嫖` 兜底，会**因为错误的理由通过**
+# （变异测试就是这么发现的）。所以这里直接查 DOMAIN 正则。
+for probe in ['deepseekv4flash', 'DeepSeekharness', 'opus5', 'GPT6', 'GLM-5.3', '月gpt']:
+    check(mod._DOMAIN_RE.search(probe) is not None,
+          'a model name with a glued version/suffix is matched by the domain regex', probe)
+for probe in ['keyboard', 'aidata', 'cursors']:
+    check(mod._DOMAIN_RE.search(probe) is None,
+          'a short ASCII keyword does not match inside another word', probe)
+# 但「型号词 + 无福利信号」不算：这是发帖人在描述自己用的模型，不是在放额度。
+# 2026-10-05 修订：**裸倍率报价算 offer 信号**（`0.01x DeepSeek`、`现在0.35x`）。
+# 理由是用户 2026-10-04 要的「优惠渠道」正是收这类低价中转渠道帖，而语料里纯价格宣告帖
+# 一个 offer 词都不含、整类被丢（`掺水司马API GPT直KEY现在0.35x`、`最低0.06/MTk`）。
+# 仍要挡住的是：型号词真的没有任何信号，以及非小数的档位名/面板名。
+check(not relevant('DeepSeek v4 flash 不降智不掺水'),
+      'a model name with no giveaway signal at all still does not pass', '无信号的型号词')
+check(not relevant('claude 20x 订阅档位'),
+      'a non-decimal tier (20x) is a subscription tier, not a price quote', 'claude 20x')
+check(not relevant('按教程搭建 3x-ui 系统和节点'),
+      'a panel name (3x-ui) is not a price quote', '3x-ui')
+check(relevant('掺水司马API GPT直KEY现在0.35x'),
+      'a decimal price quote (0.35x) is an offer signal now — 优惠渠道 的写法',
+      '0.35x')
+
+# ⑦ 黑话字：只写「抽奖」会漏掉「先抽个奖叭」「抽50个10¥余额」（中间隔了字），
+#    所以 offer 信号收单字「抽」；「蹬」= 免费用额度，「国模」= 国产模型。
+#    这三个词是实测补的：全量语料上净增 11 条真货、0 条噪音。
+for title in ['橘-API  token滞销，帮帮我们！！！ 事已至此先抽个奖叭  第一名依旧140刀！',
+              '【抽50个10¥余额】Air Router中转-价格稳定智商兼顾：plus0.1x',
+              '【第3波】欢度国庆，爽蹬$1000刀🔥🔥🔥',
+              '【猛蹬】claude顶级模型不花钱！',
+              '新站开业，国模免费用',
+              '【第4波】国庆节快乐 GPT6系列 速蹬']:
+    check(relevant(title), 'shop-talk (抽/蹬/国模) still passes the gate', title)
+# 但源站自己标了「无了」的就不是活福利了（同一批标题里的兄弟帖，已发完）。
+check(not relevant('【无了】国庆节快乐 GPT6系列 速蹬'),
+      'the same title marked 无了 is dropped as finished')
+
+# ⑬「发」不能裸用：它会命中 开发 / 发现 / 发布。但删掉它又丢真货（`又发1亿token`、
+#    `发鸡蛋啦`、`发点999刀CDK` 共 8 条），所以只挡明确的非发放搭配。
+#    `发现1不错GPT中转` 没有任何其它发放信号 —— 修复前它全靠「发」混进来，现在该被挡。
+check(not relevant('报! 发现1不错GPT,Grok中转'),
+      'a title whose only giveaway-ish word is 发现 must not pass')
+# 而 `发现一免费 DeepSeek` 是靠「免费」成立的（真有人发了个免费的），照收。
+check(relevant('发现一免费 DeepSeek v4 flash'),
+      'a 发现 title that really is a freebie still passes (on 免费)')
+for title in ['deepseek发鸡蛋啦，登录dsh客户端就有',
+              '【RelayFor】发点999刀CDK',
+              '[臭鸡蛋]zcode 9 月 30 又发 1 亿 token']:
+    check(relevant(title), 'but a real 发放 still passes', title)
+# 「低价」是独立的发放信号：这条帖不靠「发」也成立。
+check(relevant('发布会前最后一份低价20x。只有老号才有的额度'),
+      'a low-price post passes on 低价 regardless of 发')
+
+# ⑧ 但放开单字「抽」后，非 AI 的抽奖必须仍然被挡（AND 判定兜住）。
+for title in ['抽奖，9HTTP代理IP送点动态住宅代理',
+              '[已开奖]抽20台香港nat小鸡 国际精品BGP|大带宽|原生IP全解锁']:
+    check(not relevant(title), 'single-char 抽 does not let non-AI lotteries back in', title)
+
+# ⑨ 标的物维度：收的东西不是 AI 用量 → 剔除。这是「送点积分」「抽个 TG 号」
+#    「白嫖一台小鸡」过去能混进来的根因 —— 此前判定只问「出现了什么词」，
+#    从不过问送的是什么，于是「送 10 刀额度」和「送点论坛积分」结构上完全等价。
+#    下面 12 条全是实测从 store 里剔掉的噪音。
+for title in ['今天风太大，不能出去玩了给饼饼送点积分玩玩',
+              '积分抽奖中奖概率大幅降低了？',
+              '发点积分，各位国庆节快乐呀',
+              '俩UR都有了，接下来是继续抽奖还是囤积分啊',
+              '这一周有其他事情要做，可能不发帖的，发点积分吧',
+              '创作者通过，发点积分',
+              '抽两个富可敌国称号+800积分百连抽一次！',
+              '院长的公益节点在何处能找到呢',
+              '宝可梦机场之十月庆典免费兑换码之猜猜我是谁',
+              '白嫖Stripe500$信用额度',
+              '【免费 NAT 小鸡 + 家宽出口】一台白嫖 VPS 挂纯净住宅 IP：ChatGPT 不降智',
+              '【OK24shop】steam充值卡100泰铢兑换成功！现在有效',
+              '话费充值9折优惠，全国通用',
+              'X会员低价充值 3个月 20  6个月40']:
+    check(not relevant(title), 'a non-AI giveaway target fails the gate', title)
+# 「积分」被移出领域词，正是这批闲聊过闸的原因（它在论坛语境里指的是论坛积分）。
+check('积分' not in mod.DOMAIN_KEYWORDS,
+      '积分 is not an AI domain term (forum points are not relay credit)')
+# 同理「充值」：它是**行为信号**（在 OFFER 里），放领域词里会让非 AI 充值帖过关
+# （实测移出后语料只掉 1 条，而那条正是 `X会员低价充值`）。
+check('充值' not in mod.DOMAIN_KEYWORDS and '充值' in mod.OFFER_KEYWORDS,
+      '充值 is a giveaway signal, not an AI domain term')
+
+# ⑩ 会员类：ChatGPT Plus / Gemini 会员是账号商品，默认否决；但站点自己的充值优惠
+#    （价格词 + AI 词同现）属于目标内容，必须放行。用户 2026-10-04 决定：会员类放行。
+for title in ['Google AI Pro 又送一年会员 这是我在推特看到的，',
+              '不但可以领到大额余额，还可以用余额体验SVIP',
+              '【抽奖】吐血福利免费送4个月gpt plus会员抽奖']:
+    check(not relevant(title), 'a membership giveaway without a price deal is not a relay post', title)
+check(relevant('【明天结束】CUN.AI 首充 $66 拿 Claude / GPT Max 约 3.3 折，会员返利还叠加！'),
+      'a station price deal survives the membership veto')
+
+# ⑪ 已结束的帖子不留：福利已开奖/领完/失效，留着就是死信息（实测积了 24 条）。
+#    用户 2026-10-04 决定「已结束就剔除，下次更新时删掉」。
+for title in ['[已开奖]token 多到溢出拿來燒水,滞销!今天開門放糧！',
+              '[已开奖]自建中转站抽奖',
+              '【10-1】欢度国庆①，爽蹬$1000刀(已完)',
+              '【福利已无】快来蹬基元律动 10/7到期',
+              '【已失效等恢复】白嫖Claude！',
+              '赠送ralayfor公益站注册码一枚（已赠送）']:
+    check(not relevant(title), 'an ended post is rejected even when the topic is on point', title)
+
+# ⑫ 本轮补的词：薅 / 邀请 / 返现 / 不花钱，以及「模型名直接粘字母」的写法
+#    （`deepseekv4flash` / `DeepSeekharness` 用 _prefix_bounded 才命中）。
+for title in ['个人一直在薅的羊毛（Claude、GPT、DeepSeek都有），分享给兄弟们',
+              '分享一个能薅ds api 羊毛的网址',
+              'LongCat邀请新用户实名，各得1000万Tokens！拼团返现，最高返50%！',
+              '【猛蹬】claude顶级模型不花钱！',
+              '白嫖福利，富哥请吃deepseekv4flash',
+              '登录 DeepSeekharness 桌面版，领 6 元赠金',
+              # 纯价格表帖：一个 giveaway 词都没有，靠本轮加的「充值/起充」类信号进来，
+              # 正是用户要的「优惠渠道」内容。
+              '[NachoNekoAPI] 0.01x DeepSeek 不降智不掺水 1:1充值',
+              '【烧饼换用量】Zynk API (Paid) | 国模 0.25x, Claude 0.09x起, GPT 0.07x起 | 一元起充']:
+    check(relevant(title), 'the words added this round admit their own real posts', title)
+
+# ⑬ 新增分类「优惠渠道」：低价/优惠的中转渠道单独成类（用户 2026-10-04 要求）。
+check('优惠渠道' in mod.score_topic({'title': '0.04超低倍率GPT 5.6，注册就送1刀'})['tags'],
+      'a low-price relay post is tagged 优惠渠道',
+      mod.score_topic({'title': '0.04超低倍率GPT 5.6，注册就送1刀'})['tags'])
+# 报价的主流写法是 `0.09x`，词表抓不住，所以分类有「形状」补充（CATEGORY_PATTERNS）。
+# 这条标题里**没有任何价格词**（无「折/倍率/优惠/充值」），标签只能来自正则。
+check('优惠渠道' in mod.score_topic({'title': '掺水司马API GPT直KEY现在0.35x'})['tags'],
+      'a bare 0.35x price (no price word at all) is tagged 优惠渠道',
+      mod.score_topic({'title': '掺水司马API GPT直KEY现在0.35x'})['tags'])
+# 但必须带小数点：裸 `3x` 会撞上 `3x-ui` 面板，`20x` 会撞上 Claude 订阅档位。
+check('优惠渠道' not in mod.score_topic({'title': '按教程搭建 3x-ui 系统和节点'})['tags'],
+      'a bare 3x (the 3x-ui panel) is not a price tag')
+
+# ⑭ cap 300 是行为契约的一部分：闸门放宽后每轮入库量翻倍，回到 200 会立刻
+#    把窗口从 65 天压到 11 天并让 vibex 整源归零（2026-10-04 实测）。
+check(mod.DEFAULT_LIMIT >= 300,
+      'DEFAULT_LIMIT stays large enough to keep every source in the window',
+      f'DEFAULT_LIMIT={mod.DEFAULT_LIMIT}')
+
+# ⑭ 分类词表的两处修正（用户 2026-10-05 报「错打/漏打」后逐条归因查出）。
+# ① 同一个词同时出现在两个分类 → 同一标题必然双标；「免费使用」曾在 公益站 与 免费放粮。
+_dupes = [k for k in set(sum(mod.CATEGORY_KEYWORDS.values(), []))
+          if sum(1 for v in mod.CATEGORY_KEYWORDS.values() if k in v) > 1]
+check(not _dupes, 'no keyword is shared by two categories (shared means always double-tagged)', _dupes)
+# ② 闸门 OFFER 里有「返现」，分类里没有对应写法 → 能过闸却拿不到标签。
+for title in ['007不降智astra，充值双倍还有签到福利',
+              'LongCat邀请新用户实名，各得1000万Tokens！拼团返现，最高返50%！',
+              '【NovaAPI】盖楼留 ID 领 $5 体验金，充值最高享 20% 返赠！']:
+    check('优惠渠道' in mod.score_topic({'title': title})['tags'],
+          'a rebate/double-credit post is tagged 优惠渠道', title)
+# ③ 无标签帖是「漏打」：剩下的都是词表里一个词都不含的写法，只能按形状认。
+# 注意 `【第四波】国庆福利 100元 …` 只有裸金额（无发放动词），裸 `N元` 已故意不认
+# （它是标价与额度的分不清写法），该帖正确归位到 免费放粮 而非 额度。
+for title, want in [('注册送70，签到20多，可用opus5，4.8', '额度'),
+                    ('GLM-5.3 已上线可获得 2000万Tokens', '额度'),
+                    ('【第四波】国庆福利 100元 纯血DeepSeek V4.1 Flash', '免费放粮'),
+                    ('可以用deepseek就很nice! 基元律动注册送68元Token', '额度'),
+                    ('Fox AI国庆福利来了', '免费放粮'),
+                    ('智链AI-双节福利', '免费放粮')]:
+    check(want in mod.score_topic({'title': title})['tags'],
+          'a post with only a shape/泛词 signal still gets tagged', title)
+# 但金额形状不能把「价格帖」当额度：`3个2元` 是售价，不是发放。
+check('免费放粮' not in mod.score_topic({'title': '3个2元鸡蛋'})['tags']
+      or '鸡蛋' in mod.score_topic({'title': '3个2元鸡蛋'})['tags'],
+      'a price like 3个2元 does not become 免费放粮')
+
+# ⑮ 闸门漏收：这两条靠「裸 `发`/`免费` + `deepseek`」混过了 AND 判定，
+# 实际一条是成本分析、一条是提问，都不发额度。加否决词后必须被挡。
+for title in ['【阳仔测评】在项目开发中DeepSeek V4 Flash的token成本和落地成本',
+              '求教SenseNova免费deepseek的429规则是什么']:
+    check(not mod.is_relevant_title(title), 'an analysis/question post is rejected by the gate', title)
+# 但不能误杀自带强特征词的真货（「方法/教程/怎么」出现在标题里也只是描述领取方式）。
+for title in ['10亿token鸡蛋块领，Muse轻松注册另一种方法',
+              '（内附教程）muse.ai的鸡蛋也是抢到了，嘻',
+              'zcode又发臭鸡蛋了，但是怎么领取不了']:
+    check(mod.is_relevant_title(title), 'a real freebie mentioning 方法/教程 still passes the gate', title)
+
+# ⑯ 免费放粮 的「福利」形状不校验 AI 相关性，安全性来自「评分只在过闸门之后跑」。
+# 把这层耦合写下来：非 AI 的「福利」帖必须过不了闸门，否则会拿到免费放粮标签。
+check(not mod.is_relevant_title('XX论坛福利大放送'),
+      'a non-AI 福利 post is stopped by the gate (免费放粮 的「福利」形状依赖这个前提)')
+check(not mod.is_relevant_title('双十一福利'),
+      'a shopping 福利 post is stopped by the gate')
+
+# ⑰ 2026-10-05 语料复审（574 条唯一标题逐条人工核对）后的增量规则。
+# 漏抓侧：这 11 条真发放帖旧闸门一条都收不到（词表/形状里没有它们的写法）。
+# 每条都对应一个新增的词或形状，写进断言里防止日后回退。
+for title in ['【RelayFor】GPT-6-Luna限免5亿token~',                          # 限免
+              '七牛云新户可用300W deepseek-v4-flash-20260731',                # 新户 + 300W
+              '🔥 热门 AI 模型都来了，低至 ¥0.0211/刀起！',                    # 低至 + 金额
+              '订阅共享中专推荐，标准计费无倍率，最低0.06/MTk',                # 最低
+              'GLM 5.3 flash 也就是牛来模型的 7日体验卡',                      # 体验
+              'gpt的1k生图价格不到1分钱',                                    # 不到
+              '掺水司马API GPT直KEY现在0.35x',                               # 倍率形状进闸门
+              '阶跃星辰stepfun 4亿token',                                    # 万/亿 token 形状
+              '随时跑路站50$ key*3',                                        # 金额形状
+              '英雄不问出处，Token不问来路；gpt系列500刀',                     # 金额形状
+              '快过期的 grokheavy 大家敞开来用']:                             # 白给动作形状
+    check(mod.is_relevant_title(title), 'a freebie the old gate silently dropped now passes', title)
+
+# 多抓侧：这 6 条旧规则收进来但都不是福利投放（4 条噪音 + 2 条已结束）。
+for title in ['曝光：AI 编程助手网站 ahefi.com 实为木马分发器',                  # 「分发」的「发」
+              '基于MoonTVPlus的影视公益站',                                   # 影视站靠自足词「公益」
+              '新Muse邀请码，可参考的注册技巧和注意事项',                      # 技巧
+              '求一个 BoxyBSD 邀请码',                                       # 行首「求」
+              '这个站的余额回收调整，免费的模型经常用不了',                    # 用不了
+              '送个L站青春版邀请码（已送出）',                                # 已送出 = stale
+              '【阶跃星辰】送点阶跃星辰token（已送出）']:                      # 已送出 = stale
+    check(not mod.is_relevant_title(title), 'a non-freebie the old gate admitted is now rejected', title)
+
+# 问句否决带条件：问号收尾本身不是否决理由 —— 中文论坛爱用问号做修辞，
+# 这两条都是真发放帖，一律否决会漏抓（实测就是这么误伤后才改成带条件判定）。
+for title in ['【RelayFor】再发点999刀CDK？', '免费送gpt额度没人要吗？',
+              '有好用的claude中转站么，免费送100刀']:
+    check(mod.is_relevant_title(title),
+          'a giveaway phrased as a question is NOT rejected (the veto needs no giveaway verb)', title)
+# 合成边界，不能把原有索要句式或否定/转述当成自己的发放承诺。
+for title in ['求推荐，有好用的claude中转站么，免费送100刀',
+              '有好用的claude中转站么，有没有免费送100刀的',
+              '有好用的claude中转站么，不免费送100刀',
+              '有好用的claude中转站么，免费送100刀吗？',
+              '有好用的claude中转站么，想领100刀',
+              '有好用的claude中转站么，免费送100刀（已领完）']:
+    check(not relevant(title), 'rhetorical exception does not bypass requests, negation or expiry', title)
+check(relevant('有好用的claude中转站么？我送100刀！'),
+      'an explicit first-person grant survives a rhetorical introduction')
+# 普通推荐问句仍然拒绝；只有后半句明确声明可领取额度时才例外。
+check(not mod.is_relevant_title('有好用的claude中转站么'),
+      'a recommendation question without an attached grant is rejected')
+for title in ['codex订阅100$还是200$还是500$？', 'claude-sonnet-5-5-high 免费？？网页版？？']:
+    check(not mod.is_relevant_title(title),
+          'a pricing question with no giveaway verb is rejected by the gate', title)
+
+# 打标签侧的增量：3 条 0 标签帖（分类筛选筛不出它们）被救回 + 2 个新形状。
+for title, want in [('token滞销了 发给饼友们蹬吧', '免费放粮'),        # 滞销/蹬
+                    ('织云api 开放注册，可蹬gpt-6.1-sol', '免费放粮'),  # 可蹬
+                    ('【DSH UI复刻】deepseek-v4.1-flash 开蹬 JD Mall 复刻', '免费放粮'),  # 开蹬
+                    ('【RelayFor】亏了20G数据，发20亿DeepSeek对冲一下', '额度'),  # 数字+亿
+                    ('200亿 deepseek-v4-flash 精品鸡蛋', '额度'),        # 数字+亿
+                    ('七牛云新户可用300W deepseek-v4-flash', '额度'),     # 数字+W
+                    ('送一个阶跃星程的api', '免费放粮'),                  # 送…api 形状
+                    ('送300刀cc额度 可以外接和fast', '免费放粮'),          # 送…额度 形状
+                    ('GLM 5.3 flash 7日体验卡', '体验金'),               # 体验卡
+                    ('【抽奖】Claude Pro 一周体验券 × 3', '体验金'),      # 体验券
+                    ('gpt的1k生图价格不到1分钱', '优惠渠道')]:            # 不到N 形状
+    check(want in mod.score_topic({'title': title})['tags'],
+          'a tag the old rules could not produce is now applied', f'{title} -> {want}')
+# 但同音变体不能乱加：`蹬` 只管白拿语境，售价帖（`20出gpt 5x team 速刷`）不因此拿标签。
+check('免费放粮' not in mod.score_topic({'title': '20出gpt 5x team 速刷，11点踢'})['tags'],
+      '蹬/滞销 additions do not tag a sale post as 免费放粮')
+
+# 2026-10-06 同批闸前语料/库存 URL 见 RULES.md；收真与拒错成对守护。
+# https://linux.sb/topic/25158: 报价带「倍率」但没有动作词。
+for title in ['【无套路】自建中转 0.02倍率 4.1 flash',
+              # https://vibex.iflow.cn/t/topic/6740: 实际正文明确送 API 模型用量，
+              # 注意「tokey」是源站拼写，不要擅自改成 token。
+              '我也发一个免费送1亿tokey的']:
+    check(relevant(title), 'an actual AI-API allowance/price offer is included', title)
+for title in ['自建中转 0.02倍率 4.1 flash 怎么领？',
+              '我也发一个免费送1亿tokey的（已送出）']:
+    check(not relevant(title), 'price/question or ended freebie is not an offer', title)
+
+# https://baipiao.org/bbs/d/641-... 与 linux.sb/topic/25159、25147：
+# 索要邀请码/问推荐不是发放。反例是中转站明示可领额度，即使有「推荐」。
+for title in ['有没有大佬给一个linux do的邀请码，我想注册几个公益站',
+              '收一个Noodseek邀请码', '帮忙推荐一个gpt 破甲中转站',
+              '有个小问题，这个中转站我能不能用来采集数据？']:
+    check(not relevant(title), 'a request for others to provide a code/site is rejected', title)
+for title in ['中转站推荐，可签到领鸡蛋10块，GPT倍率0.08-0.3',
+              '【RelayFor】再发点999刀CDK？']:
+    check(relevant(title), 'actual offers remain even with recommendation or rhetorical question', title)
+
+# 当前用户边界：不收纯攻略、不收会员赠品。真实领取说明可以附带「方法」。
+for title in ['薅免费模型deepseek v4.1 flash速度快稳定（带教程）',
+              '开源了基于newapi搭建的公益站自动签到面板',
+              '【抽奖】吐血福利免费送4个月gpt plus会员抽奖']:
+    check(not relevant(title), 'pure tutorial/tool or membership gift is not API credit', title)
+check(relevant('10亿token鸡蛋块领，Muse轻松注册另一种方法'),
+      'a claimable freebie can mention a registration method')
+
+# 额外明确的假收：实测库中已有，而闸前语料也能复现同类。
+for title in ['英雄不问出处，Token不问来路；gpt系列500刀（已耗尽）',
+              '【刷完啦】国庆节快乐，送大家一些生图额度',
+              '客户端抽奖功能测试（AI）', '各位sb铁子好，不白嫖',
+              'gemini 要对免费用户下手了',
+              '我制作了一个免费 socks5 代理获取 api']:
+    check(not relevant(title), 'an ended/non-offer/non-AI item is rejected', title)
+for title in ['再发点999刀CDK', '免费送gpt额度没人要吗？',
+              '【Zynk 公益】国庆第二波福利，GPT 6.1 Sol 蹬 $1000']:
+    check(relevant(title), 'real giveaways survive intent and object vetoes', title)
+
+# 同批真实标题：https://linux.sb/topic/19953 折扣百分比不是白送的额度；
+# /topic/25119 号池按官方原价出售，不是免费放粮。
+for title in ['【乐享 AI】GPT-6 Astra 已上线｜倍率 0.2 起｜充值多送 20% + 邀请返 30%',
+              '充值多送20%']:
+    check('额度' not in mod.score_topic({'title': title})['tags'],
+          'percentage bonus is not an absolute credited amount', title)
+check('额度' in mod.score_topic({'title': '注册就送20刀额度'})['tags'],
+      'numeric AI credit (not percent) is still tagged 额度')
+check('免费放粮' not in mod.score_topic({'title': '一手源头号池 全部官方原价'})['tags'],
+      'a paid official-price 号池 is not labelled free')
+check('免费放粮' in mod.score_topic({'title': '国庆福利 纯grok heavy号池'})['tags'],
+      'a genuinely free 号池 gets its tag from 福利')
+for title in ['【RelayFor】发点999刀CDK',
+              '【dure公益站】100$公益站CDK兑换码,限量10位',
+              '再发点999刀cdk']:
+    check('兑换码' in mod.score_topic({'title': title})['tags'],
+          'case-insensitive CDK code tag', title)
+check('兑换码' not in mod.score_topic({'title': 'Claude Code 公益站'})['tags'],
+      'ASCII code-like strings are not automatically redemption codes')
+
+# Boundary pairs for the intent checks that run before the shortcut.
+for title in ['公益站送gpt会员一年', '公益站哪个好？',
+              '有佬有claude pro 7天试用嘛', '做中转站的进来 问个问题',
+              '有好用的claude中转站么', '[快讯] Gemini免费模型缩水😭',
+              '【新CHY公益站】开一个新站（已暂时无，预计明天恢复']:
+    check(not relevant(title), 'strong keywords cannot bypass a negative intent/status', title)
+for title in ['公益站首充优惠，Claude会员返利叠加', '公益站送gpt额度没人要吗？',
+              'gemini 免费模型开放领取', '新公益站已恢复，注册送10刀',
+              '我也发一个免费送token的']:
+    check(relevant(title), 'a nearby genuine offer still passes', title)
+for title in ['充值多送20.5%', '充值多送20％', '充值多送20.5 %']:
+    check('额度' not in mod.score_topic({'title': title})['tags'],
+          'percentage matching cannot backtrack to a partial number', title)
+check('优惠渠道' in mod.score_topic({'title': 'AI 模型低至 ¥0.0211/刀起'})['tags'],
+      'explicit 低至 offer has a price tag')
+check('优惠渠道' not in mod.score_topic({'title': '送5刀额度'})['tags'],
+      'a giveaway alone is not a price tag')
+check(not relevant('stokey免费送'), 'tokey typo rule has quantity and ASCII boundaries')
+check('体验金' in mod.score_topic({'title': 'Lovable Pro 200 Credits 免费额度'})['tags'],
+      'Credits case is normalized without modifying the title')
+
+# ⑱ 2026-10-15 三语料复核（现网 store 272 唯一标题 + 冻结尾页语料 526 + 项目自带
+#    10-06 语料 507）后的 19 处增量，逐条量过边际效果；旧语料 0 误伤。
+#    拒错侧：已结束却还挂在榜上的（新 stale 词一次点到 4 类写法）。
+for title in ['[已蹬完]🪜订阅快到期了，留给有缘人',
+              '火山Agent Plan 蹬不完了，分享出来 佬们速蹬【已蹬完】',
+              'opencode-go速蹬-还剩2h（结束）',
+              '[已解决]render部署要绑卡1刀验证了']:
+    check(not relevant(title), 'a finished post still on the board is rejected (2026-10-15)', title)
+# 意图侧：问句/索要/盘点/工具/新闻（各点到 1-3 条过闸噪音、0 误伤）。
+# 盘点是「自足词也拦得住」的用例：`统计倒闭失联中转站（公益或收费）` 自带
+# 中转站/公益，这两类词必须排在自足捷径**之前**才拦得住。
+for title in ['领导感觉有了AI人人都是全栈工程师了',                 # 领(?!导)
+              '抢注自己喜欢的grok bot邮箱ID',                       # 抢(?!注)
+              'gemini有低价渠道吗',                                 # 吗/呢 收尾
+              '在DN42里开公益中转站应该安全吧',                      # 吧 收尾
+              '统计倒闭失联中转站（公益或收费）',                    # 盘点
+              '近期，社区充斥着大量的muse邀请码的帖子及相关tg群的帖子',
+              '有什么推荐的AI公益站吗，感谢分享。',
+              '每月100刀预算，性价比token配置求助！',
+              '公益站这个回复是什么情况啊。',
+              'LINUX.SB助手自动签到、回复抽奖贴和红包贴 基于 Evanders版本开发']:
+    check(not relevant(title), 'question/roundup/tool intent is rejected (2026-10-15)', title)
+# 标的物侧：代理/卡商品/电商/消费电子。
+for title in ['疯狂星期四 | 海量免费 CDK 放送 双 ISP 住宅 静态 动态',
+              '辣椒 HTTP｜海外住宅代理，送动态流量CDK',
+              '招行万事达开卡礼+微信全球支付有礼0.6薅20steam余额(大概?)',
+              'GPT 克劳德 Muse成品号 通通七折出售',
+              '【低价体验·付费】OpenAI 普通号 1.44 元、Plus 日抛 22 元，小预算 AI 清单',
+              '京东双十一续费plus，赠送12+24积分+3次视频月卡（可兑换家政快递等）',
+              '霸王茶姬后续，再赠送买一送一']:
+    check(not relevant(title), 'a non-AI target is rejected (2026-10-15)', title)
+# 守卫不能误伤真帖：负面消息词排在自足捷径之后，自带强特征的真帖照常收。
+for title in ['公益站被封，新地址继续送100刀', '中转站被封，老板继续送额度']:
+    check(relevant(title), 'a negative-news word does not kill a post with a strong signal', title)
+check(not relevant('https://api.sld.lol 通过sb帖子注册的直接被封了，因为超过25个注册账号。')
+      and not relevant('MLH的cursor Pro各位应该是领不到了'),
+      'bare bad news (no strong signal) is still dropped')
+# 直接钉住两个负向断言的边界（整句断言钉不住：`京东云…` 本就没有 offer，会「因为
+# 错误的理由」通过）。京东(?!云) 保住 AI 侧标题，手机收窄成 ai手机/手机体验。
+check(mod._NONAI_TARGET_RE.search('京东云的 Coding plan 没了') is None,
+      '京东(?!云) does not match the AI-side 京东云 title')
+check(mod._NONAI_TARGET_RE.search('京东双十一续费plus，赠送积分') is not None,
+      'bare 京东 (e-commerce) is still a non-AI target')
+check(mod._NONAI_TARGET_RE.search('OPPO 与 Manus 合作推 Agent AI 手机体验') is not None
+      and mod._NONAI_TARGET_RE.search('手机也能白嫖的免费额度') is None,
+      '手机 is narrowed to ai手机/手机体验 (no bare-手机 blanket drop)')
+# 发/领 的守卫：开发/转发 不是发放动作，导 不是领取动作。
+for title in ['分享自己ai开发修改的Nextcloud 精简版',
+              '难道deepseek真的会转发到claude吗？',
+              'Apple中国大陆开发者账号账号没有 Maps IDs 和 MapKit JS Private Key 的创建入口吗？']:
+    check(not relevant(title), '开发/转发 does not count as a giveaway verb', title)
+# 「，求」的传播尾巴守卫：真投放帖求扩散不能被当成索要帖误杀。
+check(relevant('免费送100刀，求扩散') and not relevant('佬，求助谷歌邮箱怎么能自己长期使用？'),
+      'the comma-求 veto protects CTA tails but still drops real requests')
+
+# 打标签侧的 2026-10-15 增量：`万token` 单数（形状原先只认 Tokens 复数）、
+# 限免/放送（免费放粮）、美元（额度）、充值券/仅需N（优惠渠道）、抽N个/抽TOKEN（抽奖）。
+for title, want in [('【最后一弹】deepseek-v4.1-flash 6666万token', '额度'),
+                    ('50美元的API Key', '额度'),
+                    ('Workbuddy step-5-preview 模型限免了', '免费放粮'),
+                    ('kimi3.1放送，直接发key', '免费放粮'),
+                    ('gpt充值仅需110', '优惠渠道'),
+                    ('gpt充值仅需110元', '优惠渠道'),
+                    ('【推广｜评论送福利】每周四免费抽奖：35份额度与充值券，AI会员¥99起', '优惠渠道'),
+                    ('抽5个Workbuddy自建站的1亿额度', '抽奖'),
+                    ('继续抽一个muse.ai 账号已过验证 自己要不了那么多 用完扔掉就行-23', '抽奖'),
+                    ('【主帖】【404API】国模之家，大肥鲸杀手...每日抽TOKEN', '抽奖')]:
+    check(want in mod.score_topic({'title': title})['tags'],
+          'a tag the old tables could not produce is now applied (2026-10-15)', f'{title} -> {want}')
+# 仅需 必须带行尾锚：时长/步骤描述不是报价（复核实测 5 个假阳性形状）。
+for title in ['仅需1分钟即可完成', '仅需1步', '仅需30秒']:
+    check('优惠渠道' not in mod.score_topic({'title': title})['tags'],
+          'a duration/step phrase (仅需1分钟) is not a price tag', title)
+
+# --------------------------------------------------------------------------
+# NextBuf (NB 社区, www.nextbuf.com) listing.
+#
+# 这个源没有可用的绝对时间：列表与主题页给的都是相对时间（"17天前"），主题页也
+# 没有 article:published_time。created_at 因此只能是估算，规则一改 store 里所有
+# nextbuf 行的排序与淘汰顺序就整体挪位 —— 那种改动在 --dump-candidates 里看不出来，
+# 所以把归整规则和「每行只认自己的时间」都钉在这里。
+# --------------------------------------------------------------------------
+from datetime import datetime, timezone  # noqa: E402  (本段自足，见文件头说明)
+from urllib.error import URLError  # noqa: E402
+
+print('\n== 词表收窄（2026-10-15 审计：裸词两头都出错）==')
+# 一侧：**裸否决词误杀真投放** —— 附属功能/描述句不该否决投放本身。
+for title in ['公益站注册送10刀 支持自动签到',
+              '公益站注册送10刀 提供用量统计',
+              '公益站注册送10刀 附源码',
+              '公益站注册送10刀 住宅IP不限',
+              '公益站注册送10刀 是不是很良心']:
+    check(relevant(title), '附属功能/修辞不会否决投放', title)
+check(relevant('系统已完成升级，注册送额度'),
+      '已完(?!成) 不再吃掉「已完成升级」')
+# 另一侧：**否定与真问句**要拦住（旧行为全收）。
+for title in ['GPT不免费送100刀', 'GPT不再免费', 'GPT免费额度能领吗？']:
+    check(not relevant(title), '否定/问能不能领的标题被拦', title)
+check(not relevant('统计倒闭失联中转站（公益或收费）'), '盘点帖仍被拦（收敛后不失守）')
+# 「兑换码」不再自足：它是发放形式，不是 AI 证据。
+check(not relevant('[国庆快乐] Spot Authenticator，给兄弟们送 3 个月 Pro 兑换码'),
+      '非 AI 的 Pro 兑换码不再免检（2FA 工具，实测库存 2 行）')
+check(relevant('【dure公益站】100$公益站CDK兑换码,限量10位'),
+      '对照：带公益站的 CDK 兑换码照收')
+check(not relevant('ccswitch连接白嫖站的codex工具缺失解决方案'),
+      '排障/解决方案帖被拦（baipiao/694）')
+
+print('\n== nextbuf 列表：剥徽章、只认该行自己的发帖时间 ==')
+
+
+def nb_page(items):
+    """items: [(tid, badge, title, rel)] -> 一段列表 HTML（含「最后回复」干扰段）。"""
+    out = []
+    for tid, badge, title, rel in items:
+        b = f'<span class="topic-badge {badge}" title="{badge}主题">{badge}</span> ' if badge else ''
+        meta = ('<div class="topic-footer-meta"><a href="/go/chat" class="meta-node-pill">闲聊</a>'
+                f'<span>{rel or ""}</span> · <span class="meta-last-reply">最后回复来自 '
+                '<a href="/u/z">z</a><span>5分钟前</span></span></div></div>')
+        out.append('<div class="topic-body"><div class="topic-headline">'
+                   f'<a href="/t/{tid}" class="topic-title-link " data-tid="{tid}" style="">{b}{title}</a>'
+                   '</div>' + meta)
+    return ''.join(out)
+
+
+NB_NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)   # = 20:00 CST
+rows = mod.parse_nextbuf_listing(nb_page([
+    ('160', 'redpacket', '0.1 倍率opus5', '1月前'),
+    ('291', 'pinned', '新UI很舒服', '31分钟前'),
+]), now=NB_NOW)
+check(len(rows) == 2, 'two rows parsed', len(rows))
+check(rows[0]['title'] == '0.1 倍率opus5',
+      '回帖红包徽章不进标题（否则闸门按平台内货币放行闲聊帖）', rows[0]['title'])
+check(rows[1]['title'] == '新UI很舒服', '置顶徽章同样剥掉', rows[1]['title'])
+check(rows[0]['url'] == f'{mod.BASE_NEXTBUF}/t/160', 'url built from the id', rows[0]['url'])
+check(rows[0]['created_at'] == '2026-08-31T16:00:00+00:00',
+      '1月前 -> 当月 1 号（CST）', rows[0]['created_at'])
+check(rows[1]['created_at'] == '2026-10-08T11:00:00+00:00',
+      '31分钟前 -> 本小时桶', rows[1]['created_at'])
+check(not any(r['published_verified'] for r in rows),
+      '估算时间不冒充 verified 发布时间', [r.get('published_verified') for r in rows])
+
+print('\n== 同一行里的「最后回复 5分钟前」不能被当成发帖时间 ==')
+check(rows[0]['created_at'] != mod.nextbuf_created_at('5分钟前', now=NB_NOW),
+      '第一行用的是自己的 1月前，不是后面那段回复时间', rows[0]['created_at'])
+
+print('\n== 丢掉相对时间的行不能吃掉邻行的时间 ==')
+rows2 = mod.parse_nextbuf_listing(nb_page([
+    ('77', '', '公益站 体验金', ''),
+    ('78', '', '中转站 额度', '2天前'),
+]), now=NB_NOW)
+check(len(rows2) == 2, '两条都在', len(rows2))
+check(rows2[0]['created_at'] is None, '异常行留空而不是取邻行的', rows2[0]['created_at'])
+check(rows2[1]['created_at'] == '2026-10-05T16:00:00+00:00',
+      '邻行保留自己的时间', rows2[1]['created_at'])
+
+print('\n== 相对时间归整（这个值进 store 的 created_at，必须稳定）==')
+for rel, want in [('刚刚', '2026-10-08T12:00:00+00:00'),
+                  ('22分钟前', '2026-10-08T11:00:00+00:00'),
+                  ('3小时前', '2026-10-08T09:00:00+00:00'),
+                  ('7天前', '2026-09-30T16:00:00+00:00'),
+                  ('2周前', '2026-09-23T16:00:00+00:00'),
+                  ('1月前', '2026-08-31T16:00:00+00:00'),
+                  ('', None), ('昨天', None)]:
+    got = mod.nextbuf_created_at(rel, now=NB_NOW)
+    check(got == want, f'{rel or "(空)"} -> {want}', got)
+check(mod.nextbuf_created_at('3 个月前', now=NB_NOW) == '2026-06-30T16:00:00+00:00',
+      '「N 个月前」这种带「个」的写法也认，同样归整到当月 1 号',
+      mod.nextbuf_created_at('3 个月前', now=NB_NOW))
+check(mod.nextbuf_created_at('N/A', now=NB_NOW) is None,
+      '认不出的写法留空，不瞎猜时间')
+
+t0 = datetime(2026, 10, 8, 12, 31, tzinfo=timezone.utc)   # = 20:31 CST
+t1 = datetime(2026, 10, 8, 12, 59, tzinfo=timezone.utc)   # = 20:59 CST，同一条帖此时显示「59分钟前」
+check(mod.nextbuf_created_at('31分钟前', now=t0) == mod.nextbuf_created_at('59分钟前', now=t1),
+      '源站自己的相对时间在同一条帖上推进时，归整后落在同一个小时桶',
+      (mod.nextbuf_created_at('31分钟前', now=t0), mod.nextbuf_created_at('59分钟前', now=t1)))
+
+print('\n== 隐藏主题（style=display:none）不进列表 ==')
+hidden = ('<a href="/t/9" class="topic-title-link" data-tid="9" '
+          'style="display:none"><span class="topic-badge">置顶</span> 隐藏帖</a><span>1天前</span>')
+check(mod.parse_nextbuf_listing(hidden) == [], '隐藏主题被跳过',
+      mod.parse_nextbuf_listing(hidden))
+
+print('\n== fetch_nextbuf：翻页、已入库跳过、失败要留痕 ==')
+NB_PAGES = {
+    f'{mod.BASE_NEXTBUF}/': nb_page([('301', '', '免费qwen3.8 max', '10分钟前'),
+                                     ('302', '', '抽奖机会 GPT Pro 天卡', '2小时前')]),
+    f'{mod.BASE_NEXTBUF}/page-2': nb_page([('303', '', '新公益站注册送 200', '3天前')]),
+    f'{mod.BASE_NEXTBUF}/page-3': '',
+}
+real_fetch = mod.fetch
+
+
+def _nb_mock(url, *a, **k):
+    if url not in NB_PAGES:
+        raise AssertionError(f'意外的请求: {url}')
+    return NB_PAGES[url]
+
+
+try:
+    mod.fetch = _nb_mock
+    got = mod.fetch_nextbuf()
+    check([t['id'] for t in got] == ['301', '302', '303'], '三页合并、末页空即停', [t['id'] for t in got])
+    check({t['source'] for t in got} == {'nextbuf_首页'}, '源标识统一',
+          {t['source'] for t in got})
+    check(all(t['created_at'] for t in got), '三行都带上了估算时间',
+          [t['created_at'] for t in got])
+    got2 = mod.fetch_nextbuf({'301', '302'})
+    check([t['id'] for t in got2] == ['303'], '已入库的 id 不再返回（避免相对时间漂移）',
+          [t['id'] for t in got2])
+    mod.FETCH_ERRORS.clear()
+    mod.fetch = lambda url, *a, **k: (_ for _ in ()).throw(URLError('boom'))
+    check(mod.fetch_nextbuf() == [], '抓取失败时返回空而不是抛出去', mod.fetch_nextbuf())
+    check(any('nextbuf' in e for e in mod.FETCH_ERRORS), '失败写进 FETCH_ERRORS',
+          mod.FETCH_ERRORS)
+    check('nextbuf' in mod.unhealthy_hosts([]),
+          'nextbuf 在 _HOST_MARKERS 里，整源失败时它的行不会被当删除处理',
+          sorted(mod.unhealthy_hosts([])))
+finally:
+    mod.fetch = real_fetch
+
+print('\n== 第 2 期：数据层根因（P1-5/P1-6/P1-7/P1-8）==')
+
+
+def _row(tid, title, created="2026-10-20T00:00:00+00:00", source="linuxsb_p1", **kw):
+    r = {"id": str(tid), "title": title, "url": f"https://linux.sb/topic/{tid}",
+         "created_at": created, "fetched_at": created, "source": source, "tags": [], "score": 0}
+    r.update(kw)
+    return r
+
+
+# P1-5：裁剪按活动身份（offer.key）而不是标题行
+from importlib import import_module
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)          # content.py 与 fetch.py 同目录
+content_mod = import_module("content")
+offer = {"key": "same-offer", "v": content_mod.OFFER_V, "at": 1792770000}
+pairs = [("a", _row(1, "标题甲", offer=offer)),
+         ("b", _row(2, "标题乙", offer=dict(offer))),
+         ("c", _row(3, "标题丙"))]
+kept, stats = mod.trim_activities(pairs, 2, lambda t: mod._parse_sortable(t.get("created_at")))
+check(stats["activities"] == 2, "同一 offer 的两个标题折叠成一个活动", stats)
+check(len(kept) == 3, "裁剪保留的是活动（成员行一起留下）", len(kept))
+
+# P1-5：缓存能判的 offer 在零网络下生效（annotate 的预算随后才花）
+real_load = content_mod._cache_load
+content_mod._cache_load = lambda url, ttl: {"body": "注册即送 $5 额度，限时活动", "meta": {}}
+try:
+    rows = [_row(10, "免费领取额度")]
+    n = content_mod.apply_cached_offers(rows)
+finally:
+    content_mod._cache_load = real_load
+check(bool(rows[0].get("offer")) and rows[0]["offer"].get("at"), "缓存预判写入了 offer", rows[0].get("offer"))
+
+# P1-6：单源异常不带走整轮
+mod.FETCH_ERRORS.clear()
+out = mod._guarded_source("假源", lambda: (_ for _ in ()).throw(ValueError("解析崩了")))
+check(out == [] and any("假源" in e for e in mod.FETCH_ERRORS),
+      "源异常 → 空结果 + FETCH_ERRORS，不抛出", mod.FETCH_ERRORS)
+
+# P1-7：id 漂移成 None/"None" → 丢弃并计数；重复只丢弃、**不计入身份非法**
+rows = [_row(1, "a"), _row(2, "b"), _row(3, "c"), _row(4, "d")]
+rows[0]["id"] = None
+rows[1]["id"] = "None"
+rows[2]["id"] = "1"
+rows[3]["id"] = "1"          # 与 rows[2] 重复（多版块同帖 / 分页参数失效）
+kept, report = mod._validate_identities(rows)
+check(len(kept) == 1 and report["linuxsb"] == [4, 2],
+      "坏 id 丢弃计数；重复 id 丢弃但不计入身份非法", (len(kept), report))
+# 2026-10-25 baipiao：分页参数失效 → 40/60 重复。重复若计入非法率会整源判失败。
+_rows_dup = [{"id": str(i), "source": f"baipiao_p{p}", "url": f"https://baipiao.org/bbs/d/{i}"}
+             for p in (1, 2, 3) for i in range(20)]
+_kept_dup, _rep_dup = mod._validate_identities(_rows_dup)
+check(len(_kept_dup) == 20 and _rep_dup["baipiao"] == [60, 0],
+      "三页重复只留首条，非法率仍为 0（不判整源失败）", (len(_kept_dup), _rep_dup))
+mod.FETCH_ERRORS.clear()
+failed = mod._flag_identity_failures({"bad": [10, 6], "good": [10, 1]})
+check(failed == ["bad"], "坏行过半 → 判该源失败（good 只告警）", (failed, mod.FETCH_ERRORS))
+mod.FETCH_ERRORS.clear()
+check(not mod._flag_identity_failures({"baipiao": [60, 0]}),
+      "分页退化（60 行 20 唯一）不再判该源失败", mod.FETCH_ERRORS)
+
+# P1-8：--limit 0 必须在联网前拒绝，且不许碰 store
+import subprocess as _sp, tempfile as _tf
+_tmp = _tf.mkdtemp(prefix="limit0-")
+_store = os.path.join(_tmp, "topics.jsonl")
+open(_store, "w", encoding="utf-8").write('{"id": "keep", "title": "keep", "url": "https://x/1", "source": "linuxsb_p1"}\n')
+_proc = _sp.run([sys.executable, FETCH_PY, "--limit", "0", "-o", _store],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+check(_proc.returncode != 0, "--limit 0 被拒绝（非零退出）", _proc.returncode)
+check("keep" in open(_store, encoding="utf-8").read(), "store 原样保留", open(_store, encoding="utf-8").read()[:80])
+
+
+print()
+print('== 无链接/未判定活动的合并（2026-10-24，zcode 与 hyxapi 案例）==')
+
+_rows_ttl = [{"id": "1", "source": "linuxdo_welfare_p1", "url": "https://linux.do/t/topic/1",
+              "title": "zcode 1024端内送5亿token额度"},
+             {"id": "2", "source": "linuxsb_福利放送", "url": "https://linux.sb/topic/2",
+              "title": "无关帖", "offer": {"v": content_mod.OFFER_V, "key": "x.com",
+                                          "site": "x.com", "at": 1792770000}}]
+_n = mod.apply_title_offers(_rows_ttl)
+check(_n == 1 and _rows_ttl[0]["offer"]["key"] == "zcode"
+      and _rows_ttl[0]["offer"].get("provisional") is True,
+      "未判定帖拿到仅凭标题的临时 offer（provisional 标记）", _rows_ttl[0].get("offer"))
+check(_rows_ttl[1]["offer"]["key"] == "x.com" and "provisional" not in _rows_ttl[1]["offer"],
+      "已正式判定过的行（有 at）不被临时 offer 覆盖", _rows_ttl[1].get("offer"))
+check(mod.activity_key(_rows_ttl[0]) == "O:zcode",
+      "临时 offer 的行按活动折叠（不再退化成 标题键）", mod.activity_key(_rows_ttl[0]))
+
+check(mod._row_changed({"title": "t", "url": "u", "offer": None},
+                       {"title": "t", "url": "u",
+                        "offer": {"v": 9, "key": "zcode", "campaign": "zcode", "provisional": True}}) is False,
+      "临时 offer 首次出现 ≠ 内容变化（积压行的 fetched_at 不许一次刷爆）")
+check(mod._row_changed({"title": "t", "url": "u",
+                        "offer": {"v": 8, "key": "x.com", "site": "x.com", "at": 2}},
+                       {"title": "t", "url": "u",
+                        "offer": {"v": 9, "key": "x.com", "site": "x.com", "at": 1}}) is False,
+      "只有 v/at 变了（规则升级引起的整库重判）≠ 内容变化")
+check(mod._row_changed({"title": "t", "url": "u",
+                        "offer": {"v": 8, "key": "hyxware.com", "site": "hyxware.com", "at": 2}},
+                       {"title": "t", "url": "u",
+                        "offer": {"v": 9, "key": "hyxapi", "site": "hyxware.com", "at": 1}}) is True,
+      "key 真的变了（hyxware.com → hyxapi）= 内容变化（fetched_at 要刷新）")
+check(mod._row_changed({"title": "t", "url": "u", "offer": None},
+                       {"title": "t", "url": "u", "offer": {"v": 1}}) is True,
+      "offer 首次正式出现 = 内容变化（tests/test_content 钉过的既有行为，不许回退）")
+
+
+passed = sum(results)
+print(f'\n{passed}/{len(results)} checks passed')
+sys.exit(0 if passed == len(results) else 1)

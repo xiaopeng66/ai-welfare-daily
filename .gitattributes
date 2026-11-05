@@ -1,0 +1,8 @@
+# Explicit line endings. Without this, what git stores depends on each
+# machine's core.autocrlf: the Windows run writes its data files with CRLF
+# (Python text mode) while CI on Linux writes LF, so the two runners would see
+# every line as changed and fight over the branch.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

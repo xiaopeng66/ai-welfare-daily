@@ -1,0 +1,73 @@
+name: Tests
+
+# The suites are the only thing standing between a bad edit and a data-losing
+# scheduled run, so run them on every push (including the bot's own data commits
+# - those verify that the published page matches the published store) and on PRs.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    env:
+      # 与定时那条 daily-update 工作流保持一致的运行环境：套件必须在这个变量下
+      # 也保持绿。只在「变量缺失」时才通过的测试不是测试 —— 它会在生产 CI 里
+      # 变红而不是在 push 时暴露（2026-10-05 就是这么挂的：daily-update 把
+      # LINUXDO_ENABLED=0 设成 job 级变量，泄漏进了 linux.do 的 429 重试用例，
+      # 而这里没设，所以 push 时一路全绿、定时那条红了）。改一个就改两个。
+      LINUXDO_ENABLED: "0"
+    steps:
+      # Pinned to the same SHAs as the update job: a moving major tag lets an
+      # upstream force-push decide what runs here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # No pip install on purpose: both suites are stdlib-only and inject every
+      # source function, so there is nothing to download, no network to flake on
+      # and no dependency version that can drift into a red build.
+      - name: Guard tests - fetch pipeline
+        run: python3 tests/test_guards.py
+
+      - name: Guard tests - parsers
+        run: python3 tests/test_parsers.py
+
+      - name: Guard tests - generated site
+        run: python3 tests/test_site.py
+
+      # The A/B report is what turns "the rules changed" into auditable per-row
+      # evidence; a regression in it used to ship silently because nothing ran it.
+      - name: Guard tests - rules A/B report
+        run: python3 tests/test_ab_rules.py
+
+      # 正文层（content.py）：offer 判定 / 量值抽取 / 预算与缓存生命周期。
+      # 2026-10-15 审计发现它此前不被任何守卫覆盖 —— 正文层回归不会拦发布。
+      - name: Guard tests - content layer
+        run: python3 tests/test_content.py
+
+      # 精选规则（featured.py）：双份 build_items 事故（2026-10-16，三个修复打了死代码上、
+      # 潜伏两天）的直接教训——精选规则此前没有任何直接单测。
+      - name: Guard tests - featured rules
+        run: python3 tests/test_featured.py
+
+      # The "近 24 小时" split and the card clock live in the page's own JS, so a
+      # Python test cannot reach them.
+      # NOTE: the version input is what actually pins anything - setup-node
+      # installs nothing without it and silently falls through to whatever node
+      # the runner image ships, which is the drift this step exists to prevent.
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Guard tests - page JavaScript
+        run: node tests/test_page_js.mjs
