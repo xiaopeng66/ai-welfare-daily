@@ -171,8 +171,20 @@ def body_discourse(raw: str, url: str) -> tuple[str, dict]:
     return strip_tags(cooked), {"author": p.get("username") or "", "links": _links_from(cooked)}
 
 
+# sb.sb 的区域封锁页特征串。与 fetch.SB_REGION_BLOCK 是同一个值：content.py 不 import
+# fetch（保持独立可测），两处的一致性由 tests/test_content.py 的同步断言盯着。
+SB_BLOCK_MARKER = "not available in your region"
+
+
 def body_sb(raw: str, url: str) -> tuple[str, dict]:
-    """sb.sb 主题页：楼主正文是第一个 .post-content（服务端直出，无需渲染）。"""
+    """sb.sb 主题页：楼主正文是第一个 .post-content（服务端直出，无需渲染）。
+
+    区域封锁页（HTTP 200，大陆直连时 Clash 不在位就会拿到）必须抛错：
+    要是按「正文为空」处理，_fetch_with_cache 会把它连同空判定写进缓存，
+    接下来一整个 TTL 里 sb 的行都判不出 offer。抛错 → 按失败处理，下轮重试。
+    """
+    if SB_BLOCK_MARKER in raw:
+        raise ValueError("sb.sb 区域封锁页（代理不在位），不缓存、下轮重试")
     body, links = _body_in(raw, r'<div[^>]+class="[^"]*post-content[^"]*"[^>]*>')
     return body, {"links": links}
 
@@ -641,7 +653,12 @@ def _fetch_with_cache(row: dict, fetcher, cache_url: str, delay: float, timeout:
             time.sleep(delay)
     if raw is None:
         return None
-    body, meta = EXTRACTORS[row["source"].split("_")[0]](raw, url)
+    try:
+        body, meta = EXTRACTORS[row["source"].split("_")[0]](raw, url)
+    except Exception:
+        # 抽取器认定这页不可用（如 sb.sb 的区域封锁页）：按单行失败处理 ——
+        # 不写缓存、不写 offer，下一轮重试；也绝不让一个坏页把整轮 annotate 带走。
+        return None
     _cache_save(url, body, meta)
     time.sleep(delay)                  # 只有真请求才睡
     return {"body": body, "meta": meta}

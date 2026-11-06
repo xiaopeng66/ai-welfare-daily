@@ -92,6 +92,36 @@ check("https://example.com/register?aff=1" in meta.get("links", []),
 check(c.content_url("sb", "https://sb.sb/t/1/") == "https://sb.sb/t/1/",
       "sb: 正文地址就是主题页（无 .json 端点）")
 
+print("\n== sb.sb 区域封锁页不许进正文缓存 ==")
+# 大陆直连拿到的是 HTTP 200 的封锁页；若按「正文为空」处理，_fetch_with_cache 会把
+# 空判定连缓存写 24h，sb 的行整段时间判不出 offer。body_sb 必须抛错 → 单行失败。
+import fetch as _fetch  # noqa: E402  （只取常量做同步断言，不触网）
+
+check(_fetch.SB_REGION_BLOCK == c.SB_BLOCK_MARKER,
+      "封锁页特征串在 fetch/content 两处保持一致",
+      (_fetch.SB_REGION_BLOCK, c.SB_BLOCK_MARKER))
+try:
+    c.EXTRACTORS["sb"](_fetch.SB_REGION_BLOCK, "https://sb.sb/t/2/")
+    check(False, "sb: 封锁页必须抛错而不是返回空正文", "没有抛")
+except ValueError:
+    check(True, "sb: 封锁页抛错（按失败处理，下轮重试）", None)
+
+# _fetch_with_cache 对「抽取器抛错」的处置：返回 None（单行失败），且不落缓存。
+_sb_tmp_cache = tempfile.mkdtemp()
+_old_sb_cache = c.CACHE_DIR
+c.CACHE_DIR = _sb_tmp_cache
+try:
+    got = c._fetch_with_cache(
+        {"id": "2", "source": "sb_AI", "url": "https://sb.sb/t/2/"},
+        lambda url, timeout: _fetch.SB_REGION_BLOCK,
+        "https://sb.sb/t/2/", 0, 5, 24)
+    check(got is None, "sb: 封锁页按单行失败处理（返回 None）", got)
+    check(os.listdir(_sb_tmp_cache) == [], "sb: 失败页不写缓存（否则 24h 判不出 offer）",
+          os.listdir(_sb_tmp_cache))
+finally:
+    c.CACHE_DIR = _old_sb_cache
+    shutil.rmtree(_sb_tmp_cache, ignore_errors=True)
+
 print("\n== v2 规则：站点归一 / 传送宿主排除 / 身份不含品牌 ==")
 # 审计（2026-10-15 真实 store）发现的误拆分与误合并，逐条钉死：
 check(c.offer_of("a", "https://www.workbuddy.ai/x")["key"]

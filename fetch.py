@@ -1496,11 +1496,11 @@ def parse_sb_published(raw: str) -> str | None:
     return ts or None
 
 
-def _fetch_sb_page(url: str, attempts: int = 2) -> str:
-    """GET 一个 sb.sb 页面，带一次重试与区域封锁判定。
+def _fetch_sb_page(url: str, attempts: int = 3) -> str:
+    """GET 一个 sb.sb 页面，带重试与区域封锁判定。
 
-    Clash 节点对新连接偶发 TLS 握手失败（EOF / handshake timeout，实测连续
-    两次），重试一次能救回大部分轮次；区域封锁页必须抛错而不是返回空列表，
+    Clash 节点对新连接偶发 TLS 握手失败（EOF / handshake timeout，实测 4 连里挂 2），
+    两次重试能把大部分抖动救回来；区域封锁页必须抛错而不是返回空列表，
     否则 `.fetch_errors` 会把「代理挂了」误报成「解析器坏了」。
     """
     last: Exception | None = None
@@ -1557,8 +1557,9 @@ def fetch_sb(known_ids: set | None = None) -> list:
     fresh = [t for t in uniq.values() if t["id"] not in known_ids or ended_title(t)]
 
     # 主题页只为「过闸门的候选」拉：实测一页 47 行里只有 3–9 行过闸门，
-    # 全量拉详情是白花请求。
-    need = [t for t in fresh if is_relevant_title(t.get("title") or "")]
+    # 全量拉详情是白花请求。已结束的行马上会被清库，更犯不着花这笔请求。
+    need = [t for t in fresh
+            if is_relevant_title(t.get("title") or "") and not ended_title(t)]
     if need:
         with ThreadPoolExecutor(max_workers=3) as executor:
             future_to_topic = {executor.submit(_fetch_sb_page, t["url"]): t for t in need}
