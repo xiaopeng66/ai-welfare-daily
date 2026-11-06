@@ -74,6 +74,24 @@ for src, name, needle, min_len in BODY_CASES:
     bad = [w for w in FURNITURE if w in body]
     check(not bad, f"{src}: 正文不含页面家具", bad)
 
+# sb.sb（2026-11-07 新增）：楼主正文是第一个 .post-content，回复不能混进来。
+# 页面是服务端直出的（不是 Discourse/Flarum），所以用内联夹具而不是整页样本。
+SB_RAW = (
+    '<div class="post-main"><div class="post-body"><div class="post-head">'
+    '<span class="post-user-group post-user-group--op">楼主</span>'
+    '<span class="post-time"><time datetime="2026-11-06T12:40:18Z">3 小时前</time></span>'
+    '</div><div class="post-content"><p>注册送 $100，每日签到 $20</p>'
+    '<p><a href="https://example.com/register?aff=1">注册入口</a></p></div></div></div>'
+    '<div class="post-main"><div class="post-content"><p>这是别人的回复，不该进正文</p></div></div>'
+)
+body, meta = c.EXTRACTORS["sb"](SB_RAW, "https://sb.sb/t/1/")
+check("注册送 $100" in body, "sb: 楼主正文抽出来了", body[:80])
+check("别人的回复" not in body, "sb: 回复不进正文", body[:120])
+check("https://example.com/register?aff=1" in meta.get("links", []),
+      "sb: 正文链接被保留", meta.get("links"))
+check(c.content_url("sb", "https://sb.sb/t/1/") == "https://sb.sb/t/1/",
+      "sb: 正文地址就是主题页（无 .json 端点）")
+
 print("\n== v2 规则：站点归一 / 传送宿主排除 / 身份不含品牌 ==")
 # 审计（2026-10-15 真实 store）发现的误拆分与误合并，逐条钉死：
 check(c.offer_of("a", "https://www.workbuddy.ai/x")["key"]

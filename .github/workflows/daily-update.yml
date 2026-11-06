@@ -45,6 +45,10 @@ jobs:
       # ever stops being true — otherwise every scheduled run goes red on
       # "linux.do welfare page 1: status=429".
       LINUXDO_ENABLED: "0"
+      # sb.sb 对大陆直连返回「not available in your region」区域封锁页，本机腿靠
+      # Clash 抓；runner 的地区未实测，先按本地专属源处理（与 linux.do 同）。
+      # 若日后在 runner 上验过能拿到真页面，改成 "1" 即可。
+      SB_ENABLED: "0"
     steps:
       # Pinned to commit SHAs: a moving major tag lets an upstream force-push
       # change what runs in a job that holds contents:write.

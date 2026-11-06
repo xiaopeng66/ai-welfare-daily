@@ -171,6 +171,12 @@ def body_discourse(raw: str, url: str) -> tuple[str, dict]:
     return strip_tags(cooked), {"author": p.get("username") or "", "links": _links_from(cooked)}
 
 
+def body_sb(raw: str, url: str) -> tuple[str, dict]:
+    """sb.sb 主题页：楼主正文是第一个 .post-content（服务端直出，无需渲染）。"""
+    body, links = _body_in(raw, r'<div[^>]+class="[^"]*post-content[^"]*"[^>]*>')
+    return body, {"links": links}
+
+
 EXTRACTORS: dict[str, Callable[[str, str], tuple[str, dict]]] = {
     "linuxsb": body_linuxsb,
     "baipiao": body_baipiao,
@@ -178,6 +184,7 @@ EXTRACTORS: dict[str, Callable[[str, str], tuple[str, dict]]] = {
     "nodeloc": body_discourse,
     "vibex": body_discourse,
     "linuxdo": body_discourse,      # 同构 Discourse；需要 stealth_fetch 才拿得到
+    "sb": body_sb,
 }
 
 
@@ -195,7 +202,7 @@ BRAND = re.compile(
 
 # 这些域名是论坛自己/群跳转，不算「推广目标」——目标站点才是 offer 的身份。
 SELF_HOSTS = ("linux.sb", "baipiao.org", "nodeloc.com", "linux.do", "ldstatic.com",
-              "vibex.iflow.cn", "nextbuf.com")   # ldstatic.com 是 linux.do 的静态资源 CDN
+              "vibex.iflow.cn", "nextbuf.com", "sb.sb")   # ldstatic.com 是 linux.do 的静态资源 CDN
 GROUP_HOSTS = ("qq.com", "weixin.qq.com", "jq.qq.com")
 # 「传送/平台」宿主：它们是链接的载体，不是被推广的服务 —— 拿它们当身份会误合并。
 # 实测（2026-10-15 审计）：`dsh|github.com` 把两个不同项目并成一份、`muse|www.nodeseek.com`

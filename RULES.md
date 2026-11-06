@@ -312,8 +312,9 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
   **B/M 的字母边界与 token 语境不动**：URL 邀请码里的 `73B`、模型参数 `Qwen3.8 27B` 靠它们挡住。
   对拍（改规则后先跑 `offer-rerun-diff` 看下一轮会改什么）里量值变动的多是**修正垃圾值**：
   `1000亿token`（数字串撞上 TOKEN_CAP）、`680亿token`（把别处的数当额度）→ 变成 `2亿token` / `$10`。
-- **抓什么（六源全覆盖）**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、
-  nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、nodeloc/vibex 的 `/t/topic/{id}.json`
+- **抓什么（七源全覆盖）**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、
+  nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、sb.sb 主题页 `.post-content`、
+  nodeloc/vibex 的 `/t/topic/{id}.json`
   → `post_stream.posts[0].cooked`；**linux.do 同一端点但匿名 403**（Cloudflare），走 scrapling
   隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（**默认每轮 ≤12 条**、每条间隔 ≥15 秒；
   实现默认值见 `fetch.py` 的同名参数与 `content.annotate(stealth_limit=8, stealth_delay=15)`。本行原先写 4/20，
@@ -568,11 +569,22 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 
 - **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，会让那条兜底构建变红。
 - **vibex.iflow.cn 对 CI 是安全的**：它是普通 Discourse，直连（无代理）约 0.7s、无 Cloudflare 挑战，是本项目里**唯一能同时被 CI 和 Windows 任务抓到的非 linux.sb 源**。
-  选它做新源而不是 NodeSeek / sb.sb 就是因为后两者代理下 200、直连 404（CI 拿不到）。
+  选它做新源而不是 NodeSeek 就是因为后者代理下 200、直连 404（CI 拿不到）。
   **加新源前先按这个标准验一遍：`httpx.get(url)` 不给 proxy，能 200 才算可用。**
   nextbuf.com（2026-10-08 加）按这个标准验过：**直连与代理都是 200**，Cloudflare 只做 CDN 不发挑战，
   `robots.txt` 只挡 `/admin`、`/install`、`/runcache`，所以它同时进本机与 CI 两条链路
   （上面 vibex 那条「唯一」的说法到此为止，两条链路都能抓的源现在有两个）。
+- **sb.sb（烧饼论坛，2026-11-07 加）走的是例外通道**：大陆直连返回 HTTP 200 的
+  「not available in your region」区域封锁页（约 27KB），必须经境外代理；因此
+  **本机腿能抓、GitHub runner 暂不启用**（`daily-update.yml` 里 `SB_ENABLED: "0"`，
+  与 linux.do 同一种「本地专属源」处理）。`fetch_sb()` 对这个页面显式抛错，
+  不会被 `note_empty_source` 误记成「解析漂移」。`robots.txt` 只挡 `/admin`、`/search`、
+  `/deals` 等，`/go/` 与 `/t/` 是 `Allow: /`。
+  版块 3 个：`/go/ai/`、`/go/discounts/`、`/go/share/`；列表行 `<li class="post-item">`，
+  **行内 `<time>` 是最后回复时间**（实测同一条帖差 13 小时），发布时间只能从主题页
+  楼主头部 `.post-time` 取（与 JSON-LD `datePublished` 一致），所以只对过闸门的候选
+  逐条拉详情；首轮多发一页补历史（`SB_BACKLOG_PAGES=2`），之后每轮只抓第 1 页。
+  区域封锁页/详情失败都走 `_guarded_source`，只让该源本轮无新数据，不清缓存行。
 - **没有绝对时间的源，时间只能当估算，且必须归整**：nextbuf 的列表和主题页都只有相对时间
   （"17天前"、"31分钟前"），没有 `article:published_time`。它的 `created_at` 由抓取时刻倒推，
   并按粒度归整到本小时 / 当天 00:00 / 当月 1 号（CST）。归整不是美观问题：`created_at` 在

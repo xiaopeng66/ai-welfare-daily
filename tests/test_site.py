@@ -302,7 +302,7 @@ check(_g.CATEGORY_ORDER.index('抽奖') < _g.CATEGORY_ORDER.index('优惠渠道'
 print('\n== filter buttons are derived from the data at runtime ==')
 # v6 的来源/分类按钮完全由页内 JS 从 cards 派生（写死按钮的两个旧 bug 从模板层
 # 就不可能再发生），所以断言盯的是派生逻辑与注入的映射表：
-# 1) labels 表注入了全部五个源；2) sourceKey 做前缀匹配（任意新源不静默丢弃）；
+# 1) labels 表注入了全部生产源；2) sourceKey 做前缀匹配（任意新源不静默丢弃）；
 # 3) categories 由 order + 数据中出现的新值拼接；4) 源过滤按前缀匹配而非白名单。
 d2 = tempfile.mkdtemp(prefix='site-filters-')
 store2, out2 = os.path.join(d2, 'topics.jsonl'), os.path.join(d2, 'index.html')
@@ -316,7 +316,7 @@ h2 = open(out2, encoding='utf-8').read()
 labels = re.search(r'const labels=(\{[^}]*\});', h2)
 check(labels is not None, 'the labels map is injected', None)
 if labels:
-    for src in ['linuxsb', 'baipiao', 'nodeloc', 'linuxdo', 'vibex', 'nextbuf']:
+    for src in ['linuxsb', 'baipiao', 'nodeloc', 'linuxdo', 'vibex', 'nextbuf', 'sb']:
         check(f'"{src}":' in labels.group(1), 'labels knows every production source', src)
 check('const sourceKey=s=>Object.keys(labels).find(k=>String(s||' in h2,
       'sourceKey matches any prefix (new sources are not silently dropped)', None)

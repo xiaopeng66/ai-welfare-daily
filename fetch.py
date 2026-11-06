@@ -9,8 +9,10 @@ Sources:
   - vibex.iflow.cn: /c/4.json (心流AI社区 补给站)
   - linux.do: /c/welfare/36 (via Scrapling StealthyFetcher, Cloudflare protected)
   - nextbuf.com: /, /page-N (NB 社区；列表只有相对时间，见 fetch_nextbuf)
+  - sb.sb: /go/ai, /go/discounts, /go/share (烧饼论坛；发布时间只在主题页，见 fetch_sb)
 """
 import argparse
+import html
 import json
 import os
 import re
@@ -30,6 +32,7 @@ BASE_NODELOC = "https://www.nodeloc.com"
 BASE_LINUXDO = "https://linux.do"
 BASE_VIBEX = "https://vibex.iflow.cn"
 BASE_NEXTBUF = "https://www.nextbuf.com"
+BASE_SB = "https://sb.sb"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; ai-welfare-daily/1.0; +https://github.com/xiaopeng66/ai-welfare-daily)",
@@ -155,6 +158,7 @@ _HOST_MARKERS = {
     "linuxdo": "linux.do",
     "vibex": "vibex",
     "nextbuf": "nextbuf",
+    "sb": "sb.sb",
 }
 
 
@@ -1427,6 +1431,155 @@ def fetch_nextbuf(known_ids: set | None = None) -> list:
     return all_topics
 
 
+# ---------------------------------------------------------------- 烧饼论坛 sb.sb
+# 自有论坛软件（不是 Discourse/Flarum）。版块路径 /go/<slug>/，列表行是
+# <li class="post-item">，行内 <time> 是**最后回复**时间而不是发布时间 ——
+# 发布时间只在主题页楼主头部的 .post-time（实测 2026-11-07：列表时间
+# 16:24:58 vs 主题页 datePublished 03:36:43，同一条帖差 13 小时）。
+SB_BOARDS = (("AI", "ai"), ("优惠", "discounts"), ("分享", "share"))
+SB_BACKLOG_PAGES = 2
+SB_REGION_BLOCK = "not available in your region"
+
+
+def is_sb_block_page(raw: str) -> bool:
+    """区域封锁页：HTTP 200 + 约 27KB 的「烧饼论坛」提示，正文里没有帖子。
+
+    本机直连（CN）拿到的是这一页；走境外代理才是真页面。不显式识别的话，
+    它会被 note_empty_source 记成「解析漂移」，每轮都把 .fetch_errors 写红。
+    """
+    return SB_REGION_BLOCK in raw
+
+
+def parse_sb_listing(raw: str) -> list:
+    """一个版块页 → 行。纯函数，不联网，可离线测。
+
+    只认 <li class="post-item"> 开头的行：置顶公告用的是别的 class，同一批公告
+    会在每个版块重复出现，收进来会让一条旧公告冒充三个版块的新帖。
+    行内时间不采信（见文件头注释），created_at 留给 fetch_sb 从主题页补。
+    """
+    start = raw.find('class="forum-main"')
+    end = raw.find("pagination-bar", start if start >= 0 else 0)
+    part = raw[start:end] if start >= 0 and end > start else raw
+    topics = []
+    seen = set()
+    for chunk in re.split(r'<li class="post-item">', part)[1:]:
+        m = re.search(r'<a class="post-title" href="/t/(\d+)/"[^>]*>(.*?)</a>', chunk, re.S)
+        if not m:
+            continue
+        topic_id = m.group(1)
+        if topic_id in seen:
+            continue
+        title = html.unescape(re.sub(r"<[^>]+>", "", m.group(2))).strip()
+        if not title:
+            continue
+        seen.add(topic_id)
+        topics.append({
+            "id": topic_id,
+            "title": title,
+            "url": f"{BASE_SB}/t/{topic_id}/",
+            "created_at": None,
+        })
+    return topics
+
+
+def parse_sb_published(raw: str) -> str | None:
+    """主题页的**楼主发布时间**（UTC ISO）。回复时间不能当发布时间用。"""
+    m = re.search(
+        r'post-user-group--op.*?<span class="post-time"><time datetime="([^"]+)"',
+        raw, re.S)
+    if not m:
+        # 兜底：页面上第一个 post-time 仍是楼主（楼主一定在回复之前渲染）。
+        m = re.search(r'<span class="post-time"><time datetime="([^"]+)"', raw)
+    if not m:
+        return None
+    ts = m.group(1).strip()
+    return ts or None
+
+
+def _fetch_sb_page(url: str, attempts: int = 2) -> str:
+    """GET 一个 sb.sb 页面，带一次重试与区域封锁判定。
+
+    Clash 节点对新连接偶发 TLS 握手失败（EOF / handshake timeout，实测连续
+    两次），重试一次能救回大部分轮次；区域封锁页必须抛错而不是返回空列表，
+    否则 `.fetch_errors` 会把「代理挂了」误报成「解析器坏了」。
+    """
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            raw = fetch(url, timeout=25)
+        except Exception as exc:
+            last = exc
+            if i + 1 < attempts:
+                time.sleep(1.5)
+            continue
+        if is_sb_block_page(raw):
+            raise RuntimeError("sb.sb 区域封锁页（本机不在可用地区，需走境外代理）")
+        return raw
+    assert last is not None
+    raise last
+
+
+def fetch_sb(known_ids: set | None = None) -> list:
+    """烧饼论坛 AI / 优惠 / 分享 三个版块。
+
+    known_ids：store 里已有且发布时间可信的 sb 行 —— 这些行不再逐条请求主题页，
+    旧行由增量合并原样保留。首轮（库里没有 sb 行）多翻一页补历史；之后每轮
+    只抓第 1 页（版块按最后活动排序，新帖必在第 1 页）。
+    """
+    if os.environ.get("SB_ENABLED", "1") == "0":
+        print("[info] sb.sb: skipped (SB_ENABLED=0)", file=sys.stderr)
+        return []
+    known_ids = known_ids or set()
+    pages = 1 if known_ids else SB_BACKLOG_PAGES
+    rows: list = []
+    for label, slug in SB_BOARDS:
+        for page_num in range(1, pages + 1):
+            url = (f"{BASE_SB}/go/{slug}/" if page_num == 1
+                   else f"{BASE_SB}/go/{slug}/page/{page_num}/")
+            try:
+                raw = _fetch_sb_page(url)
+            except Exception as e:
+                print(f"[warn] sb.sb {label} page {page_num} failed: {e}", file=sys.stderr)
+                FETCH_ERRORS.append(f"sb.sb {label} page {page_num}: {e}")
+                break
+            parsed = parse_sb_listing(raw)
+            for t in parsed:
+                t["source"] = f"sb_{label}"
+            if page_num == 1:
+                print(f"[fetch] sb.sb {label}: {len(parsed)} topics", file=sys.stderr)
+                note_empty_source(f"sb.sb {label}", len(parsed))
+            rows.extend(parsed)
+
+    # 同一主题可能同时出现在两个版块的推荐位（id 相同）——按 id 去重，保留先见到的版块。
+    uniq = {}
+    for t in rows:
+        uniq.setdefault(t["id"], t)
+    fresh = [t for t in uniq.values() if t["id"] not in known_ids or ended_title(t)]
+
+    # 主题页只为「过闸门的候选」拉：实测一页 47 行里只有 3–9 行过闸门，
+    # 全量拉详情是白花请求。
+    need = [t for t in fresh if is_relevant_title(t.get("title") or "")]
+    if need:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_topic = {executor.submit(_fetch_sb_page, t["url"]): t for t in need}
+            for future in as_completed(future_to_topic):
+                t = future_to_topic[future]
+                try:
+                    ts = parse_sb_published(future.result())
+                except Exception as e:
+                    print(f"[warn] sb.sb detail {t['id']} failed: {e}", file=sys.stderr)
+                    continue
+                if ts:
+                    t["created_at"] = ts.replace("Z", "+00:00")
+                    t["published_verified"] = True
+    print(
+        f"[fetch] sb.sb: {len(fresh)} rows, "
+        f"{sum(1 for t in fresh if t.get('published_verified'))} with publish time",
+        file=sys.stderr,
+    )
+    return fresh
+
+
 _ROW_FIELDS = ("title", "url", "source", "created_at")
 
 
@@ -1763,6 +1916,14 @@ def main():
         if str(t.get("source", "")).startswith("nextbuf")
     }
 
+    # sb.sb 的发布时间只有主题页给得出；已核过时间的行不必再逐条拉详情。
+    known_sb_ids = {
+        t["id"]
+        for t in existing.values()
+        if t.get("published_verified")
+        and str(t.get("source", "")).startswith("sb_")
+    }
+
     # 每个源单独兜底：一个源的解析/接口异常只让该源本轮无新数据（P1-6）。
     linuxsb_topics = _guarded_source("linux.sb", lambda: fetch_linuxsb(known_linuxsb_ids))
     baipiao_topics = _guarded_source("baipiao", fetch_baipiao)
@@ -1771,8 +1932,9 @@ def main():
     linuxdo_topics = _guarded_source("linux.do", fetch_linuxdo_welfare)
     vibex_topics = _guarded_source("vibex", fetch_vibex_welfare)
     nextbuf_topics = _guarded_source("nextbuf", lambda: fetch_nextbuf(known_nextbuf_ids))
+    sb_topics = _guarded_source("sb.sb", lambda: fetch_sb(known_sb_ids))
     all_topics = (linuxsb_topics + baipiao_topics + nodeloc_topics + nodeloc_welfare_topics
-                  + linuxdo_topics + vibex_topics + nextbuf_topics)
+                  + linuxdo_topics + vibex_topics + nextbuf_topics + sb_topics)
 
     # 身份校验（P1-7）：坏行丢弃并计数；坏行占比过半 → 该源判失败（FETCH_ERRORS）。
     all_topics, _id_report = _validate_identities(all_topics)

@@ -36,6 +36,7 @@ SOURCE_LABELS = {
     'linuxdo': 'linux.do',
     'vibex': 'vibex.iflow.cn',
     'nextbuf': 'nextbuf.com',
+    'sb': '烧饼论坛',
 }
 CATEGORY_ORDER = ['中转站', '公益站', '鸡蛋', '兑换码', '额度', '体验金', '免费放粮', '抽奖', '优惠渠道']
 CATEGORY_TONES = {

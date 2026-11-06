@@ -896,9 +896,109 @@ try:
 finally:
     mod.fetch = real_fetch
 
+print('\n== sb.sb（烧饼论坛）：列表行 / 置顶 / 发布时间 ==')
+
+
+def sb_page(items, pinned=True):
+    rows = ''.join(
+        '<li class="post-item"><div class="post-title-row">'
+        f'<a class="post-title" href="/t/{tid}/">{title}</a></div>'
+        f'<span class="post-time"><time datetime="{ts}">1 小时前</time></span></li>'
+        for tid, title, ts in items)
+    head = ('<li class="post-item pinned"><a class="post-title" href="/t/1/">置顶公告</a></li>'
+            if pinned else '')
+    return ('<html><div class="forum-main">' + head + rows +
+            '</div><div class="pagination-bar"></div></html>')
+
+
+rows = mod.parse_sb_listing(sb_page([
+    ('16787', 'google one 的 土区 ultra 20X bug 车', '2026-11-06T16:24:58Z'),
+    ('17639', '宝藏中转站 <b>gpt</b> 0.105 倍率', '2026-11-06T16:20:00Z'),
+]))
+check([r['id'] for r in rows] == ['16787', '17639'], '两个主题都解析出来', rows)
+check(rows[0]['url'] == f'{mod.BASE_SB}/t/16787/', 'url 由 id 拼出', rows[0]['url'])
+check(rows[1]['title'] == '宝藏中转站 gpt 0.105 倍率', '标题里的标记被剥掉', rows[1]['title'])
+check(all(r['created_at'] is None for r in rows),
+      '列表里的时间是最后回复，不当发布时间', [r['created_at'] for r in rows])
+check('1' not in [r['id'] for r in rows], '置顶公告（别的 class）不进列表', rows)
+dup = mod.parse_sb_listing(sb_page([('5', '公益站 赠送', ''), ('5', '公益站 赠送', '')]))
+check([r['id'] for r in dup] == ['5'], '同页重复 id 去重', dup)
+
+print('\n== sb.sb 主题页：取楼主时间，不取回复时间 ==')
+thread = (
+    '<div class="post-main"><div class="post-body"><div class="post-head">'
+    '<span class="post-user-group post-user-group--op" title="主题作者">楼主</span> '
+    '<span class="post-time"><time datetime="2026-11-06T12:40:18Z">3 小时前</time></span>'
+    '</div><div class="post-content"><p>注册送 $100</p></div></div>'
+    '<div class="post-time"><time datetime="2026-11-06T13:37:50Z">2 小时前</time></div>'
+)
+check(mod.parse_sb_published(thread) == '2026-11-06T12:40:18Z',
+      '楼主时间是发布时间，回复时间不冒充', mod.parse_sb_published(thread))
+check(mod.parse_sb_published('<html>no time</html>') is None, '没有时间就留空')
+check(mod.is_sb_block_page('<title>烧饼论坛</title> is currently not available in your region.'),
+      '区域封锁页被识别（否则会误报解析漂移）')
+check(not mod.is_sb_block_page(sb_page([])), '正常页面不误判为封锁页')
+check('sb' in mod.unhealthy_hosts([]), 'sb 在 _HOST_MARKERS 里（整源失败不误删）',
+      sorted(mod.unhealthy_hosts([])))
+
+print('\n== fetch_sb：首轮翻页、增量只抓第 1 页、详情补发布时间 ==')
+SB_PAGES = {
+    f'{mod.BASE_SB}/go/ai/': sb_page([
+        ('10', '公益站 注册送 $100', '2026-11-06T16:00:00Z'),
+        ('20', '闲聊：今天吃啥', '2026-11-06T16:01:00Z'),
+    ]),
+    f'{mod.BASE_SB}/go/ai/page/2/': sb_page([
+        ('9', '免费 API 额度 旧帖', '2026-11-05T10:00:00Z'),
+    ]),
+    f'{mod.BASE_SB}/go/discounts/': sb_page([
+        ('11', '免费 deepseek-v4.1 API', '2026-11-06T15:00:00Z'),
+    ]),
+    f'{mod.BASE_SB}/go/share/': sb_page([
+        ('12', '送 muse.ai 账号 先到先得', '2026-11-06T14:00:00Z'),
+    ]),
+    f'{mod.BASE_SB}/t/10/': thread.replace('2026-11-06T12:40:18Z', '2026-11-06T08:00:00Z'),
+    f'{mod.BASE_SB}/t/11/': thread.replace('2026-11-06T12:40:18Z', '2026-11-06T07:00:00Z'),
+    f'{mod.BASE_SB}/t/12/': thread.replace('2026-11-06T12:40:18Z', '2026-11-06T06:00:00Z'),
+    f'{mod.BASE_SB}/t/9/': thread.replace('2026-11-06T12:40:18Z', '2026-11-05T09:00:00Z'),
+}
+
+
+def _sb_mock(url, *a, **k):
+    if url not in SB_PAGES:
+        raise AssertionError(f'意外的请求: {url}')
+    return SB_PAGES[url]
+
+
+try:
+    mod.fetch = _sb_mock
+    mod.FETCH_ERRORS.clear()
+    got = mod.fetch_sb()
+    ids = sorted(t['id'] for t in got)
+    check(ids == ['10', '11', '12', '20', '9'], '三版块 + 首轮第 2 页都收进来', ids)
+    check({t['source'] for t in got} == {'sb_AI', 'sb_优惠', 'sb_分享'}, '源标识带版块',
+          {t['source'] for t in got})
+    times = {t['id']: t.get('created_at') for t in got}
+    check(times['10'] == '2026-11-06T08:00:00+00:00', '发布时间来自主题页（不是列表最后回复）',
+          times['10'])
+    check(times['20'] is None and not any(
+        t.get('published_verified') for t in got if t['id'] == '20'),
+        '不过闸门的行不拉详情，也不冒充 verified', times['20'])
+    check(all(t.get('published_verified') for t in got if t['id'] in ('9', '10', '11', '12')),
+          '过闸门的行都标 verified', {t['id']: t.get('published_verified') for t in got})
+
+    got2 = mod.fetch_sb({'10', '11'})
+    check(sorted(t['id'] for t in got2) == ['12', '20'],
+          '已入库的行不再返回（也不再请求详情、不再翻第 2 页）', [t['id'] for t in got2])
+
+    mod.FETCH_ERRORS.clear()
+    mod.fetch = lambda url, *a, **k: (_ for _ in ()).throw(URLError('boom'))
+    check(mod.fetch_sb() == [], '抓取失败返回空而不是抛出去')
+    check(any('sb.sb' in e for e in mod.FETCH_ERRORS), '失败写进 FETCH_ERRORS',
+          mod.FETCH_ERRORS)
+finally:
+    mod.fetch = real_fetch
+
 print('\n== 第 2 期：数据层根因（P1-5/P1-6/P1-7/P1-8）==')
-
-
 def _row(tid, title, created="2026-10-20T00:00:00+00:00", source="linuxsb_p1", **kw):
     r = {"id": str(tid), "title": title, "url": f"https://linux.sb/topic/{tid}",
          "created_at": created, "fetched_at": created, "source": source, "tags": [], "score": 0}
