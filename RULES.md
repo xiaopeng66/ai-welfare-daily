@@ -574,7 +574,7 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
   nextbuf.com（2026-10-08 加）按这个标准验过：**直连与代理都是 200**，Cloudflare 只做 CDN 不发挑战，
   `robots.txt` 只挡 `/admin`、`/install`、`/runcache`，所以它同时进本机与 CI 两条链路
   （上面 vibex 那条「唯一」的说法到此为止，两条链路都能抓的源现在有两个）。
-- **sb.sb（烧饼论坛，2026-11-07 加）走的是例外通道**：大陆直连返回 HTTP 200 的
+- **sb.sb（2026-11-07 加）走的是例外通道**：大陆直连返回 HTTP 200 的
   「not available in your region」区域封锁页（约 27KB），必须经境外代理；因此
   **本机腿能抓、GitHub runner 暂不启用**（`daily-update.yml` 里 `SB_ENABLED: "0"`，
   与 linux.do 同一种「本地专属源」处理）。`fetch_sb()` 对这个页面显式抛错，
