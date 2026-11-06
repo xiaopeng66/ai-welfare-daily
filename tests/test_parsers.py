@@ -971,30 +971,40 @@ def _sb_mock(url, *a, **k):
 
 try:
     mod.fetch = _sb_mock
-    mod.FETCH_ERRORS.clear()
-    got = mod.fetch_sb()
-    ids = sorted(t['id'] for t in got)
-    check(ids == ['10', '11', '12', '20', '9'], '三版块 + 首轮第 2 页都收进来', ids)
-    check({t['source'] for t in got} == {'sb_AI', 'sb_优惠', 'sb_分享'}, '源标识带版块',
-          {t['source'] for t in got})
-    times = {t['id']: t.get('created_at') for t in got}
-    check(times['10'] == '2026-11-06T08:00:00+00:00', '发布时间来自主题页（不是列表最后回复）',
-          times['10'])
-    check(times['20'] is None and not any(
-        t.get('published_verified') for t in got if t['id'] == '20'),
-        '不过闸门的行不拉详情，也不冒充 verified', times['20'])
-    check(all(t.get('published_verified') for t in got if t['id'] in ('9', '10', '11', '12')),
-          '过闸门的行都标 verified', {t['id']: t.get('published_verified') for t in got})
+    # 测试必须对环境免疫：daily-update.yml 在 job 级设了 SB_ENABLED=0（runner 不抓
+    # 这个源），CI 的守卫套件继承了这个变量 —— 不钉回 "1" 的话，fetch_sb 在 CI 上
+    # 直接跳过，本组用例全空（2026-11-07 首次 dispatch 抓到的环境差异）。
+    _sb_env_prev = os.environ.pop("SB_ENABLED", None)
+    try:
+        mod.FETCH_ERRORS.clear()
+        got = mod.fetch_sb()
+        ids = sorted(t['id'] for t in got)
+        check(ids == ['10', '11', '12', '20', '9'], '三版块 + 首轮第 2 页都收进来', ids)
+        check({t['source'] for t in got} == {'sb_AI', 'sb_优惠', 'sb_分享'}, '源标识带版块',
+              {t['source'] for t in got})
+        times = {t['id']: t.get('created_at') for t in got}
+        check(times['10'] == '2026-11-06T08:00:00+00:00', '发布时间来自主题页（不是列表最后回复）',
+              times['10'])
+        check(times['20'] is None and not any(
+            t.get('published_verified') for t in got if t['id'] == '20'),
+            '不过闸门的行不拉详情，也不冒充 verified', times['20'])
+        check(all(t.get('published_verified') for t in got if t['id'] in ('9', '10', '11', '12')),
+              '过闸门的行都标 verified', {t['id']: t.get('published_verified') for t in got})
 
-    got2 = mod.fetch_sb({'10', '11'})
-    check(sorted(t['id'] for t in got2) == ['12', '20'],
-          '已入库的行不再返回（也不再请求详情、不再翻第 2 页）', [t['id'] for t in got2])
+        got2 = mod.fetch_sb({'10', '11'})
+        check(sorted(t['id'] for t in got2) == ['12', '20'],
+              '已入库的行不再返回（也不再请求详情、不再翻第 2 页）', [t['id'] for t in got2])
 
-    mod.FETCH_ERRORS.clear()
-    mod.fetch = lambda url, *a, **k: (_ for _ in ()).throw(URLError('boom'))
-    check(mod.fetch_sb() == [], '抓取失败返回空而不是抛出去')
-    check(any('sb.sb' in e for e in mod.FETCH_ERRORS), '失败写进 FETCH_ERRORS',
-          mod.FETCH_ERRORS)
+        mod.FETCH_ERRORS.clear()
+        mod.fetch = lambda url, *a, **k: (_ for _ in ()).throw(URLError('boom'))
+        check(mod.fetch_sb() == [], '抓取失败返回空而不是抛出去')
+        check(any('sb.sb' in e for e in mod.FETCH_ERRORS), '失败写进 FETCH_ERRORS',
+              mod.FETCH_ERRORS)
+    finally:
+        if _sb_env_prev is None:
+            os.environ.pop("SB_ENABLED", None)
+        else:
+            os.environ["SB_ENABLED"] = _sb_env_prev
 finally:
     mod.fetch = real_fetch
 
