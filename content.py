@@ -34,7 +34,8 @@ import re
 import time
 from typing import Callable
 
-OFFER_V = 9                      # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+OFFER_V = 10                     # offer 规则版本：改了判定就 +1，旧行下一轮自动重判
+                                 # v10（2026-11-05）：新增 hyapi 活动别名（见 CAMPAIGN_ALIASES）
                                  # （v8：活动级身份 offer.campaign + 亿/万 左边界放宽 + 正文不可用也写 thin；
                                  #   v7：量值边界 + …；v6：正文声明隐藏内容时只认入口形状的 URL；v5：量值单位边界 + offer 会过期重判；
                                  #   v4：免费二级域保留全名；v3：资源类 URL 不算目标 + linux.do 自家 CDN；
@@ -457,6 +458,12 @@ CAMPAIGN_ALIASES = {
     #   但转帖标题只写 "Hyxapi公益站" —— 活动名与域名不同名，靠别名表对上。
     "zcode": (),
     "hyxapi": ("hyxware.com",),
+    # 2026-11-05 用户点名：linux.sb「HyAPI体验额度兑换-*」5 条（DeepSeek ￥10 / GPT $10 /
+    # $30 / $30 补充 / 哈基米），正文只有"具体兑换方式请查看主贴详情"、没有外链 → site 为空，
+    # 旧规则按标题各算一张卡。标题即活动名（HyAPI），加别名让它们落到同一个 key；
+    # 无域名成员（站内/端内活动，没有可列的入口域名）。Hyxapi（hyxware.com）是另一个活动，
+    # "hyapi" 不是 "hyxapi" 的子串，两者不会互相误吞。
+    "hyapi": (),
 }
 
 

@@ -112,6 +112,8 @@ CAMPAIGN_ALIASES = {
     # tests/test_featured.py 有同步断言盯着）。
     "zcode": (),
     "hyxapi": ("hyxware.com",),
+    # 2026-11-05 用户点名：HyAPI 系列（无外链、标题即活动名）；与 content.py 同步。
+    "hyapi": (),
 }
 
 

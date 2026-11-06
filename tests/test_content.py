@@ -247,6 +247,26 @@ check(muse_site["key"] == muse_bot["key"] == muse_repost["key"] == "muse",
 check(c.offer_of("注册送20刀 gpt", "https://a-relay.example/register 送20刀")["campaign"] == "a-relay.example"
       and c.offer_of("注册送10刀 gpt", "https://b-relay.example/register 送10刀")["campaign"] == "b-relay.example",
       "别名表外的一律退回站点身份（两家 gpt 中转站不会被并成一个活动）")
+
+# 2026-11-05 用户点名：linux.sb「HyAPI体验额度兑换-*」5 条（DeepSeek ￥10 / GPT $10 / $30 /
+# $30 补充 / 哈基米），正文只有"具体兑换方式请查看主贴详情"、没有外链 → site 为空。
+# 标题就是活动名，别名命中后 5 条落同一个 key，页面折成一张卡（弹窗列各面额/型号）。
+hyapi_titles = [
+    "HyAPI体验额度兑换-DeepSeekv4.1Flash-1017￥10卡",
+    "HyAPI体验额度兑换-GPT6Astra$30卡 补充",
+    "HyAPI体验额度兑换-GPT6Astra$30卡",
+    "HyAPI体验额度兑换-GPT6Astra$10卡",
+    "HyAPI体验额度兑换-哈基米",
+]
+hyapi = [c.offer_of(t, "") for t in hyapi_titles]
+check({o["key"] for o in hyapi} == {"hyapi"},
+      "HyAPI 系列（不同面额/型号/补充）→ 同一个活动 key", [o["key"] for o in hyapi])
+check(all(o["site"] == "" and o["campaign"] == "hyapi" for o in hyapi),
+      "无外链时靠标题识别活动（site 保持为空，campaign=hyapi）")
+check(c.offer_of("HyAPI体验额度兑换-某卡", "https://hyapi.example/x")["key"] == "hyapi.example",
+      "有外链的帖子仍按站点 key（不被标题别名劫持）")
+check(c.offer_of("Hyxapi公益站", "")["key"] == "hyxapi",
+      "HyAPI 别名不会误吞 Hyxapi（hyapi 不是 hyxapi 的子串）")
 check(c.offer_of("羊毛分享", "正文只在结尾提了一句 muse，没有链接")["campaign"] == "",
       "站点为空时只看标题：正文顺带提到的品牌不算这个活动")
 
