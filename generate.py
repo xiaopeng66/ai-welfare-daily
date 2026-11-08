@@ -205,6 +205,17 @@ def build_featured(topics):
     try:
         import featured
         payload, stats = featured.update(topics, FEATURED_CACHE, FEATURED_STATE)
+        # `updated` 是**本轮**的状态位（有更新的同活动帖时置 True），不是页面内容：
+        # 它会让同一份 store 在相邻两轮生成出不同字节，进而每轮留下一个未提交的
+        # docs/index.html；数据安静的时段（>100 分钟没有新帖）合并器判"产物旧→跳过"，
+        # 这份脏页面就留在工作区，下一轮 pull --autostash 最终冲突中止
+        # （2026-11-08 06:37 实锤：暂存区白名单中止 + 之后一轮 UU 冲突）。
+        # 页面 JS 不消费这个字段（.pick-updated 样式是死类），渲染前剥掉，
+        # 让页面回到「store + 精选状态的纯函数」。
+        for _it in payload:
+            _f = _it.get("f")
+            if isinstance(_f, dict):
+                _f.pop("updated", None)
         print("[featured] {} 项（新增 {added} / 刷新 {updated} / 沿用 {kept} / 下架 {dropped}，其中复核下架 {pruned}）".format(
             len(payload), **stats), file=sys.stderr)
         try:

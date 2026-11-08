@@ -249,6 +249,17 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
         check(isinstance(feat, list) and len(feat) > 0, 'the featured payload is a non-empty list', len(feat))
         bad = [c.get('f', {}).get('name') for c in feat if c.get('f', {}).get('kind') not in ('gift', 'lottery', 'free')]
         check(not bad, 'every featured card carries a valid kind', bad[:3])
+        # `updated` 是"本轮有新帖"的临时状态位，不是页面内容；带进载荷会让同一份
+        # store 在相邻两轮生成不同字节 → 数据安静时留下未提交页面 → autostash 冲突
+        # （2026-11-08 06:37 事故）。渲染前必须剥掉。
+        leftovers = [c.get('f', {}).get('name') for c in feat if 'updated' in c.get('f', {})]
+        check(not leftovers, 'the rendered featured payload has no per-run "updated" flag',
+              leftovers[:3])
+
+    # build_featured 的剥离动作本身（用假 featured 模块，不依赖正文缓存）
+    # 注：本文件后面才 import generate（_g），这条断言放在 _g 定义之后，见下方。
+
+
 
     # 访问统计的打点必须还在（2026-10-24 加）。
     # 由头：打点代码只存在于根目录的 template.html，**改页面时删掉/改坏它，发布链完全无感** ——
@@ -280,6 +291,33 @@ _f2.loader.exec_module(_f)
 for cat in _f.CATEGORY_KEYWORDS:
     check(cat in _g.CATEGORY_TONES, 'a category in the map has a tone (else its tag is bare)', cat)
     check(cat in _g.CATEGORY_ORDER, 'and it is in the display order (else it sorts to the end)', cat)
+
+# 精选载荷不能带「本轮」状态位：`updated` 只表示这一轮有没有同活动新帖，
+# 带进页面会让同一份 store 在相邻两轮生成不同字节 → 数据安静时留下未提交页面
+# → autostash 冲突（2026-11-08 06:37 事故）。用假 featured 模块测剥离动作本身。
+print('\n== 精选载荷渲染前剥掉本轮状态位 ==')
+import sys as _sys
+import types as _types
+_fake = _types.ModuleType('featured')
+_fake.update = lambda *a, **k: (
+    [{'key': 'x', 't': 1, 'f': {'name': 'x', 'kind': 'gift', 'updated': True}}],
+    {'kept': 0, 'updated': 1, 'added': 0, 'dropped': 0, 'pruned': 0, 'candidates': 1})
+_fake.REJECT_REASON = {}
+_old_mod = _sys.modules.get('featured')
+_old_report = _g.FEATURED_REPORT
+_sys.modules['featured'] = _fake
+_g.FEATURED_REPORT = os.path.join(tempfile.mkdtemp(), 'report.jsonl')
+try:
+    _payload, _baked = _g.build_featured([{'fetched_at': '2026-10-01T00:00:00+00:00'}])
+    check(_payload and 'updated' not in _payload[0]['f'],
+          'build_featured 剥掉 updated（页面回到 store 的纯函数）', _payload)
+    check(_baked > 0, 'baked_at 仍来自数据时间戳', _baked)
+finally:
+    _g.FEATURED_REPORT = _old_report
+    if _old_mod is None:
+        _sys.modules.pop('featured', None)
+    else:
+        _sys.modules['featured'] = _old_mod
 # 注入后的页面里：tones/order 表和 CSS 色规则都必须真实落在 index.html 上
 _site_html = open(os.path.join(ROOT, 'docs', 'index.html'), encoding='utf-8').read()
 _tones = re.search(r'const tones=(\{[^}]*\});', _site_html)
