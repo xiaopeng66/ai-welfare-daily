@@ -490,7 +490,7 @@ html[data-theme=dark] .rchip.free b{color:#7fe0bb}
 /* 最近一次检测时间戳（由 bake_preview.py 每次烘焙写入，取自 health.json 的 generated_at）。
    整点脚本每 30 分钟跑一轮，页面是静态快照 —— 这里必须用**采集时间**，
    不能用浏览器当前时间（那会显示"用户打开页面的时刻"，与数据实际新鲜度无关）。 */
-const CHECKED_AT = "11-15 07:37";
+const CHECKED_AT = "11-15 08:37";
 const PROMO = [
   {
     "name": "KiosAPI",
@@ -645,7 +645,7 @@ const PROMO = [
       }
     ],
     "uc": 1.0,
-    "models_note": "Free 分组内命中「glm-5.3、deepseek-v4、deepseek-v4.1」的模型共 2 个，取成功率最高的 2 个；不足 3 个，另从其它分组补 1 个（含关键词优先、倍率升序）（GLM-Discount，倍率见各行分组标签）；展示顺序：主分组命中在前（按成功率），补位的排在后（先看是否含关键词，再看分组倍率升序，最后按成功率）；成功率/延迟/TPS 均取该模型所属分组",
+    "models_note": "Free 分组内命中「glm-5.3、deepseek-v4、deepseek-v4.1」的模型共 2 个，取成功率最高的 2 个；不足 3 个，另从其它分组补 1 个（含关键词优先、倍率升序）（DeepSeek-Discount，倍率见各行分组标签）；展示顺序：主分组命中在前（按成功率），补位的排在后（先看是否含关键词，再看分组倍率升序，最后按成功率）；成功率/延迟/TPS 均取该模型所属分组",
     "pick_rule": "keyword-top",
     "pick_tag": "公益",
     "pick_group": "Free",
@@ -654,7 +654,7 @@ const PROMO = [
     ],
     "pick_fill": 1,
     "pick_fill_groups": [
-      "GLM-Discount"
+      "DeepSeek-Discount"
     ],
     "pick_fill_main": 0,
     "pick_top_n": 3,
@@ -662,7 +662,7 @@ const PROMO = [
     "pick_total": 2,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:09+08:00",
+        "checked_at": "2026-11-15T08:37:11+08:00",
         "reachable": true
       },
       "score": 94.8,
@@ -967,7 +967,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -1022,19 +1022,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 94.8（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.8/35（3 个监控模型成功率中位数 99.56%）+ 延迟 10/15（504ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 94.8（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.8/35（3 个监控模型成功率中位数 99.56%）+ 延迟 10/15（508ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 2044,
+        "ms": 2145,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 525,
+        "ms": 508,
         "note": ""
       }
     },
@@ -1043,9 +1043,9 @@ const PROMO = [
         "n": "glm-5.3-flash-free",
         "in_site": "glm-5.3-flash-free",
         "r": 99.6,
-        "l": 73430,
-        "t": 27187,
-        "tps": 27.776131427708144,
+        "l": 73218,
+        "t": 27408,
+        "tps": 27.288226700274237,
         "anomaly": 1,
         "bars": [
           {
@@ -1340,10 +1340,10 @@ const PROMO = [
           },
           {
             "d": "2026-11-15",
-            "rate": 99.0,
+            "rate": 99.1,
             "ok": false,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -1355,12 +1355,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 100.0,
@@ -1498,6 +1492,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -1505,18 +1505,12 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 99.56,
-          "l": 73430,
-          "t": 27187,
-          "tps": 27.776131427708144,
+          "l": 73218,
+          "t": 27408,
+          "tps": 27.288226700274237,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 100.0,
@@ -1654,6 +1648,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -1664,19 +1664,13 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.72,
-            "l": 42185,
-            "t": 27519,
-            "tps": 37.253495655082794,
+            "r": 99.73,
+            "l": 41170,
+            "t": 26727,
+            "tps": 37.201332953090024,
             "days": 30,
             "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -1811,6 +1805,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -2109,10 +2109,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 99.3,
+                "rate": 99.4,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -2124,18 +2124,12 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 99.56,
-            "l": 73430,
-            "t": 27187,
-            "tps": 27.776131427708144,
+            "l": 73218,
+            "t": 27408,
+            "tps": 27.288226700274237,
             "days": 26,
             "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -2270,6 +2264,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -2568,10 +2568,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.5,
+                "rate": 98.7,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -2583,10 +2583,10 @@ const PROMO = [
       {
         "n": "deepseek-v4.1-flash-free",
         "in_site": "deepseek-v4.1-flash-free",
-        "r": 99.2,
-        "l": 118802,
-        "t": 53572,
-        "tps": 12.3242772460167,
+        "r": 99.3,
+        "l": 117358,
+        "t": 53752,
+        "tps": 12.562440519177732,
         "anomaly": 1,
         "bars": [
           {
@@ -2881,10 +2881,10 @@ const PROMO = [
           },
           {
             "d": "2026-11-15",
-            "rate": 98.7,
+            "rate": 98.8,
             "ok": false,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -2896,12 +2896,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 100.0,
@@ -3039,25 +3033,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "Free",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.23,
-          "l": 118802,
-          "t": 53572,
-          "tps": 12.3242772460167,
+          "r": 99.25,
+          "l": 117358,
+          "t": 53752,
+          "tps": 12.562440519177732,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 100.0,
@@ -3195,6 +3189,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -3205,19 +3205,13 @@ const PROMO = [
             "g": "Free",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.23,
-            "l": 118802,
-            "t": 53572,
-            "tps": 12.3242772460167,
+            "r": 99.25,
+            "l": 117358,
+            "t": 53752,
+            "tps": 12.562440519177732,
             "days": 21,
             "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -3352,6 +3346,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -3650,10 +3650,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.6,
+                "rate": 98.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -3664,19 +3664,13 @@ const PROMO = [
             "g": "Free-Pro",
             "ratio": 0,
             "eff": 0.0,
-            "r": 98.88,
-            "l": 100667,
-            "t": 49128,
-            "tps": 10.187133356149396,
+            "r": 98.87,
+            "l": 101497,
+            "t": 49922,
+            "tps": 10.243548224851004,
             "days": 26,
             "anomaly": 2,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 99.2,
@@ -3811,8 +3805,14 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 98.8,
+                "rate": 99.4,
                 "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
                 "anomaly": false
               }
             ],
@@ -4109,10 +4109,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.6,
+                "rate": 98.9,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -4122,40 +4122,40 @@ const PROMO = [
         ]
       },
       {
-        "n": "glm-5.3-flash",
-        "in_site": "glm-5.3-flash",
+        "n": "deepseek-v4-pro",
+        "in_site": "deepseek-v4-pro",
         "r": 100,
-        "l": 2572,
-        "t": 1816,
-        "tps": 45.36797727643713,
+        "l": 16938,
+        "t": 2148,
+        "tps": 111.2034251714586,
         "anomaly": 0,
         "bars": [
           {
             "d": "2026-10-17",
-            "rate": 85.3,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 13,
+            "buckets": 3,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-10-18",
-            "rate": 39.8,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 5,
+            "buckets": 3,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-10-19",
-            "rate": 100.0,
-            "ok": true,
-            "sparse": false,
-            "buckets": 3,
+            "rate": null,
+            "ok": null,
+            "sparse": null,
+            "buckets": 0,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -4165,15 +4165,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": false,
-            "buckets": 7,
+            "buckets": 5,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-10-21",
-            "rate": 66.7,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
+            "sparse": true,
+            "buckets": 2,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-22",
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
             "buckets": 3,
             "checks": null,
@@ -4181,89 +4191,29 @@ const PROMO = [
             "missing_hours": null
           },
           {
-            "d": "2026-10-22",
-            "rate": 65.3,
-            "ok": false,
-            "sparse": false,
-            "buckets": 6,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
-          {
             "d": "2026-10-23",
-            "rate": 90.9,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 11,
+            "buckets": 5,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-10-24",
-            "rate": 99.3,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 16,
+            "buckets": 12,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-10-25",
-            "rate": 97.4,
-            "ok": false,
-            "sparse": false,
-            "buckets": 13,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
-          {
-            "d": "2026-10-26",
-            "rate": 98.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 14,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
-          {
-            "d": "2026-10-27",
-            "rate": 99.1,
-            "ok": false,
-            "sparse": false,
-            "buckets": 13,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
-          {
-            "d": "2026-10-28",
-            "rate": 91.1,
-            "ok": false,
-            "sparse": false,
-            "buckets": 10,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
-          {
-            "d": "2026-10-29",
-            "rate": 82.9,
-            "ok": false,
-            "sparse": false,
-            "buckets": 9,
-            "checks": null,
-            "failures": null,
-            "missing_hours": null
-          },
-          {
-            "d": "2026-10-30",
-            "rate": 96.0,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
             "buckets": 6,
             "checks": null,
@@ -4271,8 +4221,18 @@ const PROMO = [
             "missing_hours": null
           },
           {
-            "d": "2026-10-31",
-            "rate": 66.7,
+            "d": "2026-10-26",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 4,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-27",
+            "rate": 95.0,
             "ok": false,
             "sparse": false,
             "buckets": 4,
@@ -4281,8 +4241,48 @@ const PROMO = [
             "missing_hours": null
           },
           {
+            "d": "2026-10-28",
+            "rate": 55.6,
+            "ok": false,
+            "sparse": true,
+            "buckets": 2,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-29",
+            "rate": 100.0,
+            "ok": true,
+            "sparse": false,
+            "buckets": 5,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-30",
+            "rate": 97.6,
+            "ok": false,
+            "sparse": false,
+            "buckets": 7,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
+            "d": "2026-10-31",
+            "rate": 93.4,
+            "ok": false,
+            "sparse": false,
+            "buckets": 13,
+            "checks": null,
+            "failures": null,
+            "missing_hours": null
+          },
+          {
             "d": "2026-11-01",
-            "rate": 85.7,
+            "rate": 99.5,
             "ok": false,
             "sparse": false,
             "buckets": 7,
@@ -4292,70 +4292,70 @@ const PROMO = [
           },
           {
             "d": "2026-11-02",
-            "rate": 98.3,
+            "rate": 71.4,
             "ok": false,
             "sparse": false,
-            "buckets": 22,
+            "buckets": 7,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-03",
-            "rate": 83.6,
+            "rate": 94.4,
             "ok": false,
             "sparse": false,
-            "buckets": 10,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-04",
-            "rate": 85.7,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 5,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-05",
-            "rate": 99.6,
+            "rate": 94.1,
             "ok": false,
             "sparse": false,
-            "buckets": 22,
+            "buckets": 15,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-06",
-            "rate": 96.4,
+            "rate": 80.9,
             "ok": false,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 11,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-07",
-            "rate": 99.8,
+            "rate": 93.3,
             "ok": false,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 6,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-08",
-            "rate": 98.3,
+            "rate": 90.9,
             "ok": false,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 6,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -4365,47 +4365,47 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 12,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-10",
-            "rate": 99.8,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 5,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-11",
-            "rate": 99.1,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 5,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-12",
-            "rate": 99.1,
-            "ok": false,
+            "rate": 100.0,
+            "ok": true,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 8,
             "checks": null,
             "failures": null,
             "missing_hours": null
           },
           {
             "d": "2026-11-13",
-            "rate": 94.7,
+            "rate": 85.7,
             "ok": false,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 7,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -4415,7 +4415,7 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": false,
-            "buckets": 24,
+            "buckets": 11,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -4431,42 +4431,12 @@ const PROMO = [
             "missing_hours": null
           }
         ],
-        "buckets_24h": 24,
+        "buckets_24h": 15,
         "low_sample": null,
-        "free_group": "GLM-Discount",
+        "free_group": "DeepSeek-Discount",
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 09:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 10:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 11:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 12:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 13:00",
             "rate": 100.0,
@@ -4486,18 +4456,6 @@ const PROMO = [
             "anomaly": false
           },
           {
-            "d": "11-14 16:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 17:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
             "d": "11-14 18:00",
             "rate": 100.0,
             "ok": true,
@@ -4511,18 +4469,6 @@ const PROMO = [
           },
           {
             "d": "11-14 20:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 21:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
-            "d": "11-14 22:00",
             "rate": 100.0,
             "ok": true,
             "anomaly": false
@@ -4552,12 +4498,6 @@ const PROMO = [
             "anomaly": false
           },
           {
-            "d": "11-15 03:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
-          {
             "d": "11-15 04:00",
             "rate": 100.0,
             "ok": true,
@@ -4580,49 +4520,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
-          "g": "GLM-Discount",
+          "g": "DeepSeek-Discount",
           "ratio": 0.15,
           "eff": 0.15,
           "r": 100,
-          "l": 2572,
-          "t": 1816,
-          "tps": 45.36797727643713,
+          "l": 16938,
+          "t": 2148,
+          "tps": 111.2034251714586,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 09:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 10:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 11:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 12:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 13:00",
               "rate": 100.0,
@@ -4642,18 +4558,6 @@ const PROMO = [
               "anomaly": false
             },
             {
-              "d": "11-14 16:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 17:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
               "d": "11-14 18:00",
               "rate": 100.0,
               "ok": true,
@@ -4667,18 +4571,6 @@ const PROMO = [
             },
             {
               "d": "11-14 20:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 21:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
-              "d": "11-14 22:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -4708,12 +4600,6 @@ const PROMO = [
               "anomaly": false
             },
             {
-              "d": "11-15 03:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
-            {
               "d": "11-15 04:00",
               "rate": 100.0,
               "ok": true,
@@ -4736,6 +4622,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -4743,156 +4635,18 @@ const PROMO = [
         "tier": "fill-group",
         "groups": [
           {
-            "g": "GLM",
+            "g": "DeepSeek",
             "ratio": 0.5,
             "eff": 0.5,
             "r": 100,
-            "l": 3835,
-            "t": 5996,
-            "tps": 26.312268316538738,
-            "days": 30,
+            "l": 4163,
+            "t": 0,
+            "tps": 45.88037472976219,
+            "days": 26,
             "anomaly": 0,
             "bars_24h": [
               {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 09:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 10:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 11:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 12:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 13:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 14:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 15:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 16:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
                 "d": "11-14 17:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 18:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 19:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 20:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 21:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 22:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 01:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 02:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 03:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 04:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 05:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 06:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 07:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -4901,30 +4655,30 @@ const PROMO = [
             "bars": [
               {
                 "d": "2026-10-17",
-                "rate": 80.3,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 13,
+                "buckets": 3,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-18",
-                "rate": 39.8,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 5,
+                "buckets": 3,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-19",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 3,
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -4934,15 +4688,25 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 7,
+                "buckets": 5,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-21",
-                "rate": 66.7,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 2,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-22",
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
                 "buckets": 3,
                 "checks": null,
@@ -4950,89 +4714,29 @@ const PROMO = [
                 "missing_hours": null
               },
               {
-                "d": "2026-10-22",
-                "rate": 65.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 6,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
                 "d": "2026-10-23",
-                "rate": 90.9,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 11,
+                "buckets": 5,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-24",
-                "rate": 99.3,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 16,
+                "buckets": 12,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-25",
-                "rate": 97.4,
-                "ok": false,
-                "sparse": false,
-                "buckets": 13,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-26",
-                "rate": 98.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 14,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-27",
-                "rate": 99.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 13,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-28",
-                "rate": 91.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 10,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-29",
-                "rate": 82.9,
-                "ok": false,
-                "sparse": false,
-                "buckets": 9,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-30",
-                "rate": 96.0,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
                 "buckets": 6,
                 "checks": null,
@@ -5040,8 +4744,18 @@ const PROMO = [
                 "missing_hours": null
               },
               {
-                "d": "2026-10-31",
-                "rate": 66.7,
+                "d": "2026-10-26",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 4,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-27",
+                "rate": 95.0,
                 "ok": false,
                 "sparse": false,
                 "buckets": 4,
@@ -5050,28 +4764,8 @@ const PROMO = [
                 "missing_hours": null
               },
               {
-                "d": "2026-11-01",
-                "rate": 66.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 3,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-02",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 21,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-03",
-                "rate": 50.0,
+                "d": "2026-10-28",
+                "rate": 55.6,
                 "ok": false,
                 "sparse": true,
                 "buckets": 2,
@@ -5080,447 +4774,48 @@ const PROMO = [
                 "missing_hours": null
               },
               {
-                "d": "2026-11-04",
-                "rate": 66.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 3,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-05",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 22,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-06",
-                "rate": 97.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-07",
-                "rate": 99.3,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-08",
-                "rate": 96.5,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-09",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-10",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-11",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-12",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-13",
-                "rate": 86.1,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-14",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-15",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 8,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              }
-            ]
-          },
-          {
-            "g": "GLM-Discount",
-            "ratio": 0.15,
-            "eff": 0.15,
-            "r": 100,
-            "l": 2572,
-            "t": 1816,
-            "tps": 45.36797727643713,
-            "days": 15,
-            "anomaly": 0,
-            "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 09:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 10:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 11:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 12:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 13:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 14:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 15:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 16:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 17:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 18:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 19:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 20:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 21:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 22:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 01:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 02:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 03:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 04:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 05:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 06:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 07:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              }
-            ],
-            "bars": [
-              {
-                "d": "2026-10-17",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-18",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-20",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-21",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-22",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-23",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-24",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-25",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-26",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-27",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-28",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
                 "d": "2026-10-29",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-30",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 97.6,
+                "ok": false,
+                "sparse": false,
+                "buckets": 7,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-10-31",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 93.4,
+                "ok": false,
+                "sparse": false,
+                "buckets": 13,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-01",
-                "rate": 100.0,
-                "ok": true,
+                "rate": 99.5,
+                "ok": false,
                 "sparse": false,
-                "buckets": 4,
+                "buckets": 7,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-02",
-                "rate": 93.5,
+                "rate": 66.7,
                 "ok": false,
                 "sparse": false,
                 "buckets": 6,
@@ -5530,7 +4825,7 @@ const PROMO = [
               },
               {
                 "d": "2026-11-03",
-                "rate": 79.4,
+                "rate": 92.9,
                 "ok": false,
                 "sparse": false,
                 "buckets": 7,
@@ -5540,8 +4835,8 @@ const PROMO = [
               },
               {
                 "d": "2026-11-04",
-                "rate": 96.4,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
                 "buckets": 4,
                 "checks": null,
@@ -5550,20 +4845,20 @@ const PROMO = [
               },
               {
                 "d": "2026-11-05",
-                "rate": 99.2,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 22,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-06",
-                "rate": 95.1,
+                "rate": 86.6,
                 "ok": false,
                 "sparse": false,
-                "buckets": 24,
+                "buckets": 7,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -5572,68 +4867,68 @@ const PROMO = [
                 "d": "2026-11-07",
                 "rate": 100.0,
                 "ok": true,
-                "sparse": false,
-                "buckets": 24,
+                "sparse": true,
+                "buckets": 2,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-08",
-                "rate": 100.0,
-                "ok": true,
+                "rate": 81.8,
+                "ok": false,
                 "sparse": false,
-                "buckets": 24,
+                "buckets": 3,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-09",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-10",
-                "rate": 99.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-11",
-                "rate": 98.7,
-                "ok": false,
-                "sparse": false,
-                "buckets": 24,
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-12",
-                "rate": 98.4,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 24,
+                "buckets": 3,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-13",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 24,
+                "rate": 0.0,
+                "ok": false,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -5642,18 +4937,18 @@ const PROMO = [
                 "d": "2026-11-14",
                 "rate": 100.0,
                 "ok": true,
-                "sparse": false,
-                "buckets": 24,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-15",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 8,
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -5664,13 +4959,104 @@ const PROMO = [
             "g": "DeepSeek-Discount",
             "ratio": 0.15,
             "eff": 0.15,
-            "r": 99.34,
-            "l": 20442,
-            "t": 13427,
-            "tps": 71.71884618191139,
-            "days": 2,
+            "r": 100,
+            "l": 16938,
+            "t": 2148,
+            "tps": 111.2034251714586,
+            "days": 14,
             "anomaly": 0,
-            "bars_24h": [],
+            "bars_24h": [
+              {
+                "d": "11-14 13:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 14:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 15:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 18:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 19:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 20:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 23:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 01:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 02:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 04:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 05:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 06:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              }
+            ],
             "bars": [
               {
                 "d": "2026-10-17",
@@ -5834,20 +5220,20 @@ const PROMO = [
               },
               {
                 "d": "2026-11-02",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 1,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-03",
-                "rate": 77.8,
-                "ok": false,
-                "sparse": false,
-                "buckets": 3,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": true,
+                "buckets": 2,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -5864,132 +5250,48 @@ const PROMO = [
               },
               {
                 "d": "2026-11-05",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 88.9,
+                "ok": false,
+                "sparse": false,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-06",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 76.4,
+                "ok": false,
+                "sparse": false,
+                "buckets": 7,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-07",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 92.0,
+                "ok": false,
+                "sparse": false,
+                "buckets": 5,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-08",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 3,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-09",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-10",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-11",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-12",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-14",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-15",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              }
-            ]
-          },
-          {
-            "g": "Free-Pro",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 92.99,
-            "l": 34662,
-            "t": 22649,
-            "tps": 66.41865418703327,
-            "days": 1,
-            "anomaly": 0,
-            "bars_24h": [],
-            "bars": [
-              {
-                "d": "2026-10-17",
-                "rate": 98.6,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
                 "buckets": 12,
                 "checks": null,
@@ -5997,605 +5299,61 @@ const PROMO = [
                 "missing_hours": null
               },
               {
-                "d": "2026-10-18",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-20",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-21",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-22",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-23",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-24",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-25",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-26",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-27",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-28",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-29",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-30",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-31",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-01",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-02",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-03",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-04",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-05",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-06",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-07",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-08",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-09",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
                 "d": "2026-11-10",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-11",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-12",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-14",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-15",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              }
-            ]
-          },
-          {
-            "g": "Free",
-            "ratio": 0,
-            "eff": 0.0,
-            "r": 92.97,
-            "l": 30203,
-            "t": 14050,
-            "tps": 61.88277962573324,
-            "days": 1,
-            "anomaly": 0,
-            "bars_24h": [],
-            "bars": [
-              {
-                "d": "2026-10-17",
-                "rate": 93.3,
-                "ok": false,
+                "rate": 100.0,
+                "ok": true,
                 "sparse": false,
-                "buckets": 12,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-18",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-20",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-21",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-22",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-23",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-24",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-25",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-26",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-27",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-28",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-29",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-30",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-31",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-01",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-02",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-03",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-04",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-05",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-06",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-07",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-08",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-09",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-10",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "buckets": 4,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-11",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 5,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-12",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 6,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 6,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-14",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 10,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
               },
               {
                 "d": "2026-11-15",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 8,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -6862,7 +5620,7 @@ const PROMO = [
     "pick_total": 0,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:10+08:00",
+        "checked_at": "2026-11-15T08:37:11+08:00",
         "reachable": true
       },
       "score": 100.0,
@@ -7167,7 +5925,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -7210,19 +5968,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 100.0（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 35.0/35（3 个监控模型成功率中位数 100.00%）+ 延迟 15/15（488ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 100.0（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 35.0/35（3 个监控模型成功率中位数 100.00%）+ 延迟 15/15（491ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 2674,
+        "ms": 2217,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 684,
+        "ms": 491,
         "note": ""
       }
     },
@@ -7231,9 +5989,9 @@ const PROMO = [
         "n": "deepseek-v4.1-flash-1017-req",
         "in_site": "deepseek-v4.1-flash-1017-req",
         "r": 100,
-        "l": 1278,
-        "t": 0,
-        "tps": 12.519561815336463,
+        "l": 6436,
+        "t": 2926,
+        "tps": 89.24690678334443,
         "anomaly": 0,
         "bars": [
           {
@@ -7531,13 +6289,13 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": true,
-            "buckets": 1,
+            "buckets": 2,
             "checks": null,
             "failures": null,
             "missing_hours": null
           }
         ],
-        "buckets_24h": 1,
+        "buckets_24h": 2,
         "low_sample": null,
         "free_group": "DeepSeek",
         "delisted": false,
@@ -7548,6 +6306,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -7555,14 +6319,20 @@ const PROMO = [
           "ratio": 0.05,
           "eff": 0.05,
           "r": 100,
-          "l": 1278,
-          "t": 0,
-          "tps": 12.519561815336463,
+          "l": 6436,
+          "t": 2926,
+          "tps": 89.24690678334443,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
             {
               "d": "11-15 03:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -7577,14 +6347,20 @@ const PROMO = [
             "ratio": 0.05,
             "eff": 0.05,
             "r": 100,
-            "l": 1278,
-            "t": 0,
-            "tps": 12.519561815336463,
+            "l": 6436,
+            "t": 2926,
+            "tps": 89.24690678334443,
             "days": 1,
             "anomaly": 0,
             "bars_24h": [
               {
                 "d": "11-15 03:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -7886,7 +6662,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": true,
-                "buckets": 1,
+                "buckets": 2,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -8567,9 +7343,9 @@ const PROMO = [
         "n": "deepseek-v4.1-flash-1017",
         "in_site": "deepseek-v4.1-flash-1017",
         "r": 100.0,
-        "l": 18829,
-        "t": 5150,
-        "tps": 88.42522540867594,
+        "l": 18831,
+        "t": 5153,
+        "tps": 88.33266419161443,
         "anomaly": 0,
         "bars": [
           {
@@ -8867,7 +7643,7 @@ const PROMO = [
             "rate": 99.9,
             "ok": true,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -8879,12 +7655,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 100.0,
@@ -9022,6 +7792,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -9029,18 +7805,12 @@ const PROMO = [
           "ratio": 0.05,
           "eff": 0.05,
           "r": 99.98,
-          "l": 18829,
-          "t": 5150,
-          "tps": 88.42522540867594,
+          "l": 18831,
+          "t": 5153,
+          "tps": 88.33266419161443,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 100.0,
@@ -9178,6 +7948,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -9189,9 +7965,9 @@ const PROMO = [
             "ratio": 0.15,
             "eff": 0.15,
             "r": 100,
-            "l": 24489,
-            "t": 7401,
-            "tps": 113.57210585394806,
+            "l": 24282,
+            "t": 7356,
+            "tps": 113.59869853815373,
             "days": 30,
             "anomaly": 0,
             "bars_24h": [
@@ -9281,6 +8057,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 06:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -9582,7 +8364,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 6,
+                "buckets": 7,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -9594,18 +8376,12 @@ const PROMO = [
             "ratio": 0.05,
             "eff": 0.05,
             "r": 99.98,
-            "l": 18829,
-            "t": 5150,
-            "tps": 88.42522540867594,
+            "l": 18831,
+            "t": 5153,
+            "tps": 88.33266419161443,
             "days": 24,
             "anomaly": 0,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -9740,6 +8516,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -10041,7 +8823,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -10052,19 +8834,13 @@ const PROMO = [
             "g": "Free",
             "ratio": null,
             "eff": null,
-            "r": 99.63,
-            "l": 11142,
-            "t": 2827,
-            "tps": 127.26699675036335,
+            "r": 99.6,
+            "l": 11552,
+            "t": 2952,
+            "tps": 126.53969825853889,
             "days": 8,
             "anomaly": 0,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 99.7,
@@ -10199,6 +8975,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -10500,7 +9282,7 @@ const PROMO = [
                 "rate": 99.9,
                 "ok": true,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -10512,18 +9294,12 @@ const PROMO = [
             "ratio": 0.05,
             "eff": 0.05,
             "r": 99.57,
-            "l": 10007,
-            "t": 3117,
-            "tps": 126.68867507313072,
+            "l": 9793,
+            "t": 3063,
+            "tps": 127.04247643614156,
             "days": 11,
             "anomaly": 0,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 99.7,
@@ -10658,6 +9434,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -10959,7 +9741,7 @@ const PROMO = [
                 "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -11279,11 +10061,11 @@ const PROMO = [
     "pick_total": 2,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:09+08:00",
+        "checked_at": "2026-11-15T08:37:11+08:00",
         "reachable": true
       },
-      "score": 94.7,
-      "level": "优",
+      "score": 77.7,
+      "level": "良",
       "rate_window": 99.4,
       "streak_days": 5,
       "days_with_data": 30,
@@ -11584,7 +10366,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -11647,19 +10429,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 94.7（优）｜连通性 35/35（最近 5 次采样多数值：直连 3/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.7/35（3 个监控模型成功率中位数 99.28%）+ 延迟 10/15（566ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 77.7（良）｜连通性 18/35（最近 5 次采样多数值：直连 2/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.7/35（3 个监控模型成功率中位数 99.28%）+ 延迟 10/15（566ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
-        "ok": true,
-        "code": 200,
-        "ms": 1570,
-        "note": ""
+        "ok": false,
+        "code": 0,
+        "ms": 2228,
+        "note": "curl: (35) Recv failure: Connection was reset"
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 575,
+        "ms": 489,
         "note": ""
       }
     },
@@ -11668,9 +10450,9 @@ const PROMO = [
         "n": "z-ai/glm-5.3-flash",
         "in_site": "z-ai/glm-5.3-flash",
         "r": 99.9,
-        "l": 72352,
-        "t": 25626,
-        "tps": 33.55515866996111,
+        "l": 71041,
+        "t": 25265,
+        "tps": 33.25496965837675,
         "anomaly": 0,
         "bars": [
           {
@@ -11898,7 +10680,7 @@ const PROMO = [
             "rate": 99.9,
             "ok": true,
             "sparse": false,
-            "buckets": 17,
+            "buckets": 16,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -11968,7 +10750,7 @@ const PROMO = [
             "rate": 99.9,
             "ok": true,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -11980,12 +10762,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 99.3,
-            "ok": false,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 99.7,
@@ -12123,25 +10899,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "NIM",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.92,
-          "l": 72352,
-          "t": 25626,
-          "tps": 33.55515866996111,
+          "r": 99.94,
+          "l": 71041,
+          "t": 25265,
+          "tps": 33.25496965837675,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 99.3,
-              "ok": false,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 99.7,
@@ -12279,6 +11055,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -12289,19 +11071,13 @@ const PROMO = [
             "g": "NIM",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.92,
-            "l": 72350,
-            "t": 25626,
-            "tps": 33.55527886564486,
+            "r": 99.94,
+            "l": 71037,
+            "t": 25263,
+            "tps": 33.25507775845699,
             "days": 8,
             "anomaly": 0,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 99.3,
-                "ok": false,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 99.7,
@@ -12436,6 +11212,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -12667,7 +11449,7 @@ const PROMO = [
                 "rate": 99.9,
                 "ok": true,
                 "sparse": false,
-                "buckets": 193,
+                "buckets": 181,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -12737,7 +11519,7 @@ const PROMO = [
                 "rate": 99.9,
                 "ok": true,
                 "sparse": false,
-                "buckets": 92,
+                "buckets": 104,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -12749,10 +11531,10 @@ const PROMO = [
       {
         "n": "deepseek-ai/deepseek-v4.1-flash",
         "in_site": "deepseek-ai/deepseek-v4.1-flash",
-        "r": 99.0,
-        "l": 173498,
-        "t": 64611,
-        "tps": 13.391442079485142,
+        "r": 99.2,
+        "l": 155648,
+        "t": 58011,
+        "tps": 13.339521110800177,
         "anomaly": 0,
         "bars": [
           {
@@ -12977,10 +11759,10 @@ const PROMO = [
           },
           {
             "d": "2026-11-08",
-            "rate": 97.1,
+            "rate": 97.0,
             "ok": false,
             "sparse": false,
-            "buckets": 17,
+            "buckets": 16,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -13047,10 +11829,10 @@ const PROMO = [
           },
           {
             "d": "2026-11-15",
-            "rate": 99.0,
+            "rate": 99.2,
             "ok": false,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -13062,12 +11844,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 99.6,
-            "ok": false,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 99.0,
@@ -13202,8 +11978,14 @@ const PROMO = [
           },
           {
             "d": "11-15 07:00",
-            "rate": 98.4,
+            "rate": 98.8,
             "ok": false,
+            "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 99.9,
+            "ok": true,
             "anomaly": false
           }
         ],
@@ -13211,19 +11993,13 @@ const PROMO = [
           "g": "NIM",
           "ratio": 0,
           "eff": 0.0,
-          "r": 99.04,
-          "l": 173498,
-          "t": 64611,
-          "tps": 13.391442079485142,
+          "r": 99.22,
+          "l": 155648,
+          "t": 58011,
+          "tps": 13.339521110800177,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 99.6,
-              "ok": false,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 99.0,
@@ -13358,8 +12134,14 @@ const PROMO = [
             },
             {
               "d": "11-15 07:00",
-              "rate": 98.4,
+              "rate": 98.8,
               "ok": false,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 99.9,
+              "ok": true,
               "anomaly": false
             }
           ],
@@ -13371,19 +12153,13 @@ const PROMO = [
             "g": "NIM",
             "ratio": 0,
             "eff": 0.0,
-            "r": 99.04,
-            "l": 173489,
-            "t": 64609,
-            "tps": 13.391343570328994,
+            "r": 99.22,
+            "l": 155598,
+            "t": 57997,
+            "tps": 13.340143021111698,
             "days": 8,
             "anomaly": 0,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 99.6,
-                "ok": false,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 99.0,
@@ -13518,8 +12294,14 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 98.4,
+                "rate": 98.8,
                 "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 99.9,
+                "ok": true,
                 "anomaly": false
               }
             ],
@@ -13746,10 +12528,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-08",
-                "rate": 97.2,
+                "rate": 97.0,
                 "ok": false,
                 "sparse": false,
-                "buckets": 192,
+                "buckets": 180,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -13816,10 +12598,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 99.0,
+                "rate": 99.1,
                 "ok": false,
                 "sparse": false,
-                "buckets": 92,
+                "buckets": 104,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -13832,9 +12614,9 @@ const PROMO = [
         "n": "selfdeploy/deepseek-v4-flash",
         "in_site": "selfdeploy/deepseek-v4-flash",
         "r": 99.3,
-        "l": 67430,
-        "t": 19337,
-        "tps": 17.071380669841606,
+        "l": 68768,
+        "t": 20365,
+        "tps": 16.83237054649267,
         "anomaly": 1,
         "bars": [
           {
@@ -14062,7 +12844,7 @@ const PROMO = [
             "rate": 99.5,
             "ok": false,
             "sparse": false,
-            "buckets": 17,
+            "buckets": 16,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -14129,10 +12911,10 @@ const PROMO = [
           },
           {
             "d": "2026-11-15",
-            "rate": 98.5,
+            "rate": 98.6,
             "ok": false,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
@@ -14144,12 +12926,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 100.0,
@@ -14284,7 +13060,13 @@ const PROMO = [
           },
           {
             "d": "11-15 07:00",
-            "rate": 99.9,
+            "rate": 99.7,
+            "ok": false,
+            "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
             "ok": true,
             "anomaly": false
           }
@@ -14294,18 +13076,12 @@ const PROMO = [
           "ratio": 0,
           "eff": 0.0,
           "r": 99.28,
-          "l": 67430,
-          "t": 19337,
-          "tps": 17.071380669841606,
+          "l": 68768,
+          "t": 20365,
+          "tps": 16.83237054649267,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 100.0,
@@ -14440,7 +13216,13 @@ const PROMO = [
             },
             {
               "d": "11-15 07:00",
-              "rate": 99.9,
+              "rate": 99.7,
+              "ok": false,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
               "ok": true,
               "anomaly": false
             }
@@ -14454,18 +13236,12 @@ const PROMO = [
             "ratio": 0,
             "eff": 0.0,
             "r": 99.28,
-            "l": 67430,
-            "t": 19337,
-            "tps": 17.071380669841606,
+            "l": 68760,
+            "t": 20361,
+            "tps": 16.833263872323265,
             "days": 8,
             "anomaly": 1,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -14600,7 +13376,13 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 99.9,
+                "rate": 99.7,
+                "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
                 "ok": true,
                 "anomaly": false
               }
@@ -14831,7 +13613,7 @@ const PROMO = [
                 "rate": 99.5,
                 "ok": false,
                 "sparse": false,
-                "buckets": 192,
+                "buckets": 180,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -14898,10 +13680,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.4,
+                "rate": 98.6,
                 "ok": false,
                 "sparse": false,
-                "buckets": 92,
+                "buckets": 104,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -15358,7 +14140,7 @@ const PROMO = [
     "pick_total": 6,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:09+08:00",
+        "checked_at": "2026-11-15T08:37:10+08:00",
         "reachable": true
       },
       "score": 94.2,
@@ -15663,7 +14445,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -15710,19 +14492,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 94.2（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.2/35（3 个监控模型成功率中位数 97.78%）+ 延迟 10/15（885ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 94.2（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.2/35（3 个监控模型成功率中位数 97.78%）+ 延迟 10/15（821ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 1277,
+        "ms": 626,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 885,
+        "ms": 807,
         "note": ""
       }
     },
@@ -18054,10 +16836,10 @@ const PROMO = [
       {
         "n": "[24k]gpt-image-2.6-sunburst",
         "in_site": "[24k]gpt-image-2.6-sunburst",
-        "r": 95.1,
-        "l": 27281,
+        "r": 94.5,
+        "l": 27423,
         "t": 0,
-        "tps": 90.4553775495835,
+        "tps": 89.7561596161797,
         "anomaly": 4,
         "bars": [
           {
@@ -18361,18 +17143,12 @@ const PROMO = [
             "missing_hours": null
           }
         ],
-        "buckets_24h": 13,
+        "buckets_24h": 12,
         "low_sample": null,
         "free_group": "生图",
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 100.0,
@@ -18450,19 +17226,13 @@ const PROMO = [
           "g": "生图",
           "ratio": 1,
           "eff": 1.0,
-          "r": 95.07,
-          "l": 27281,
+          "r": 94.49,
+          "l": 27423,
           "t": 0,
-          "tps": 90.4553775495835,
+          "tps": 89.7561596161797,
           "days": null,
           "anomaly": 4,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 100.0,
@@ -18858,19 +17628,13 @@ const PROMO = [
             "g": "生图",
             "ratio": 1,
             "eff": 1.0,
-            "r": 95.07,
-            "l": 27281,
+            "r": 94.49,
+            "l": 27423,
             "t": 0,
-            "tps": 90.4553775495835,
+            "tps": 89.7561596161797,
             "days": 10,
             "anomaly": 4,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -19521,7 +18285,7 @@ const PROMO = [
     "pick_total": 2,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:09+08:00",
+        "checked_at": "2026-11-15T08:37:12+08:00",
         "reachable": true
       },
       "score": 100.0,
@@ -19826,7 +18590,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -19861,19 +18625,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 100.0（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 35.0/35（3 个监控模型成功率中位数 100.00%）+ 延迟 15/15（454ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 100.0（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 35.0/35（3 个监控模型成功率中位数 100.00%）+ 延迟 15/15（459ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 2104,
+        "ms": 2943,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 454,
+        "ms": 516,
         "note": ""
       }
     },
@@ -20742,9 +19506,9 @@ const PROMO = [
         "n": "deepseek-v4-1-flash-261017",
         "in_site": "deepseek-v4-1-flash-261017",
         "r": 100,
-        "l": 9708,
-        "t": 5674,
-        "tps": 164.14617215390717,
+        "l": 7496,
+        "t": 3988,
+        "tps": 172.34092509978868,
         "anomaly": 0,
         "bars": [
           {
@@ -21042,13 +19806,13 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": true,
-            "buckets": 1,
+            "buckets": 2,
             "checks": null,
             "failures": null,
             "missing_hours": null
           }
         ],
-        "buckets_24h": 4,
+        "buckets_24h": 5,
         "low_sample": null,
         "free_group": "default",
         "delisted": false,
@@ -21077,6 +19841,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 07:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -21084,9 +19854,9 @@ const PROMO = [
           "ratio": 1,
           "eff": null,
           "r": 100,
-          "l": 9708,
-          "t": 5674,
-          "tps": 164.14617215390717,
+          "l": 7496,
+          "t": 3988,
+          "tps": 172.34092509978868,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
@@ -21110,6 +19880,12 @@ const PROMO = [
             },
             {
               "d": "11-15 00:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 07:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -21219,10 +19995,10 @@ const PROMO = [
     "pick_total": 3,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:15+08:00",
+        "checked_at": "2026-11-15T08:37:20+08:00",
         "reachable": true
       },
-      "score": 84.3,
+      "score": 84.4,
       "level": "良",
       "rate_window": 100.0,
       "streak_days": 17,
@@ -21524,7 +20300,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -21567,19 +20343,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 84.3（良）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 24.3/35（3 个监控模型成功率中位数 69.56%）+ 延迟 10/15（634ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 84.4（良）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 24.4/35（3 个监控模型成功率中位数 69.66%）+ 延迟 10/15（741ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 225,
+        "ms": 2399,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 596,
+        "ms": 741,
         "note": ""
       }
     },
@@ -21588,9 +20364,9 @@ const PROMO = [
         "n": "glm-5.3-flash",
         "in_site": "glm-5.3-flash",
         "r": 97.9,
-        "l": 66914,
-        "t": 28334,
-        "tps": 30.973763030607707,
+        "l": 66807,
+        "t": 28283,
+        "tps": 31.13457452759714,
         "anomaly": 4,
         "bars": [],
         "buckets_24h": 24,
@@ -21599,12 +20375,6 @@ const PROMO = [
         "delisted": false,
         "why": "",
         "bars_24h": [
-          {
-            "d": "11-14 08:00",
-            "rate": 100.0,
-            "ok": true,
-            "anomaly": false
-          },
           {
             "d": "11-14 09:00",
             "rate": 100.0,
@@ -21742,25 +20512,25 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "特惠",
           "ratio": 0.3,
           "eff": null,
-          "r": 97.86,
-          "l": 66914,
-          "t": 28334,
-          "tps": 30.973763030607707,
+          "r": 97.89,
+          "l": 66807,
+          "t": 28283,
+          "tps": 31.13457452759714,
           "days": null,
           "anomaly": 4,
           "bars_24h": [
-            {
-              "d": "11-14 08:00",
-              "rate": 100.0,
-              "ok": true,
-              "anomaly": false
-            },
             {
               "d": "11-14 09:00",
               "rate": 100.0,
@@ -21895,6 +20665,12 @@ const PROMO = [
             },
             {
               "d": "11-15 07:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -22235,19 +21011,13 @@ const PROMO = [
             "g": "特惠",
             "ratio": 0.3,
             "eff": null,
-            "r": 97.86,
-            "l": 66914,
-            "t": 28334,
-            "tps": 30.973763030607707,
+            "r": 97.89,
+            "l": 66807,
+            "t": 28283,
+            "tps": 31.13457452759714,
             "days": 30,
             "anomaly": 4,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 100.0,
@@ -22382,6 +21152,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -22680,10 +21456,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 99.0,
+                "rate": 99.1,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -23323,13 +22099,13 @@ const PROMO = [
       {
         "n": "deepseek-v4.1-flash",
         "in_site": "deepseek-v4.1-flash",
-        "r": 69.6,
-        "l": 178567,
-        "t": 75482,
-        "tps": 8.508851672329532,
+        "r": 69.7,
+        "l": 178123,
+        "t": 75387,
+        "tps": 8.500820601247943,
         "anomaly": 14,
         "bars": [],
-        "buckets_24h": 22,
+        "buckets_24h": 23,
         "low_sample": null,
         "free_group": "特惠",
         "delisted": false,
@@ -23466,16 +22242,22 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "特惠",
           "ratio": 0.3,
           "eff": null,
-          "r": 69.56,
-          "l": 178567,
-          "t": 75482,
-          "tps": 8.508851672329532,
+          "r": 69.66,
+          "l": 178123,
+          "t": 75387,
+          "tps": 8.500820601247943,
           "days": null,
           "anomaly": 14,
           "bars_24h": [
@@ -23610,6 +22392,12 @@ const PROMO = [
               "rate": 100.0,
               "ok": true,
               "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
             }
           ],
           "bars": []
@@ -23623,7 +22411,7 @@ const PROMO = [
             "r": 99.93,
             "l": 5420,
             "t": 3164,
-            "tps": 180.23075787857155,
+            "tps": 179.96602875454772,
             "days": 12,
             "anomaly": 0,
             "bars_24h": [
@@ -23695,6 +22483,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -23996,7 +22790,7 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -24007,10 +22801,10 @@ const PROMO = [
             "g": "特惠",
             "ratio": 0.3,
             "eff": null,
-            "r": 69.56,
-            "l": 178567,
-            "t": 75482,
-            "tps": 8.508851672329532,
+            "r": 69.66,
+            "l": 178123,
+            "t": 75387,
+            "tps": 8.500820601247943,
             "days": 30,
             "anomaly": 14,
             "bars_24h": [
@@ -24142,6 +22936,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -24440,10 +23240,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 99.7,
+                "rate": 99.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 7,
+                "buckets": 8,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -24830,18 +23630,12 @@ const PROMO = [
             "ratio": 0.45,
             "eff": null,
             "r": 0,
-            "l": 1960,
+            "l": 2022,
             "t": 0,
             "tps": 0,
             "days": 20,
-            "anomaly": 18,
+            "anomaly": 17,
             "bars_24h": [
-              {
-                "d": "11-14 08:00",
-                "rate": 0.0,
-                "ok": false,
-                "anomaly": true
-              },
               {
                 "d": "11-14 09:00",
                 "rate": 0.0,
@@ -25884,7 +24678,7 @@ const PROMO = [
     "pick_total": 3,
     "health": {
       "current": {
-        "checked_at": "2026-11-15T07:37:18+08:00",
+        "checked_at": "2026-11-15T08:37:19+08:00",
         "reachable": true
       },
       "score": 94.7,
@@ -26189,7 +24983,7 @@ const PROMO = [
           "ok": true,
           "sparse": false,
           "buckets": null,
-          "checks": 8,
+          "checks": 9,
           "failures": 0,
           "missing_hours": 0
         }
@@ -26224,19 +25018,19 @@ const PROMO = [
           "count": 1
         }
       ],
-      "note": "得分 94.7（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.7/35（3 个监控模型成功率中位数 99.09%）+ 延迟 10/15（631ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
+      "note": "得分 94.7（优）｜连通性 35/35（最近 5 次采样多数值：直连 5/5、代理 5/5、延迟中位数 5 次） + 免费模型 34.7/35（3 个监控模型成功率中位数 99.11%）+ 延迟 10/15（649ms）+ 观测证据 15/15（≥7 天）｜规则 连通性 35 + 免费模型 35 + 延迟 15 + 观测证据 15 = 100｜等级 优 ≥90 / 良 ≥70 / 可用 ≥50 / 异常 ≥30 / 离线 \u003c30"
     },
     "net": {
       "direct": {
         "ok": true,
         "code": 200,
-        "ms": 2410,
+        "ms": 1280,
         "note": ""
       },
       "proxy": {
         "ok": true,
         "code": 200,
-        "ms": 617,
+        "ms": 664,
         "note": ""
       }
     },
@@ -26245,9 +25039,9 @@ const PROMO = [
         "n": "claude-opus-5-5",
         "in_site": "claude-opus-5-5",
         "r": 100.0,
-        "l": 9413,
-        "t": 8455,
-        "tps": 511.1214398689552,
+        "l": 9248,
+        "t": 8310,
+        "tps": 510.94608626611506,
         "anomaly": 0,
         "bars": [
           {
@@ -26545,13 +25339,13 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
           }
         ],
-        "buckets_24h": 11,
+        "buckets_24h": 12,
         "low_sample": null,
         "free_group": "claude-kiro【特惠】",
         "delisted": false,
@@ -26622,6 +25416,12 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
@@ -26629,9 +25429,9 @@ const PROMO = [
           "ratio": 0.08,
           "eff": 0.08,
           "r": 99.95,
-          "l": 9413,
-          "t": 8455,
-          "tps": 511.1214398689552,
+          "l": 9248,
+          "t": 8310,
+          "tps": 510.94608626611506,
           "days": null,
           "anomaly": 0,
           "bars_24h": [
@@ -26697,6 +25497,12 @@ const PROMO = [
             },
             {
               "d": "11-15 07:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -27068,9 +25874,9 @@ const PROMO = [
             "ratio": 1.2,
             "eff": 1.2,
             "r": 100,
-            "l": 12135,
-            "t": 11000,
-            "tps": 60.382436124661055,
+            "l": 12108,
+            "t": 10712,
+            "tps": 60.388022716454365,
             "days": 2,
             "anomaly": 0,
             "bars_24h": [
@@ -27133,384 +25939,9 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
-              }
-            ],
-            "bars": [
-              {
-                "d": "2026-10-17",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
               },
               {
-                "d": "2026-10-18",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-19",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-20",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-21",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-22",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-23",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-24",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-25",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-26",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-27",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-28",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-29",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-30",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-10-31",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-01",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-02",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-03",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-04",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-05",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-06",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-07",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-08",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-09",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-10",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-11",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-12",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-13",
-                "rate": null,
-                "ok": null,
-                "sparse": null,
-                "buckets": 0,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-14",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 3,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              },
-              {
-                "d": "2026-11-15",
-                "rate": 100.0,
-                "ok": true,
-                "sparse": false,
-                "buckets": 7,
-                "checks": null,
-                "failures": null,
-                "missing_hours": null
-              }
-            ]
-          },
-          {
-            "g": "claude-kiro【特惠】",
-            "ratio": 0.08,
-            "eff": 0.08,
-            "r": 99.95,
-            "l": 9413,
-            "t": 8455,
-            "tps": 511.1214398689552,
-            "days": 2,
-            "anomaly": 0,
-            "bars_24h": [
-              {
-                "d": "11-14 21:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 22:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-14 23:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 00:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 01:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 02:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 03:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 04:00",
-                "rate": 99.8,
-                "ok": false,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 05:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 06:00",
-                "rate": 100.0,
-                "ok": true,
-                "anomaly": false
-              },
-              {
-                "d": "11-15 07:00",
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -27818,6 +26249,393 @@ const PROMO = [
                 "missing_hours": null
               }
             ]
+          },
+          {
+            "g": "claude-kiro【特惠】",
+            "ratio": 0.08,
+            "eff": 0.08,
+            "r": 99.95,
+            "l": 9248,
+            "t": 8310,
+            "tps": 510.94608626611506,
+            "days": 2,
+            "anomaly": 0,
+            "bars_24h": [
+              {
+                "d": "11-14 21:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 22:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-14 23:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 00:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 01:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 02:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 03:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 04:00",
+                "rate": 99.8,
+                "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 05:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 06:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 07:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
+              }
+            ],
+            "bars": [
+              {
+                "d": "2026-10-17",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-18",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-19",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-20",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-21",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-22",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-23",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-24",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-25",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-26",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-27",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-28",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-29",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-30",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-10-31",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-01",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-02",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-03",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-04",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-05",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-06",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-07",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-08",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-09",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-10",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-11",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-12",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-13",
+                "rate": null,
+                "ok": null,
+                "sparse": null,
+                "buckets": 0,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-14",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 3,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              },
+              {
+                "d": "2026-11-15",
+                "rate": 100.0,
+                "ok": true,
+                "sparse": false,
+                "buckets": 9,
+                "checks": null,
+                "failures": null,
+                "missing_hours": null
+              }
+            ]
           }
         ]
       },
@@ -27825,9 +26643,9 @@ const PROMO = [
         "n": "gpt-6-astra",
         "in_site": "gpt-6-astra",
         "r": 99.1,
-        "l": 12482,
-        "t": 6093,
-        "tps": 60.52622154456952,
+        "l": 12348,
+        "t": 6067,
+        "tps": 60.66091976919068,
         "anomaly": 1,
         "bars": [
           {
@@ -28122,16 +26940,16 @@ const PROMO = [
           },
           {
             "d": "2026-11-15",
-            "rate": 97.5,
+            "rate": 97.8,
             "ok": false,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
           }
         ],
-        "buckets_24h": 11,
+        "buckets_24h": 12,
         "low_sample": null,
         "free_group": "chatgpt-plus【特惠】",
         "delisted": false,
@@ -28202,16 +27020,22 @@ const PROMO = [
             "rate": 100.0,
             "ok": true,
             "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 100.0,
+            "ok": true,
+            "anomaly": false
           }
         ],
         "pick": {
           "g": "chatgpt-plus【特惠】",
           "ratio": 0.03,
           "eff": 0.03,
-          "r": 99.09,
-          "l": 12482,
-          "t": 6093,
-          "tps": 60.52622154456952,
+          "r": 99.11,
+          "l": 12348,
+          "t": 6067,
+          "tps": 60.66091976919068,
           "days": null,
           "anomaly": 1,
           "bars_24h": [
@@ -28277,6 +27101,12 @@ const PROMO = [
             },
             {
               "d": "11-15 07:00",
+              "rate": 100.0,
+              "ok": true,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
               "rate": 100.0,
               "ok": true,
               "anomaly": false
@@ -28635,10 +27465,10 @@ const PROMO = [
             "g": "chatgpt-plus【稳定】",
             "ratio": 0.08,
             "eff": 0.08,
-            "r": 99.44,
-            "l": 16513,
-            "t": 6272,
-            "tps": 56.981127194867106,
+            "r": 99.43,
+            "l": 16639,
+            "t": 6370,
+            "tps": 56.896539199941,
             "days": 2,
             "anomaly": 0,
             "bars_24h": [
@@ -28704,8 +27534,14 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 97.7,
+                "rate": 97.9,
                 "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
                 "anomaly": false
               }
             ],
@@ -29002,10 +27838,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 99.0,
+                "rate": 99.1,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -29016,10 +27852,10 @@ const PROMO = [
             "g": "chatgpt-plus【特惠】",
             "ratio": 0.03,
             "eff": 0.03,
-            "r": 99.09,
-            "l": 12482,
-            "t": 6093,
-            "tps": 60.52622154456952,
+            "r": 99.11,
+            "l": 12348,
+            "t": 6067,
+            "tps": 60.66091976919068,
             "days": 2,
             "anomaly": 1,
             "bars_24h": [
@@ -29088,6 +27924,12 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
@@ -29383,10 +28225,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.0,
+                "rate": 98.2,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -29397,10 +28239,10 @@ const PROMO = [
             "g": "chatgpt-官key【特惠】",
             "ratio": 0.3,
             "eff": 0.3,
-            "r": 98.04,
-            "l": 25759,
-            "t": 3437,
-            "tps": 35.011164009224984,
+            "r": 98.29,
+            "l": 26057,
+            "t": 3244,
+            "tps": 32.811230021028464,
             "days": 2,
             "anomaly": 2,
             "bars_24h": [
@@ -29460,9 +28302,15 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 83.3,
+                "rate": 90.9,
                 "ok": false,
                 "anomaly": true
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
@@ -29758,10 +28606,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 97.1,
+                "rate": 98.2,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -29772,10 +28620,10 @@ const PROMO = [
             "g": "chatgpt-pro【稳定】",
             "ratio": 0.13,
             "eff": 0.13,
-            "r": 97.37,
-            "l": 34459,
-            "t": 6924,
-            "tps": 35.79896396090315,
+            "r": 97.46,
+            "l": 34708,
+            "t": 6749,
+            "tps": 35.693016781378084,
             "days": 2,
             "anomaly": 2,
             "bars_24h": [
@@ -29841,9 +28689,15 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 92.8,
+                "rate": 94.3,
                 "ok": false,
                 "anomaly": true
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 99.7,
+                "ok": false,
+                "anomaly": false
               }
             ],
             "bars": [
@@ -30139,10 +28993,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 94.0,
+                "rate": 94.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -30153,10 +29007,10 @@ const PROMO = [
             "g": "chatgpt-pro【企业】",
             "ratio": 0.2,
             "eff": 0.2,
-            "r": 90.26,
-            "l": 32776,
-            "t": 5902,
-            "tps": 29.391674014900804,
+            "r": 90.23,
+            "l": 32687,
+            "t": 5908,
+            "tps": 29.693018489295312,
             "days": 2,
             "anomaly": 8,
             "bars_24h": [
@@ -30222,9 +29076,15 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 62.5,
+                "rate": 66.7,
                 "ok": false,
                 "anomaly": true
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
@@ -30520,10 +29380,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 78.6,
+                "rate": 81.5,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -30535,10 +29395,10 @@ const PROMO = [
       {
         "n": "gpt-6.1-sol",
         "in_site": "gpt-6.1-sol",
-        "r": 97.4,
-        "l": 23245,
-        "t": 10122,
-        "tps": 66.65784877826248,
+        "r": 97.5,
+        "l": 22938,
+        "t": 10075,
+        "tps": 66.72688648575468,
         "anomaly": 3,
         "bars": [
           {
@@ -30833,16 +29693,16 @@ const PROMO = [
           },
           {
             "d": "2026-11-15",
-            "rate": 97.3,
+            "rate": 97.0,
             "ok": false,
             "sparse": false,
-            "buckets": 8,
+            "buckets": 9,
             "checks": null,
             "failures": null,
             "missing_hours": null
           }
         ],
-        "buckets_24h": 11,
+        "buckets_24h": 12,
         "low_sample": null,
         "free_group": "chatgpt-plus【特惠】",
         "delisted": false,
@@ -30910,7 +29770,13 @@ const PROMO = [
           },
           {
             "d": "11-15 07:00",
-            "rate": 99.7,
+            "rate": 99.6,
+            "ok": false,
+            "anomaly": false
+          },
+          {
+            "d": "11-15 08:00",
+            "rate": 99.8,
             "ok": false,
             "anomaly": false
           }
@@ -30919,10 +29785,10 @@ const PROMO = [
           "g": "chatgpt-plus【特惠】",
           "ratio": 0.03,
           "eff": 0.03,
-          "r": 97.37,
-          "l": 23245,
-          "t": 10122,
-          "tps": 66.65784877826248,
+          "r": 97.46,
+          "l": 22938,
+          "t": 10075,
+          "tps": 66.72688648575468,
           "days": null,
           "anomaly": 3,
           "bars_24h": [
@@ -30988,7 +29854,13 @@ const PROMO = [
             },
             {
               "d": "11-15 07:00",
-              "rate": 99.7,
+              "rate": 99.6,
+              "ok": false,
+              "anomaly": false
+            },
+            {
+              "d": "11-15 08:00",
+              "rate": 99.8,
               "ok": false,
               "anomaly": false
             }
@@ -31001,10 +29873,10 @@ const PROMO = [
             "g": "chatgpt-plus【稳定】",
             "ratio": 0.08,
             "eff": 0.08,
-            "r": 99.71,
-            "l": 19395,
-            "t": 5510,
-            "tps": 46.32484538478596,
+            "r": 99.72,
+            "l": 18836,
+            "t": 5515,
+            "tps": 47.127258565857524,
             "days": 2,
             "anomaly": 0,
             "bars_24h": [
@@ -31070,7 +29942,13 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 99.9,
+                "rate": 99.7,
+                "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
                 "ok": true,
                 "anomaly": false
               }
@@ -31371,7 +30249,7 @@ const PROMO = [
                 "rate": 99.7,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -31382,10 +30260,10 @@ const PROMO = [
             "g": "chatgpt-pro【企业】",
             "ratio": 0.2,
             "eff": 0.2,
-            "r": 99.37,
-            "l": 30068,
-            "t": 11666,
-            "tps": 48.10825321803939,
+            "r": 99.38,
+            "l": 30177,
+            "t": 11655,
+            "tps": 48.25569607573239,
             "days": 2,
             "anomaly": 0,
             "bars_24h": [
@@ -31454,6 +30332,12 @@ const PROMO = [
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 100.0,
+                "ok": true,
+                "anomaly": false
               }
             ],
             "bars": [
@@ -31749,10 +30633,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 99.5,
+                "rate": 99.6,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -31763,12 +30647,12 @@ const PROMO = [
             "g": "chatgpt-pro【稳定】",
             "ratio": 0.13,
             "eff": 0.13,
-            "r": 98.91,
-            "l": 29234,
-            "t": 6146,
-            "tps": 30.333237042628888,
+            "r": 98.48,
+            "l": 28810,
+            "t": 6080,
+            "tps": 30.01745477475142,
             "days": 2,
-            "anomaly": 1,
+            "anomaly": 2,
             "bars_24h": [
               {
                 "d": "11-14 21:00",
@@ -31832,9 +30716,15 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 97.4,
+                "rate": 97.6,
                 "ok": false,
                 "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 89.4,
+                "ok": false,
+                "anomaly": true
               }
             ],
             "bars": [
@@ -32130,10 +31020,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.2,
+                "rate": 97.3,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -32144,10 +31034,10 @@ const PROMO = [
             "g": "chatgpt-plus【特惠】",
             "ratio": 0.03,
             "eff": 0.03,
-            "r": 97.37,
-            "l": 23246,
-            "t": 10122,
-            "tps": 66.65756909433529,
+            "r": 97.46,
+            "l": 22938,
+            "t": 10076,
+            "tps": 66.72735597622572,
             "days": 2,
             "anomaly": 3,
             "bars_24h": [
@@ -32213,7 +31103,13 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
-                "rate": 99.7,
+                "rate": 99.6,
+                "ok": false,
+                "anomaly": false
+              },
+              {
+                "d": "11-15 08:00",
+                "rate": 99.8,
                 "ok": false,
                 "anomaly": false
               }
@@ -32511,10 +31407,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 95.3,
+                "rate": 95.8,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
@@ -32525,12 +31421,12 @@ const PROMO = [
             "g": "chatgpt-官key【特惠】",
             "ratio": 0.3,
             "eff": 0.3,
-            "r": 95.67,
-            "l": 27460,
-            "t": 4981,
-            "tps": 25.228793214135536,
+            "r": 95.68,
+            "l": 27571,
+            "t": 4737,
+            "tps": 22.87363091532537,
             "days": 2,
-            "anomaly": 3,
+            "anomaly": 4,
             "bars_24h": [
               {
                 "d": "11-14 21:00",
@@ -32594,6 +31490,12 @@ const PROMO = [
               },
               {
                 "d": "11-15 07:00",
+                "rate": 94.1,
+                "ok": false,
+                "anomaly": true
+              },
+              {
+                "d": "11-15 08:00",
                 "rate": 100.0,
                 "ok": true,
                 "anomaly": false
@@ -32892,10 +31794,10 @@ const PROMO = [
               },
               {
                 "d": "2026-11-15",
-                "rate": 98.0,
+                "rate": 97.6,
                 "ok": false,
                 "sparse": false,
-                "buckets": 8,
+                "buckets": 9,
                 "checks": null,
                 "failures": null,
                 "missing_hours": null
