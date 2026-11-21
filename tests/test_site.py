@@ -151,7 +151,10 @@ print('\n== rendering the same store twice is a no-op ==')
 rows = [row(1, '额度 A', '2026-09-30T10:00:00Z', '2026-10-01T12:00:00Z'),
         row(2, '抽奖 </script><img src=x onerror=alert(1)>', '2026-10-01T10:00:00Z',
             '2026-10-01T12:00:00Z'),
-        row(3, '体验金 C', None, '2026-10-01T12:00:00Z')]
+        row(3, '体验金 C', None, '2026-10-01T12:00:00Z'),
+        # 标题里的方括号（真实语料 21 条，如「[中转站]」「[Crab-ai]」）：
+        # 按字符数括号的扫描器会在这里把 payload 截断（2026-11-21 主站腿连红）。
+        row(4, '[中转站] 免费 8$ 体验金', '2026-10-01T11:00:00Z', '2026-10-01T12:00:00Z')]
 PICK_BAKE = re.compile(rb'const PICK_BAKED_AT=(\d+);')
 
 
@@ -194,7 +197,9 @@ check('unchanged' in p2.stderr or 'up to date' in p2.stderr,
 print('\n== payload integrity ==')
 html = open(out, encoding='utf-8').read()
 cards, payload = cards_of(html)
-check(len(cards) == 3, 'every stored row is embedded in the payload (fold is render-time)', len(cards))
+check(len(cards) == 4, 'every stored row is embedded in the payload (fold is render-time)', len(cards))
+check(cards[3]['title'] == '[中转站] 免费 8$ 体验金',
+      'a title with brackets survives the payload scan', cards[3]['title'] if len(cards) > 3 else None)
 check(all(c['id'] for c in cards), 'no row lost its id')
 check('<' not in payload,
       'the embedded JSON contains no raw < (a scraped "</script>" cannot break out)')
@@ -217,15 +222,37 @@ if os.path.exists(STORE) and os.path.exists(PAGE):
     # 编码、正文缓存等非 store 输入影响（CI ubuntu vs Windows 的渲染天然不同）。
     # cards payload 是从 store 确定性渲染的 JSON，不受这些影响。
     def cards_of(data):
+        """取出 `const cards=[...]` 的**完整 JSON 数组**。
+
+        必须跳过字符串字面量：标题里出现成对的 `[`/`]`（如「[已结束]」「[抽奖]」）
+        时，按字符数括号会让深度提前归零、payload 被截断 → json.loads 报
+        "Unterminated string"（2026-11-21 主站腿连红两轮的根因）。
+        这里按 JSON 语法走：只在字符串外计深度，并处理转义引号。
+        """
         text = data.decode('utf-8')
         i = text.index('const cards=')
         start = text.index('[', i)
         depth = 0
+        in_str = False
+        esc = False
         for j in range(start, len(text)):
-            if text[j] == '[': depth += 1
-            elif text[j] == ']':
+            ch = text[j]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == '\\':
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch == '[':
+                depth += 1
+            elif ch == ']':
                 depth -= 1
-                if depth == 0: return text[start:j+1]
+                if depth == 0:
+                    return text[start:j+1]
         return None
 
     ca, cb = cards_of(a), cards_of(b)
