@@ -930,11 +930,13 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
             all_topics.extend(topics)
         except Exception as e:
             code = getattr(e, "code", None)
-            if code in (403, 429) and os.environ.get("CI_TOLERATE_BLOCK") == "1":
-                # GitHub runner 的数据中心 IP 被源站 WAF 拦（2026-11-24 实测 5 个列表
-                # 端点全 403）。CI 只是兜底哨兵，主写者是本地腿：把"被拦"记成警告而
-                # 不是失败，避免本地健康时每 6 小时红一次并给订阅者发邮件。linux.sb
-                # 的缓存行照常保留；封锁解除后下一轮自动恢复抓取（无需改代码）。
+            _blocked = code in (403, 429) or (isinstance(code, int) and 500 <= code < 600)
+            if _blocked and os.environ.get("CI_TOLERATE_BLOCK") == "1":
+                # 源站对 CI 的拦截/故障：数据中心 IP 被 WAF 拦（2026-11-24 实测 5 个
+                # 列表端点全 403），以及 Cloudflare 5xx（同日下午实测 520 error code）。
+                # CI 只是兜底哨兵，主写者是本地腿：把这类"源站不可用"记成警告而不是
+                # 失败，避免每 6 小时红一次并给订阅者发邮件。linux.sb 的缓存行照常
+                # 保留；源站恢复后下一轮自动恢复抓取（无需改代码）。
                 print(f"[warn] {name} blocked ({code}) from CI; cached rows kept",
                       file=sys.stderr)
                 continue

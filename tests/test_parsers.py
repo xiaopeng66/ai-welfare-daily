@@ -1016,6 +1016,10 @@ def _blocked_403(url, *a, **k):
     raise _uerr.HTTPError(url, 403, "Forbidden", None, None)
 
 
+def _blocked_520(url, *a, **k):
+    raise _uerr.HTTPError(url, 520, "Unknown Error", None, None)
+
+
 _prev_fetch = mod.fetch
 try:
     mod.fetch = _blocked_403
@@ -1030,6 +1034,11 @@ try:
     check(mod.FETCH_ERRORS == [],
           "CI 兜底：403 只记警告，不写 .fetch_errors（本地健康时不再每 6 小时红）",
           mod.FETCH_ERRORS)
+    mod.fetch = _blocked_520
+    mod.FETCH_ERRORS.clear()
+    mod.fetch_linuxsb()
+    check(mod.FETCH_ERRORS == [],
+          "CI 兜底：Cloudflare 5xx（520）同样只警告", mod.FETCH_ERRORS)
 finally:
     mod.fetch = _prev_fetch
     os.environ.pop("CI_TOLERATE_BLOCK", None)

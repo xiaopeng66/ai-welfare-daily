@@ -49,10 +49,10 @@ jobs:
       # Clash 抓；runner 的地区未实测，先按本地专属源处理（与 linux.do 同）。
       # 若日后在 runner 上验过能拿到真页面，改成 "1" 即可。
       SB_ENABLED: "0"
-      # linux.sb 对 GitHub runner（数据中心 IP）回 403（2026-11-24 23:56 UTC 实测
-      # 5 个列表端点全 403）。CI 只是兜底哨兵，主写者是本地腿：把 403/429 记成
-      # 警告而不是失败，避免本地健康时每 6 小时红一次并给订阅者发邮件。缓存行
-      # 照常保留；源站解除封锁后下一轮自动恢复抓取，无需改代码。
+      # linux.sb 对 GitHub runner（数据中心 IP）回 403/5xx（2026-11-24 23:56 UTC
+      # 实测 5 个列表端点全 403；同日下午源站 Cloudflare 520）。CI 只是兜底哨兵，
+      # 主写者是本地腿：把 403/429/5xx 记成警告而不是失败，避免本地健康时每 6 小时
+      # 红一次并给订阅者发邮件。缓存行照常保留；源站恢复后下一轮自动恢复抓取。
       CI_TOLERATE_BLOCK: "1"
     steps:
       # Pinned to commit SHAs: a moving major tag lets an upstream force-push
