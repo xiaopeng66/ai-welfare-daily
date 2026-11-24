@@ -1809,13 +1809,17 @@ def trim_activities(merged_items: list, limit: int, age_key) -> tuple[list, dict
         return list(merged_items), {"activities": len(groups), "dropped": 0, "rows": 0,
                                     "oldest": None}
     def group_age(items):
-        return max((age_key(t) or "" for _k, t in items), default="")
+        # age_key 返回**数值时间戳**（_parse_sortable），0 表示没有时间。此前写成
+        # `age_key(t) or ""` —— 一旦某行时间是 0/None，这一组就混进字符串 "",
+        # 和别的组的 float 比大小直接 TypeError（2026-11-24 真跑崩过一轮）。
+        # 统一成 float：0 = 最旧，最后被保留、最先被裁掉。
+        return max((float(age_key(t) or 0) for _k, t in items), default=0.0)
     ordered = sorted(groups.items(), key=lambda kv: group_age(kv[1]), reverse=True)
     keep, dropped = ordered[:limit], ordered[limit:]
     kept = [kv for _gk, items in keep for kv in items]
-    kept.sort(key=lambda kv: age_key(kv[1]), reverse=True)   # 行序保持最新在前
+    kept.sort(key=lambda kv: float(age_key(kv[1]) or 0), reverse=True)   # 行序保持最新在前
     oldest = min((t for _gk, items in dropped for _k, t in items),
-                 key=lambda t: age_key(t) or "")
+                 key=lambda t: float(age_key(t) or 0))
     return kept, {"activities": len(groups), "dropped": len(dropped),
                   "rows": sum(len(items) for _gk, items in dropped), "oldest": oldest}
 
@@ -1911,6 +1915,13 @@ def main():
         default=20.0,
         help="正文层里隐身通道每条之间的最小间隔秒数 —— linux.do 连打会 429（实测每 2-3 秒一条立刻限速），"
         "这个值就是它的节流阀；连续两条失败本轮放弃。",
+    )
+    ap.add_argument(
+        "--content-stealth-budget",
+        type=float,
+        default=420.0,
+        help="隐身通道（linux.do 正文）的墙钟预算秒数，默认 420。它要起真浏览器、每条 20 秒起，"
+        "2026-11-24 实测能把整轮 fetch 拖过 40 分钟腿超时（exit=124）→ 超预算就收手，下轮再判。",
     )
     ap.add_argument(
         "--content-limit",
@@ -2311,6 +2322,7 @@ def main():
                 [t for _k, t in merged_items], fetch, limit=args.content_limit,
                 stealth_fetch=stealth, stealth_limit=stealth_limit,
                 stealth_delay=max(0.0, args.content_stealth_delay),
+                stealth_budget_s=max(0.0, args.content_stealth_budget),
                 log=lambda m: print(m, file=sys.stderr),
             )
         except Exception as exc:          # 正文层永不拖垮主链

@@ -634,6 +634,36 @@ finally:
 check(_seen and _seen[0].endswith("/new.json"),
       "预算只有 1 条时，先判最新的帖（而不是最旧的）", _seen[:2])
 
+print("\n== 隐身通道的墙钟预算（2026-11-24 腿超时 exit=124 的修复）==")
+# 12 条隐身正文能把整轮 fetch 拖过 40 分钟腿超时（腿 exit=124）。加了墙钟预算后必须按时
+# 收手，剩下的行下一轮再判 —— 正文只影响折叠，不影响入库。
+_budget_cache = tempfile.mkdtemp()
+_old_budget_cache = c.CACHE_DIR
+c.CACHE_DIR = _budget_cache
+try:
+    _brows = [{"id": str(900 + i), "source": "linuxdo_welfare_p1",
+               "url": "https://linux.do/t/topic/%d" % (900 + i),
+               "title": "linux.do 公益站 %d" % i,
+               "created_at": "2026-10-15T06:00:00+00:00"} for i in range(6)]
+    _seen_calls = []
+
+    def _slow_stealth(url, *a, **k):
+        _seen_calls.append(url)
+        _time.sleep(0.35)               # 每次都要起一个真浏览器
+        return ('{"post_stream":{"posts":[{"cooked":'
+                '"<p>注册送 10 刀 https://x%d.com/reg</p>"}]}}' % len(_seen_calls))
+
+    _bn = c.annotate(_brows, lambda *a, **k: (_ for _ in ()).throw(OSError("no net")),
+                     limit=0, delay=0, stealth_fetch=_slow_stealth, stealth_limit=6,
+                     stealth_delay=0, stealth_budget_s=0.8, now=_time.time(), ttl_h=24)
+    check(len(_seen_calls) < 6, "墙钟预算用尽即收手（没有把 6 条全抓）", len(_seen_calls))
+    check(len(_seen_calls) >= 1, "预算内至少判到一条", _seen_calls)
+    check(0 <= _bn <= len(_seen_calls), "判出条数不超过实际请求数（判定失败不计数）",
+          (_bn, len(_seen_calls)))
+finally:
+    c.CACHE_DIR = _old_budget_cache
+    shutil.rmtree(_budget_cache, ignore_errors=True)
+
 print("\n== annotate：预算、缓存、失败跳过 ==")
 tmp = tempfile.mkdtemp()
 old_cache = c.CACHE_DIR

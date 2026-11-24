@@ -728,8 +728,9 @@ def apply_cached_offers(rows: list[dict], ttl_h: float = DEFAULT_TTL_H,
 def annotate(rows: list[dict], fetch: Callable[..., str],
              limit: int = 60, delay: float = 0.4, timeout: int = 20,
              ttl_h: float = DEFAULT_TTL_H, now: float | None = None,
-             stealth_fetch: Callable[..., str] | None = None, stealth_limit: int = 12,
-             stealth_delay: float = 15.0, stealth_timeout: int = 60,
+             stealth_fetch: Callable[..., str] | None = None, stealth_limit: int = 8,
+             stealth_delay: float = 20.0, stealth_timeout: int = 60,
+             stealth_budget_s: float = 420.0,
              log: Callable[[str], None] | None = None) -> int:
     """给缺 offer（过期/版本落后也算）的行补判。就地改 rows，返回判定成功条数。
 
@@ -739,10 +740,15 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
         请求间隔 delay、失败重试一次即跳过；
       · 隐身通道：每轮最多尝试 stealth_limit 条、每条之间 ≥ stealth_delay 秒、
         **「200 但正文不可用」也算失败**（原来不算，熔断形同虚设）、连续两条失败即收手。
+      · 隐身通道另有**墙钟预算**（stealth_budget_s，默认 420 秒）：它会启动真浏览器，
+        每条 ~20 秒起步、偶发 429 还要退避；实测 12 条就能把整轮 fetch 拖过 40 分钟的
+        腿超时（2026-11-24 exit=124）。超预算就收手，剩下的下一轮再来 —— 正文只影响
+        折叠，不影响入库，宁可少判几条也不能把整轮跑死。
     抓不到正文不写 offer（下一轮再试），绝不让正文层拖垮主链。
     """
     say = log or (lambda _m: None)
     clock = time.time() if now is None else now
+    stealth_deadline = clock + max(0.0, stealth_budget_s)
     todo = [
         r for r in rows
         if r.get("source", "").split("_")[0] in EXTRACTORS and _offer_stale(r, ttl_h, clock)
@@ -829,6 +835,9 @@ def annotate(rows: list[dict], fetch: Callable[..., str],
         deleted = 0
         for r in stealth:
             if stealth_attempted >= stealth_limit or fails >= 2 or _rl_streak >= 2:
+                break
+            if time.time() > stealth_deadline:
+                say(f"[content] 隐身正文预算 {int(stealth_budget_s)}s 用尽 → 本轮收手")
                 break
             if not r.get("url"):
                 continue
