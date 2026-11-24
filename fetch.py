@@ -162,6 +162,14 @@ _HOST_MARKERS = {
 }
 
 
+# 已下线的源（2026-11-24 用户决定移除 linux.sb）：不参与源健康台账。
+# 台账按 _HOST_MARKERS 逐轮重建，若把已下线的源也算进去，它会被永久记成
+# down、fail_streak 一直增长，welfare-alert-triage.py 于是每 30 分钟报一次
+# source_health——而那个源是我们主动不要的。host_of/unhealthy_hosts 的行为
+# 不变（历史行的归源与"没看见就别删"仍按原语义）。
+RETIRED_SOURCES = {"linuxsb"}
+
+
 def host_of(source: str) -> str | None:
     """把一行的 source 归到源（linuxsb_福利放送 → linuxsb）。"""
     for prefix in _HOST_MARKERS:
@@ -2072,6 +2080,8 @@ def main():
         _errors_text = "\n".join(FETCH_ERRORS)
         _health = {}
         for _src in _HOST_MARKERS:
+            if _src in RETIRED_SOURCES:
+                continue
             _has_rows = _seen_sources.get(_src, 0) > 0
             _has_err = False
             for _marker in (_HOST_MARKERS[_src],):

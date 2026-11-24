@@ -577,6 +577,11 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
   全部端点 403/520；直连、代理、换 UA、带 cookie、Scrapling 真 Chrome、复用已过关 profile
   全部实测不通（详情见 skill §5）。`fetch_linuxsb` 与正文抽取器 `body_linuxsb` 保留完整实现，
   把环境变量 `LINUXSB_ENABLED` 设为 `1` 即恢复；store 里的 `linuxsb_*` 历史行已清空。
+  **收尾（2026-11-25）**：它不再进源健康台账（`fetch.RETIRED_SOURCES`）——台账按源逐轮重建，
+  记进去就等于永久 `down`、`fail_streak` 只涨不落，`welfare-alert-triage.py` 会每 30 分钟
+  报一次 `source_health`，而这是主动下线的源。精选板里凭 15 天生命周期残留的 25 条
+  （`data/featured.jsonl`，全部 linux.sb 单源、无跨源合并条目）同批清掉，页面 `FEATURED` 65 → 40。
+  恢复时两处一起还原：删掉 `RETIRED_SOURCES` 里的 `linuxsb`，精选板条目由 store 重新入选。
   旧的 `CI_TOLERATE_BLOCK` 说明（403/429/5xx 只记警告）保留在 `fetch_linuxsb` 内，恢复后仍生效：
   源站 WAF 会拦数据中心 IP（实测 5 个列表端点全 403），源站自身故障时 Cloudflare 回 520。
   CI 是兜底哨兵、本地腿才是主写者，
