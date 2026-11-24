@@ -312,7 +312,7 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
   **B/M 的字母边界与 token 语境不动**：URL 邀请码里的 `73B`、模型参数 `Qwen3.8 27B` 靠它们挡住。
   对拍（改规则后先跑 `offer-rerun-diff` 看下一轮会改什么）里量值变动的多是**修正垃圾值**：
   `1000亿token`（数字串撞上 TOKEN_CAP）、`680亿token`（把别处的数当额度）→ 变成 `2亿token` / `$10`。
-- **抓什么（七源全覆盖）**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、
+- **抓什么（六源；linux.sb 2026-11-24 停用）**：baipiao `.Post-body`、
   nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、sb.sb 主题页 `.post-content`、
   nodeloc 主题页 `.op-body` 里第一个 `.prose`（2026-11 改版后没有 JSON API）、
   vibex 的 `/t/topic/{id}.json`
@@ -573,7 +573,11 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 ## 8. 维护须知（踩过的坑）
 
 - **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，会让那条兜底构建变红。
-- **CI 里 linux.sb 的 403/429/5xx 只记警告**（`CI_TOLERATE_BLOCK=1`，2026-11-24 起）：
+- **linux.sb 已于 2026-11-24 停用**（`LINUXSB_ENABLED=0`）：源站上了宝塔 WAF 滑块人机验证，
+  全部端点 403/520；直连、代理、换 UA、带 cookie、Scrapling 真 Chrome、复用已过关 profile
+  全部实测不通（详情见 skill §5）。`fetch_linuxsb` 与正文抽取器 `body_linuxsb` 保留完整实现，
+  把环境变量 `LINUXSB_ENABLED` 设为 `1` 即恢复；store 里的 `linuxsb_*` 历史行已清空。
+  旧的 `CI_TOLERATE_BLOCK` 说明（403/429/5xx 只记警告）保留在 `fetch_linuxsb` 内，恢复后仍生效：
   源站 WAF 会拦数据中心 IP（实测 5 个列表端点全 403），源站自身故障时 Cloudflare 回 520。
   CI 是兜底哨兵、本地腿才是主写者，
   所以把"被拦"从 `.fetch_errors` 里摘出去（缓存行照常保留），避免本地健康时每 6 小时

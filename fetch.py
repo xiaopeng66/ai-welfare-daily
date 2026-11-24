@@ -920,12 +920,23 @@ def is_slide_captcha(raw: str) -> bool:
     return any(m in raw for m in SLIDE_CAPTCHA_MARKERS)
 
 
+LINUXSB_ENABLED_DEFAULT = "0"   # 2026-11-24 源站滑块验证 → 默认停用
+
+
 def fetch_linuxsb(known_ids: set | None = None) -> list:
     """Fetch linux.sb listings.
+
+    2026-11-24 停用：源站上了宝塔 WAF 滑块人机验证，全部端点 403/520；
+    直连、代理、换 UA、带 cookie、Scrapling 真 Chrome、复用已过关 profile
+    全部试过都不通（详见 skill §5）。用户决定摘掉这个源。
+    恢复方式：把环境变量 LINUXSB_ENABLED 设为 "1"（代码路径完整保留）。
 
     known_ids: ids already stored with a trustworthy created_at. Detail pages
     are only fetched for ids NOT in this set, keeping incremental runs cheap.
     """
+    if os.environ.get("LINUXSB_ENABLED", LINUXSB_ENABLED_DEFAULT) != "1":
+        print("[info] linux.sb: skipped (LINUXSB_ENABLED=0, 源站滑块验证)", file=sys.stderr)
+        return []
     known_ids = known_ids or set()
     sources = [
         ("linuxsb_福利放送", f"{BASE_LINUXSB}/forum/2?sort=post"),
@@ -1978,6 +1989,7 @@ def main():
     # linux.sb ids whose created_at is trustworthy (real publish time, not the
     # last-modified time from the listing). Only these may skip detail fetches.
     # Scoped to linuxsb_* sources: other sites use their own id namespaces.
+    # 2026-11-24 源已停用（LINUXSB_ENABLED=0），这段仍保留：重新启用时它是必需的。
     known_linuxsb_ids = {
         t["id"]
         for t in existing.values()
@@ -2002,6 +2014,9 @@ def main():
     }
 
     # 每个源单独兜底：一个源的解析/接口异常只让该源本轮无新数据（P1-6）。
+    # linux.sb 2026-11-24 停用：开关在 fetch_linuxsb 内部（LINUXSB_ENABLED=0 → 直接返回空）。
+    # 接线**刻意保留**——守卫套件拿 fetch_linuxsb 当样本源注入桩，删掉它要重写二十多条断言；
+    # 而且它就是恢复开关：把环境变量设成 "1" 立刻回到旧行为。
     linuxsb_topics = _guarded_source("linux.sb", lambda: fetch_linuxsb(known_linuxsb_ids))
     baipiao_topics = _guarded_source("baipiao", fetch_baipiao)
     nodeloc_topics = _guarded_source("nodeloc", fetch_nodeloc)

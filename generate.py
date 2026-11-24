@@ -30,13 +30,18 @@ FEATURED_CACHE = Path(__file__).resolve().parent / "data" / "cache" / "content"
 # every category in fetch.CATEGORY_KEYWORDS appears in ALL of the three tables
 # below AND in the rendered page's JS, keeping template and tagger in lockstep.
 SOURCE_LABELS = {
-    'linuxsb': 'linux.sb',
     'baipiao': 'baipiao.org',
     'nodeloc': 'nodeloc.com',
     'linuxdo': 'linux.do',
     'vibex': 'vibex.iflow.cn',
     'nextbuf': 'nextbuf.com',
     'sb': 'sb.sb',
+    # linux.sb 2026-11-24 停用：源已不抓、历史行已清空，但**这张表必须留着它**。
+    # 页面折叠键 T:来源|#|标题 与 fetch.activity_source 同构；表里少一个来源，
+    # sourceKey() 就只能退回原始 source 串，折叠键跟着变 —— 页面与 store 的
+    # 活动计数会在"哪天数据库里又出现这个源的行"时分叉。来源筛选按钮由数据派生，
+    # 没有行就不会出现这个按钮，所以留着这一项对用户不可见。
+    'linuxsb': 'linux.sb',
 }
 CATEGORY_ORDER = ['中转站', '公益站', '鸡蛋', '兑换码', '额度', '体验金', '免费放粮', '抽奖', '优惠渠道']
 CATEGORY_TONES = {

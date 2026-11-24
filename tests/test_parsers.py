@@ -77,10 +77,12 @@ _lsb_page = (
 _known = {'701', '702'}
 _real_fetch = mod.fetch
 mod.fetch = lambda *a, **k: _lsb_page
+os.environ['LINUXSB_ENABLED'] = '1'      # 源默认停用，测解析必须显式启用
 try:
     _kept = mod.fetch_linuxsb(_known)
 finally:
     mod.fetch = _real_fetch
+    os.environ.pop('LINUXSB_ENABLED', None)
 _ids = sorted({t['id'] for t in _kept})
 check(_ids == ['702'],
       '只有已结束的已知行漏出来（活跃的已知行照旧跳过、省请求）', _ids)
@@ -1057,6 +1059,7 @@ def _blocked_520(url, *a, **k):
 
 
 _prev_fetch = mod.fetch
+os.environ['LINUXSB_ENABLED'] = '1'      # 源默认停用，测 403 处理必须显式启用
 try:
     mod.fetch = _blocked_403
     os.environ.pop("CI_TOLERATE_BLOCK", None)
@@ -1078,6 +1081,7 @@ try:
 finally:
     mod.fetch = _prev_fetch
     os.environ.pop("CI_TOLERATE_BLOCK", None)
+    os.environ.pop('LINUXSB_ENABLED', None)
 
 print('\n== 第 2 期：数据层根因（P1-5/P1-6/P1-7/P1-8）==')
 def _row(tid, title, created="2026-10-20T00:00:00+00:00", source="linuxsb_p1", **kw):

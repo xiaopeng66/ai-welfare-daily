@@ -144,7 +144,7 @@ check(ok_payload, 'cards payload still parses (raw_decode) with every token in t
 check(bool(cards) and cards[0]['title'] == _evil_title,
       'the token text survives verbatim inside the title',
       cards[0]['title'] if cards else None)
-check(html.count('const labels=') == 1 and '"linuxsb"' in html,
+check(html.count('const labels=') == 1 and '"baipiao"' in html,
       'the real source-labels payload is still injected exactly once')
 
 print('\n== rendering the same store twice is a no-op ==')
@@ -381,8 +381,10 @@ h2 = open(out2, encoding='utf-8').read()
 labels = re.search(r'const labels=(\{[^}]*\});', h2)
 check(labels is not None, 'the labels map is injected', None)
 if labels:
-    for src in ['linuxsb', 'baipiao', 'nodeloc', 'linuxdo', 'vibex', 'nextbuf', 'sb']:
-        check(f'"{src}":' in labels.group(1), 'labels knows every production source', src)
+    # linuxsb 已停用（2026-11-24）但**保留在映射表里**：折叠键 T:来源|#|标题 依赖它，
+    # 表里缺一个来源会让页面与 store 的活动计数分叉（详见 generate.py 的注释）。
+    for src in ['baipiao', 'nodeloc', 'linuxdo', 'vibex', 'nextbuf', 'sb', 'linuxsb']:
+        check(f'"{src}":' in labels.group(1), 'labels knows every source in the fold-key map', src)
 check('const sourceKey=s=>Object.keys(labels).find(k=>String(s||' in h2,
       'sourceKey matches any prefix (new sources are not silently dropped)', None)
 check('[...order.filter(c=>present.includes(c)),...present.filter(c=>!order.includes(c))]' in h2,
