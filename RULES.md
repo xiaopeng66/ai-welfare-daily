@@ -314,7 +314,8 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
   `1000亿token`（数字串撞上 TOKEN_CAP）、`680亿token`（把别处的数当额度）→ 变成 `2亿token` / `$10`。
 - **抓什么（七源全覆盖）**：linuxsb 主题页 `.post-readability-content`、baipiao `.Post-body`、
   nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、sb.sb 主题页 `.post-content`、
-  nodeloc/vibex 的 `/t/topic/{id}.json`
+  nodeloc 主题页 `.op-body` 里第一个 `.prose`（2026-11 改版后没有 JSON API）、
+  vibex 的 `/t/topic/{id}.json`
   → `post_stream.posts[0].cooked`；**linux.do 同一端点但匿名 403**（Cloudflare），走 scrapling
   隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（**默认每轮 ≤12 条**、每条间隔 ≥15 秒；
   实现默认值见 `fetch.py` 的同名参数与 `content.annotate(stealth_limit=8, stealth_delay=15)`。本行原先写 4/20，
@@ -596,12 +597,18 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
   楼主头部 `.post-time` 取（与 JSON-LD `datePublished` 一致），所以只对过闸门的候选
   逐条拉详情；首轮多发一页补历史（`SB_BACKLOG_PAGES=2`），之后每轮只抓第 1 页。
   区域封锁页/详情失败都走 `_guarded_source`，只让该源本轮无新数据，不清缓存行。
+- **nodeloc 2026-11 改版（2026-11-24 适配）**：站点不再是 Discourse，
+  `/latest.json`、`/c/welfare/12.json` 全部 404；列表改为服务端渲染的
+  `article.card-post`（`data-feed-topic` / `data-node`，发布时间在
+  `span[title="YYYY-MM-DD HH:MM"]`，东八区），正文在 `.op-body` 的第一个 `.prose`。
+  `fetch_nodeloc` 走 `/latest?page=N`、`fetch_nodeloc_welfare` 走 `/n/lottery?page=N`
+  （各 3 页），`content.body_nodeloc` 取 HTML 正文。**旧 JSON 路径不要恢复——已不存在**。
 - **没有绝对时间的源，时间只能当估算，且必须归整**：nextbuf 的列表和主题页都只有相对时间
   （"17天前"、"31分钟前"），没有 `article:published_time`。它的 `created_at` 由抓取时刻倒推，
   并按粒度归整到本小时 / 当天 00:00 / 当月 1 号（CST）。归整不是美观问题：`created_at` 在
   `_ROW_FIELDS` 里参与变更比较，不归整的话同一条没变的帖每轮算出不同值，「没有新闻的一轮」
   也会产生 commit 与一次 Pages 部署；归整后同一时间桶里重复抓到的值完全一致。
-  这类行一律不设 `published_verified`（同 nodeloc 的 `bumped_at` 回落）。
+  这类行一律不设 `published_verified`（时间只是估算，不是源站给出的发布时间）。
 - **相对时间源的第二个防线是「已入库的 id 不再返回」**：即使归整，源站的相对时间也会随时间漂
   （"1月前"这周算 9 月 1 号、下周可能算 9 月 8 号）。把 store 里已有的 id 直接跳过，
   就不会有漂移过的值被写回旧行 —— 这比在合并层做「新值与旧值相差不超过 N 天就沿用旧值」简单，也更稳。

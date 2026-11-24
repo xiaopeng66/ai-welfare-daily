@@ -1052,37 +1052,68 @@ def fetch_baipiao() -> list:
     return all_topics
 
 
+def parse_nodeloc_cards(raw: str) -> list:
+    """NodeLoc 2026-11 改版后的列表页（article.card-post）。
+
+    改版后 `/latest.json`、`/c/welfare/12.json` 都回 404，列表改成服务端渲染的
+    `<article class="card-post" data-feed-topic="ID" data-node="...">`；发布时间在
+    文章块内第一个 `<span title="YYYY-MM-DD HH:MM">`（东八区）。纯函数，可离线测。
+    """
+    topics = []
+    seen = set()
+    for m in re.finditer(r'<article class="card-post"[^>]*>', raw):
+        tag = m.group(0)
+        tid_m = re.search(r'data-feed-topic="(\d+)"', tag)
+        if not tid_m:
+            continue
+        topic_id = tid_m.group(1)
+        if topic_id in seen:
+            continue
+        block_end = raw.find("</article>", m.end())
+        blk = raw[m.end():block_end if block_end > 0 else m.end() + 6000]
+        tm = re.search(r'<a class="card-title" href="[^"]*?/t/(\d+)[^"]*"[^>]*>(.*?)</a>',
+                       blk, re.S)
+        if not tm:
+            continue
+        # 标题前的 kind-badge（「抽奖 · 5 天后」等）是站点标记，不进标题
+        title = re.sub(r'<span class="kind-badge[^"]*">.*?</span>', "", tm.group(2), flags=re.S)
+        title = html.unescape(re.sub(r"<[^>]+>", "", title)).strip()
+        if not title:
+            continue
+        ts = re.search(r'<span title="(\d{4}-\d{2}-\d{2} \d{2}:\d{2})"', blk)
+        created = None
+        if ts:
+            try:
+                created = datetime.strptime(ts.group(1), "%Y-%m-%d %H:%M") \
+                    .replace(tzinfo=timezone(timedelta(hours=8))).isoformat()
+            except ValueError:
+                created = None
+        seen.add(topic_id)
+        topics.append({
+            "id": topic_id,
+            "title": title,
+            "url": f"{BASE_NODELOC}/t/{topic_id}",
+            "created_at": created,
+            "published_verified": bool(created),
+        })
+    return topics
+
+
 def fetch_nodeloc_welfare() -> list:
-    """Fetch nodeloc.com welfare category (抽奖福利)."""
+    """NodeLoc 抽奖节点（2026-11 改版后为 /n/lottery 的 HTML 列表）。"""
     all_topics = []
     for page in range(1, 4):
-        api_url = f"{BASE_NODELOC}/c/welfare/12.json?order=created&page={page}"
+        url = f"{BASE_NODELOC}/n/lottery" + (f"?page={page}" if page > 1 else "")
         try:
-            html = fetch(api_url)
-            data = json.loads(html)
-            topics = []
-            for t in data.get("topic_list", {}).get("topics", []):
-                topic_id = t.get("id")
-                title = t.get("title", "")
-                # Only created_at is a publish time; bumped_at/last_posted_at are
-                # reply times, so a row dated by those must not claim a verified
-                # publish time (that flag drives the skip-cached-ids optimisation).
-                published = t.get("created_at")
-                created = published or t.get("bumped_at") or t.get("last_posted_at")
-                topics.append({
-                    "id": str(topic_id),
-                    "title": title,
-                    "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
-                    "created_at": created,
-                    "source": f"nodeloc_welfare_p{page}",
-                    "published_verified": bool(published),
-                })
-            if not topics and page == 1:
-                raise ValueError("api returned 0 items")
+            topics = parse_nodeloc_cards(fetch(url))
+            for t in topics:
+                t["source"] = f"nodeloc_welfare_p{page}"
             print(f"[fetch] nodeloc welfare page {page}: {len(topics)} topics", file=sys.stderr)
             if page == 1:
                 note_empty_source("nodeloc welfare", len(topics))
             all_topics.extend(topics)
+            if not topics:
+                break
         except Exception as e:
             print(f"[warn] nodeloc welfare page {page} failed: {e}", file=sys.stderr)
             FETCH_ERRORS.append(f"nodeloc welfare page {page}: {e}")
@@ -1091,42 +1122,20 @@ def fetch_nodeloc_welfare() -> list:
 
 
 def fetch_nodeloc() -> list:
+    """NodeLoc 全站最新（2026-11 改版后为 /latest 的 HTML 列表）。"""
     all_topics = []
     for page in range(1, 4):
-        api_url = f"{BASE_NODELOC}/latest.json?order=created&page={page}"
-        html_url = f"{BASE_NODELOC}/latest?order=created&page={page}"
+        url = f"{BASE_NODELOC}/latest" + (f"?page={page}" if page > 1 else "")
         try:
-            try:
-                html = fetch(api_url)
-                data = json.loads(html)
-                topics = []
-                for t in data.get("topic_list", {}).get("topics", []):
-                    topic_id = t.get("id")
-                    title = t.get("title", "")
-                    # Prefer created_at; bumped_at/last_posted_at are reply times,
-                    # which are usable as a fallback timestamp but are not the
-                    # publish time.
-                    published = t.get("created_at")
-                    created = published or t.get("bumped_at") or t.get("last_posted_at")
-                    topics.append({
-                        "id": str(topic_id),
-                        "title": title,
-                        "url": f"{BASE_NODELOC}/t/topic/{topic_id}",
-                        "created_at": created,
-                        "source": f"nodeloc_p{page}",
-                        "published_verified": bool(published),
-                    })
-                if not topics and page == 1:
-                    raise ValueError("api returned 0 items")
-            except Exception:
-                html = fetch(html_url)
-                topics = parse_topics(html, NodeLocHTMLParser)
-                for t in topics:
-                    t["source"] = f"nodeloc_p{page}"
+            topics = parse_nodeloc_cards(fetch(url))
+            for t in topics:
+                t["source"] = f"nodeloc_p{page}"
             print(f"[fetch] nodeloc page {page}: {len(topics)} topics", file=sys.stderr)
             if page == 1:
                 note_empty_source("nodeloc latest", len(topics))
             all_topics.extend(topics)
+            if not topics:
+                break
         except Exception as e:
             print(f"[warn] nodeloc page {page} failed: {e}", file=sys.stderr)
             FETCH_ERRORS.append(f"nodeloc page {page}: {e}")

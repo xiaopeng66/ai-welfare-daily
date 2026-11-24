@@ -193,30 +193,31 @@ check(mod.topic_key({'id': '42', 'url': 'https://www.linux.sb/topic/42'}) == 'li
 
 print('\n== published_verified must mean "this is the publish time" ==')
 
+# nodeloc 2026-11 改版后没有 JSON API，改由列表 HTML 的 span[title] 提供绝对时间。
+_nl_no_time = (
+    '<article class="card-post" data-feed-topic="77" data-node="ai">'
+    '<div class="card-text"><a class="card-title" href="/t/77">公益站 体验金</a></div>'
+    '</article>'
+)
+_rows = {r['id']: r for r in mod.parse_nodeloc_cards(_nl_no_time)}
+check(_rows.get('77', {}).get('created_at') is None,
+      'a topic without a publish time stays None (no invented timestamp)',
+      _rows.get('77', {}).get('created_at'))
+check(not _rows.get('77', {}).get('published_verified'),
+      'but a missing time is not claimed as a verified publish time',
+      _rows.get('77', {}).get('published_verified'))
 
-def with_mocked_fetch(payload, fn):
-    """Run a fetch_* function against a canned API payload."""
-    real = mod.fetch
-    mod.fetch = lambda *a, **k: json.dumps(payload)
-    try:
-        return fn()
-    finally:
-        mod.fetch = real
-
-
-topics_json = {'topic_list': {'topics': [
-    {'id': 77, 'title': '公益站 体验金', 'bumped_at': '2026-10-01T09:00:00.000Z'},
-    {'id': 78, 'title': '中转站 额度', 'created_at': '2026-10-01T09:00:00.000Z'},
-]}}
-rows = {r['id']: r for r in with_mocked_fetch(topics_json, mod.fetch_nodeloc)}
-check(rows.get('77', {}).get('created_at') == '2026-10-01T09:00:00.000Z',
-      'a topic without created_at still gets a usable timestamp',
-      rows.get('77', {}).get('created_at'))
-check(not rows.get('77', {}).get('published_verified'),
-      'but a reply time is not claimed as a verified publish time',
-      rows.get('77', {}).get('published_verified'))
-check(rows.get('78', {}).get('published_verified'),
-      'created_at is a verified publish time', rows.get('78', {}).get('published_verified'))
+_nl_time = (
+    '<article class="card-post" data-feed-topic="78" data-node="ai">'
+    '<div class="meta"><span title="2026-10-01 17:00">x</span></div>'
+    '<div class="card-text"><a class="card-title" href="/t/78">中转站 额度</a></div>'
+    '</article>'
+)
+_rows = {r['id']: r for r in mod.parse_nodeloc_cards(_nl_time)}
+check(_rows.get('78', {}).get('created_at') == '2026-10-01T17:00:00+08:00',
+      'an absolute span[title] becomes the publish time', _rows.get('78', {}).get('created_at'))
+check(_rows.get('78', {}).get('published_verified'),
+      'an absolute time is a verified publish time', _rows.get('78', {}).get('published_verified'))
 
 
 print('\n== vibex (心流AI社区) welfare board ==')
@@ -1019,6 +1020,29 @@ try:
             os.environ["SB_ENABLED"] = _sb_env_prev
 finally:
     mod.fetch = real_fetch
+
+print('\n== nodeloc 2026-11 改版：article.card-post 列表 ==')
+NL_PAGE = (
+    '<article class="card-post" data-feed-topic="119093" data-node="vps">'
+    '<div class="meta"><span title="2026-11-24 13:13">刚刚</span></div>'
+    '<div class="card-main"><div class="card-text">'
+    '<a class="card-title" href="/t/119093"><span class="kind-badge k-lottery">抽奖 · 5 天后</span>'
+    '感谢 NodeLoc！抽 3 份宝塔专业版</a></div></div></article>'
+    '<article class="card-post" data-feed-topic="119094" data-node="ai">'
+    '<div class="meta"><span title="2026-11-24 12:00">1 小时前</span></div>'
+    '<div class="card-text"><a class="card-title" href="/t/119094">公益站 注册送 10 刀</a></div>'
+    '</article>'
+)
+nl_rows = mod.parse_nodeloc_cards(NL_PAGE)
+check([r['id'] for r in nl_rows] == ['119093', '119094'], '两条主题都解析出来', nl_rows)
+check(nl_rows[0]['title'] == '感谢 NodeLoc！抽 3 份宝塔专业版',
+      'kind-badge 不进标题', nl_rows[0]['title'])
+check(nl_rows[0]['created_at'] == '2026-11-24T13:13:00+08:00',
+      '发布时间来自 span[title]（东八区）', nl_rows[0]['created_at'])
+check(nl_rows[0]['url'] == 'https://www.nodeloc.com/t/119093',
+      'url 用改版后的 /t/<id>', nl_rows[0]['url'])
+check(nl_rows[0]['published_verified'] is True, '有绝对时间才标 verified',
+      nl_rows[0]['published_verified'])
 
 print('\n== CI 兜底：linux.sb 被 WAF 403 时只警告、不判失败 ==')
 import urllib.error as _uerr

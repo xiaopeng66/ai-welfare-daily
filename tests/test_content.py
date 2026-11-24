@@ -63,7 +63,6 @@ BODY_CASES = [
     ("linuxsb", "linuxsb-topic-25907.html", "jojatoken.com", 80),
     ("baipiao", "baipiao-topic-766.html", "console.river.ai", 120),
     ("nextbuf", "nextbuf-topic-342.html", "monetwl.com", 30),
-    ("nodeloc", "nodeloc-topic-113917.json", "NexoToken", 1500),
     ("vibex", "vibex-topic-6716.json", "workbuddy", 150),
 ]
 for src, name, needle, min_len in BODY_CASES:
@@ -231,8 +230,20 @@ check(c.target_of("", ["//t.me/somebot?start=1"]) == "t.me/somebot",
       "协议相对链接（//t.me/...）补 https 后仍能定目标")
 
 print("\n== Discourse JSON 的 .json 端点映射 ==")
-check(c.content_url("nodeloc", "https://www.nodeloc.com/t/topic/113917")
-      == "https://www.nodeloc.com/t/topic/113917.json", "nodeloc 走 .json 端点")
+check(c.content_url("nodeloc", "https://www.nodeloc.com/t/113917")
+      == "https://www.nodeloc.com/t/113917", "nodeloc 改版后正文走主题页 HTML（无 .json）")
+
+# nodeloc 2026-11 改版：楼主正文在 .op-body 的第一个 .prose；回复的 .prose 不进正文
+NODELOC_RAW = (
+    '<div class="op-body"><div class="prose"><p>NexoToken 注册送 10 刀，每日签到</p>'
+    '<p><a href="https://example.com/reg">注册入口</a></p></div></div>'
+    '<div class="prose"><p>这是别人的回复，不该进正文</p></div>'
+)
+_nb, _nm = c.EXTRACTORS["nodeloc"](NODELOC_RAW, "https://www.nodeloc.com/t/1")
+check("NexoToken" in _nb, "nodeloc：楼主正文抽出来了", _nb[:80])
+check("别人的回复" not in _nb, "nodeloc：回复不进正文", _nb[:120])
+check("https://example.com/reg" in _nm.get("links", []), "nodeloc：正文链接被保留",
+      _nm.get("links"))
 check(c.content_url("vibex", "https://vibex.iflow.cn/t/topic/6716") .endswith("6716.json"),
       "vibex 走 .json 端点")
 check(c.content_url("linuxsb", "https://linux.sb/topic/25907").endswith("/topic/25907"),

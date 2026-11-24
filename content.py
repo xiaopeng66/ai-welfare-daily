@@ -154,6 +154,16 @@ def body_nextbuf(raw: str, url: str) -> tuple[str, dict]:
     return body, {"links": links}
 
 
+def body_nodeloc(raw: str, url: str) -> tuple[str, dict]:
+    """NodeLoc 2026-11 改版：楼主正文是 `.op-body` 里第一个 `.prose`（HTML 直出）。
+
+    改版后 `/t/topic/{id}.json` 已 404，正文只能从主题页 HTML 取；页面里第一个
+    `.prose` 就是楼主（后续回复的 `.prose` 在它之后）。
+    """
+    body, links = _body_in(raw, r'<div class="prose">')
+    return body, {"links": links}
+
+
 def body_discourse(raw: str, url: str) -> tuple[str, dict]:
     """Discourse 系（nodeloc / vibex / linux.do）：/t/topic/{id}.json → posts[0].cooked。
 
@@ -193,7 +203,7 @@ EXTRACTORS: dict[str, Callable[[str, str], tuple[str, dict]]] = {
     "linuxsb": body_linuxsb,
     "baipiao": body_baipiao,
     "nextbuf": body_nextbuf,
-    "nodeloc": body_discourse,
+    "nodeloc": body_nodeloc,
     "vibex": body_discourse,
     "linuxdo": body_discourse,      # 同构 Discourse；需要 stealth_fetch 才拿得到
     "sb": body_sb,
@@ -202,7 +212,7 @@ EXTRACTORS: dict[str, Callable[[str, str], tuple[str, dict]]] = {
 
 def content_url(source: str, url: str) -> str:
     """取正文要请求的地址：Discourse 系用 `.json` 端点（匿名可读、字段结构化）。"""
-    if source in ("nodeloc", "vibex", "linuxdo"):
+    if source in ("vibex", "linuxdo"):
         return url.rstrip("/") + ".json"
     return url
 
