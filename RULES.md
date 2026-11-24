@@ -317,9 +317,9 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
   nodeloc 主题页 `.op-body` 里第一个 `.prose`（2026-11 改版后没有 JSON API）、
   vibex 的 `/t/topic/{id}.json`
   → `post_stream.posts[0].cooked`；**linux.do 同一端点但匿名 403**（Cloudflare），走 scrapling
-  隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（**默认每轮 ≤12 条**、每条间隔 ≥15 秒；
-  实现默认值见 `fetch.py` 的同名参数与 `content.annotate(stealth_limit=8, stealth_delay=15)`。本行原先写 4/20，
-  与实现对不上 —— 2026-10-24 按实现改正）；
+  隐身浏览器（与它列表抓取同一条路），受 `--content-stealth-limit` 限流（**默认每轮 ≤8 条**、每条间隔 ≥20 秒；
+  2026-11-24 由 12/15 收紧：实测 linux.do 的 429 让整轮 fetch 拖到 29 分钟，而正文层只影响折叠、
+  不影响入库，少判几条换回 15+ 分钟是划算的。改值请同步 RULES 与本行，`tests/test_guards.py` 有同步断言）；
   装不上 scrapling（如 CI）或 `LINUXDO_ENABLED=0` 时该源不抓正文，行为同 v1。
   正文用**配对标签切片**（`_slice_balanced`）而不是「下一个 post-footer 标记」：容器内有嵌套 div，
   家具标记位置飘忽，原型第一版把「展开全文/点赞打赏/登录可见」都带进来了。

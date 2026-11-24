@@ -904,6 +904,22 @@ def parse_linuxsb_listing(html: str) -> list:
     return topics
 
 
+SLIDE_CAPTCHA_MARKERS = ("滑动验证", "人机身份验证", "/huadong_", "bt-replay.js")
+
+
+def is_slide_captcha(raw: str) -> bool:
+    """linux.sb 现在挂在宝塔 WAF 的滑块人机验证后面（2026-11-24 实测）。
+
+    识别特征：HTTP 403 + ~3.3KB 的「滑动验证」页，加载 `bt-stats.js` / `huadong_*.js`。
+    与「普通 403」区分开很重要：
+      · 文案要能让排查者一眼看出"是被拦，不是我们解析坏了"；
+      · 命中后**本轮其余端点直接跳过**（五个列表全是同一堵墙，再打只是浪费 50 秒）。
+    """
+    if not raw or len(raw) > 60_000:
+        return False
+    return any(m in raw for m in SLIDE_CAPTCHA_MARKERS)
+
+
 def fetch_linuxsb(known_ids: set | None = None) -> list:
     """Fetch linux.sb listings.
 
@@ -919,7 +935,11 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
         ("linuxsb_首页", f"{BASE_LINUXSB}/"),
     ]
     all_topics = []
+    captcha_hit = False
     for name, url in sources:
+        if captcha_hit:
+            # 同一堵 WAF 墙：后面的端点不必再试（每轮省 ~40 秒）
+            break
         try:
             html = fetch(url)
             topics = parse_linuxsb_listing(html)
@@ -930,6 +950,20 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
             all_topics.extend(topics)
         except Exception as e:
             code = getattr(e, "code", None)
+            body = ""
+            # 只对真正的 HTTPError 读 body：测试桩用的是自定义异常对象，`hasattr(e,"read")`
+            # 会把 tempfile 之类的替身也当成可读对象（KeyError: 'file'）。
+            if code in (403, 429, 503) and isinstance(e, urllib.error.HTTPError):
+                try:
+                    body = e.read(8000).decode("utf-8", "replace")
+                except Exception:
+                    body = ""
+            if is_slide_captcha(body):
+                captcha_hit = True
+                print(f"[warn] {name}: 被 linux.sb 的滑块人机验证拦截（本轮跳过其余端点）",
+                      file=sys.stderr)
+                FETCH_ERRORS.append(f"linux.sb listing {name}: 人机验证拦截（slide captcha）")
+                continue
             _blocked = code in (403, 429) or (isinstance(code, int) and 500 <= code < 600)
             if _blocked and os.environ.get("CI_TOLERATE_BLOCK") == "1":
                 # 源站对 CI 的拦截/故障：数据中心 IP 被 WAF 拦（2026-11-24 实测 5 个
@@ -1867,14 +1901,14 @@ def main():
     ap.add_argument(
         "--content-stealth-limit",
         type=int,
-        default=12,
+        default=8,
         help="正文层里 linux.do（Cloudflare 挡着）每轮最多抓几条 —— 要开隐身浏览器，"
         "每条约 20 秒；0 = 不抓它的正文（该源的行按标题折叠）。",
     )
     ap.add_argument(
         "--content-stealth-delay",
         type=float,
-        default=15.0,
+        default=20.0,
         help="正文层里隐身通道每条之间的最小间隔秒数 —— linux.do 连打会 429（实测每 2-3 秒一条立刻限速），"
         "这个值就是它的节流阀；连续两条失败本轮放弃。",
     )
