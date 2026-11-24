@@ -572,6 +572,11 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 ## 8. 维护须知（踩过的坑）
 
 - **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，会让那条兜底构建变红。
+- **CI 里 linux.sb 的 403/429 只记警告**（`CI_TOLERATE_BLOCK=1`，2026-11-24 起）：
+  源站 WAF 会拦数据中心 IP，实测 5 个列表端点全 403。CI 是兜底哨兵、本地腿才是主写者，
+  所以把"被拦"从 `.fetch_errors` 里摘出去（缓存行照常保留），避免本地健康时每 6 小时
+  红一次并给订阅者发邮件；源站解除封锁后下一轮自动恢复抓取。**本地腿不带这个环境变量，
+  403 仍按真实故障处理**（`tests/test_parsers.py` 两侧都钉了断言）。
 - **vibex.iflow.cn 对 CI 是安全的**：它是普通 Discourse，直连（无代理）约 0.7s、无 Cloudflare 挑战，是本项目里**唯一能同时被 CI 和 Windows 任务抓到的非 linux.sb 源**。
   选它做新源而不是 NodeSeek 就是因为后者代理下 200、直连 404（CI 拿不到）。
   **加新源前先按这个标准验一遍：`httpx.get(url)` 不给 proxy，能 200 才算可用。**

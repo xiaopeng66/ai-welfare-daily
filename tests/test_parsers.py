@@ -1008,6 +1008,32 @@ try:
 finally:
     mod.fetch = real_fetch
 
+print('\n== CI 兜底：linux.sb 被 WAF 403 时只警告、不判失败 ==')
+import urllib.error as _uerr
+
+
+def _blocked_403(url, *a, **k):
+    raise _uerr.HTTPError(url, 403, "Forbidden", None, None)
+
+
+_prev_fetch = mod.fetch
+try:
+    mod.fetch = _blocked_403
+    os.environ.pop("CI_TOLERATE_BLOCK", None)
+    mod.FETCH_ERRORS.clear()
+    mod.fetch_linuxsb()
+    check(any("403" in e for e in mod.FETCH_ERRORS),
+          "本地腿：403 仍写 FETCH_ERRORS（不掩盖真实故障）", mod.FETCH_ERRORS)
+    mod.FETCH_ERRORS.clear()
+    os.environ["CI_TOLERATE_BLOCK"] = "1"
+    mod.fetch_linuxsb()
+    check(mod.FETCH_ERRORS == [],
+          "CI 兜底：403 只记警告，不写 .fetch_errors（本地健康时不再每 6 小时红）",
+          mod.FETCH_ERRORS)
+finally:
+    mod.fetch = _prev_fetch
+    os.environ.pop("CI_TOLERATE_BLOCK", None)
+
 print('\n== 第 2 期：数据层根因（P1-5/P1-6/P1-7/P1-8）==')
 def _row(tid, title, created="2026-10-20T00:00:00+00:00", source="linuxsb_p1", **kw):
     r = {"id": str(tid), "title": title, "url": f"https://linux.sb/topic/{tid}",
