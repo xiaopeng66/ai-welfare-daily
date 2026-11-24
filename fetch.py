@@ -1550,6 +1550,17 @@ def fetch_sb(known_ids: set | None = None) -> list:
             try:
                 raw = _fetch_sb_page(url)
             except Exception as e:
+                msg = str(e)
+                code = getattr(e, "code", None)
+                blocked = ("区域封锁" in msg or code in (403, 429)
+                           or (isinstance(code, int) and 500 <= code < 600))
+                if blocked and os.environ.get("CI_TOLERATE_BLOCK") == "1":
+                    # 与 linux.sb 同口径：CI 兜底遇到源站拦截/故障只记警告。
+                    # sb.sb 对大陆直连回区域封锁页，runner 地区未长期验证；被拦时
+                    # 保留缓存行，源站恢复后下一轮自动抓取。
+                    print(f"[warn] sb.sb {label} page {page_num} blocked from CI ({msg}); "
+                          f"cached rows kept", file=sys.stderr)
+                    break
                 print(f"[warn] sb.sb {label} page {page_num} failed: {e}", file=sys.stderr)
                 FETCH_ERRORS.append(f"sb.sb {label} page {page_num}: {e}")
                 break

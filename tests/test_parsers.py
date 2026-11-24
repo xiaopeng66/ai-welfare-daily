@@ -1000,6 +1000,18 @@ try:
         check(mod.fetch_sb() == [], '抓取失败返回空而不是抛出去')
         check(any('sb.sb' in e for e in mod.FETCH_ERRORS), '失败写进 FETCH_ERRORS',
               mod.FETCH_ERRORS)
+
+        # CI 兜底：sb.sb 的区域封锁页只记警告，不写 .fetch_errors
+        mod.FETCH_ERRORS.clear()
+        mod.fetch = lambda url, *a, **k: (_ for _ in ()).throw(
+            RuntimeError('sb.sb 区域封锁页（本机不在可用地区，需走境外代理）'))
+        os.environ['CI_TOLERATE_BLOCK'] = '1'
+        try:
+            check(mod.fetch_sb() == [], 'CI 兜底：区域封锁返回空而不是抛出去')
+            check(mod.FETCH_ERRORS == [],
+                  'CI 兜底：sb.sb 区域封锁只警告，不写 .fetch_errors', mod.FETCH_ERRORS)
+        finally:
+            os.environ.pop('CI_TOLERATE_BLOCK', None)
     finally:
         if _sb_env_prev is None:
             os.environ.pop("SB_ENABLED", None)

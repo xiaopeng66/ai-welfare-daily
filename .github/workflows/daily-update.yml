@@ -45,10 +45,10 @@ jobs:
       # ever stops being true — otherwise every scheduled run goes red on
       # "linux.do welfare page 1: status=429".
       LINUXDO_ENABLED: "0"
-      # sb.sb 对大陆直连返回「not available in your region」区域封锁页，本机腿靠
-      # Clash 抓；runner 的地区未实测，先按本地专属源处理（与 linux.do 同）。
-      # 若日后在 runner 上验过能拿到真页面，改成 "1" 即可。
-      SB_ENABLED: "0"
+      # sb.sb 对大陆直连返回「not available in your region」区域封锁页；2026-11-24
+      # 从美国侧实测可读到真实帖子，恢复 CI 抓取。若 runner 被区域封锁，fetch_sb 在
+      # CI_TOLERATE_BLOCK=1 下只记警告、保留缓存行，不会把兜底轮弄红。
+      SB_ENABLED: "1"
       # linux.sb 对 GitHub runner（数据中心 IP）回 403/5xx（2026-11-24 23:56 UTC
       # 实测 5 个列表端点全 403；同日下午源站 Cloudflare 520）。CI 只是兜底哨兵，
       # 主写者是本地腿：把 403/429/5xx 记成警告而不是失败，避免本地健康时每 6 小时

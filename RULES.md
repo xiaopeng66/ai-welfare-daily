@@ -585,11 +585,12 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
   `robots.txt` 只挡 `/admin`、`/install`、`/runcache`，所以它同时进本机与 CI 两条链路
   （上面 vibex 那条「唯一」的说法到此为止，两条链路都能抓的源现在有两个）。
 - **sb.sb（2026-11-07 加）走的是例外通道**：大陆直连返回 HTTP 200 的
-  「not available in your region」区域封锁页（约 27KB），必须经境外代理；因此
-  **本机腿能抓、GitHub runner 暂不启用**（`daily-update.yml` 里 `SB_ENABLED: "0"`，
-  与 linux.do 同一种「本地专属源」处理）。`fetch_sb()` 对这个页面显式抛错，
-  不会被 `note_empty_source` 误记成「解析漂移」。`robots.txt` 只挡 `/admin`、`/search`、
-  `/deals` 等，`/go/` 与 `/t/` 是 `Allow: /`。
+  「not available in your region」区域封锁页（约 27KB），必须经境外代理；**本机腿**
+  靠 Clash 抓。2026-11-24 从美国侧实测可读到真实帖子，**CI 也恢复抓取**
+  （`daily-update.yml` 里 `SB_ENABLED: "1"`）；若 runner 被区域封锁，`fetch_sb()` 在
+  `CI_TOLERATE_BLOCK=1` 下只记警告、保留缓存行，不会把兜底轮弄红。`fetch_sb()` 对
+  封锁页显式抛错，不会被 `note_empty_source` 误记成「解析漂移」。`robots.txt` 只挡
+  `/admin`、`/search`、`/deals` 等，`/go/` 与 `/t/` 是 `Allow: /`。
   版块 3 个：`/go/ai/`、`/go/discounts/`、`/go/share/`；列表行 `<li class="post-item">`，
   **行内 `<time>` 是最后回复时间**（实测同一条帖差 13 小时），发布时间只能从主题页
   楼主头部 `.post-time` 取（与 JSON-LD `datePublished` 一致），所以只对过闸门的候选
