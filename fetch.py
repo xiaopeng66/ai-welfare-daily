@@ -1991,6 +1991,55 @@ def main():
         if os.path.exists(status_path):
             os.remove(status_path)
 
+    # 源健康台账（2026-11-24）：`.fetch_errors` 是**给 CI 的红/绿门**，不区分"源站被
+    # WAF 拦/宕机"和"我们自己的解析器坏了"；一旦某个源长时间挂着（linux.sb 现在
+    # 全端点 403/滑动验证），页面会静默沿用缓存，没有任何告警。这里另写一份
+    # 逐源状态 + 连续失败轮数，供 welfare-alert-triage.py 判断"某源弃疗"。
+    try:
+        _health_path = os.path.join(os.path.dirname(args.output) or ".", ".source-health.json")
+        _prev_health = {}
+        if os.path.exists(_health_path):
+            try:
+                with open(_health_path, "r", encoding="utf-8") as _hf:
+                    _prev_health = json.loads(_hf.read() or "{}")
+            except (OSError, ValueError):
+                _prev_health = {}
+        _now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        _seen_sources: dict[str, int] = {}
+        for _t in all_topics:
+            _key = activity_source(_t.get("source", ""))
+            _seen_sources[_key] = _seen_sources.get(_key, 0) + 1
+        _errors_text = "\n".join(FETCH_ERRORS)
+        _health = {}
+        for _src in _HOST_MARKERS:
+            _has_rows = _seen_sources.get(_src, 0) > 0
+            _has_err = False
+            for _marker in (_HOST_MARKERS[_src],):
+                if _marker and _marker in _errors_text:
+                    _has_err = True
+            _prev = _prev_health.get(_src) or {}
+            if _has_rows and not _has_err:
+                _state, _streak = "ok", 0
+            elif _has_rows and _has_err:
+                _state, _streak = "partial", 0
+            else:
+                _state = "down"
+                _streak = int(_prev.get("fail_streak") or 0) + 1
+            _health[_src] = {
+                "state": _state,
+                "rows": _seen_sources.get(_src, 0),
+                "fail_streak": _streak,
+                "checked_at": _now_iso,
+                "last_ok_at": _now_iso if _state == "ok" else _prev.get("last_ok_at"),
+            }
+        _atomic_write(_health_path, json.dumps(_health, ensure_ascii=False, indent=1) + "\n")
+        _down = [s for s, v in _health.items() if v["state"] == "down"]
+        if _down:
+            print("[health] 本轮无数据：%s" % ", ".join(
+                "%s(连续%d轮)" % (s, _health[s]["fail_streak"]) for s in _down), file=sys.stderr)
+    except Exception as _he:                       # 台账失败不影响主链
+        print(f"[health] 源健康台账写入失败（忽略）：{_he!r}", file=sys.stderr)
+
     # Total blackout: nothing fetched at all AND we already have data. That is a
     # network/proxy outage, not an empty site. Refuse to write rather than risk
     # clobbering the store.
