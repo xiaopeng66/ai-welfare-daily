@@ -2090,15 +2090,21 @@ def main():
             _prev = _prev_health.get(_src) or {}
             if _has_rows and not _has_err:
                 _state, _streak = "ok", 0
+                _partial_streak = 0
             elif _has_rows and _has_err:
+                # partial 也要记连续轮数：只剩一两个端点有行、其余全挂时，
+                # 每轮都是 partial 且 fail_streak 归零，过去完全告不出来。
                 _state, _streak = "partial", 0
+                _partial_streak = int(_prev.get("partial_streak") or 0) + 1
             else:
                 _state = "down"
                 _streak = int(_prev.get("fail_streak") or 0) + 1
+                _partial_streak = 0
             _health[_src] = {
                 "state": _state,
                 "rows": _seen_sources.get(_src, 0),
                 "fail_streak": _streak,
+                "partial_streak": _partial_streak,
                 "checked_at": _now_iso,
                 "last_ok_at": _now_iso if _state == "ok" else _prev.get("last_ok_at"),
             }

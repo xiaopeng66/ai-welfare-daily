@@ -588,6 +588,12 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
   所以把"被拦"从 `.fetch_errors` 里摘出去（缓存行照常保留），避免本地健康时每 6 小时
   红一次并给订阅者发邮件；源站解除封锁后下一轮自动恢复抓取。**本地腿不带这个环境变量，
   403 仍按真实故障处理**（`tests/test_parsers.py` 两侧都钉了断言）。
+- **源健康台账的字段契约**（`data/.source-health.json`，`fetch.py` 每轮重建，不进 git）：
+  `state` ∈ `ok` / `partial` / `down`；`fail_streak` 只在 `down` 时累加，
+  `partial_streak` 只在 `partial` 时累加（2026-11-25 加：一个源只剩一两个端点有行时，
+  每轮都是 `partial`、`fail_streak` 归零，`welfare-alert-triage.py` 过去完全报不出来）；
+  `RETIRED_SOURCES` 里的源不写台账。triage 的阈值：`down` ≥3 轮 / 最后一次成功 ≥24h /
+  `partial` ≥4 轮。改这些字段要连带看 triage 的判据，别只改一边。
 - **vibex.iflow.cn 对 CI 是安全的**：它是普通 Discourse，直连（无代理）约 0.7s、无 Cloudflare 挑战，是本项目里**唯一能同时被 CI 和 Windows 任务抓到的非 linux.sb 源**。
   选它做新源而不是 NodeSeek 就是因为后者代理下 200、直连 404（CI 拿不到）。
   **加新源前先按这个标准验一遍：`httpx.get(url)` 不给 proxy，能 200 才算可用。**
