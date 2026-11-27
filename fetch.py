@@ -2021,7 +2021,7 @@ def main():
     # linux.sb ids whose created_at is trustworthy (real publish time, not the
     # last-modified time from the listing). Only these may skip detail fetches.
     # Scoped to linuxsb_* sources: other sites use their own id namespaces.
-    # 2026-11-24 源已停用（LINUXSB_ENABLED=0），这段仍保留：重新启用时它是必需的。
+    # 2026-11-24 曾停用、2026-11-27 恢复；这段是增量抓取省详情页的关键，别删。
     known_linuxsb_ids = {
         t["id"]
         for t in existing.values()
@@ -2046,9 +2046,9 @@ def main():
     }
 
     # 每个源单独兜底：一个源的解析/接口异常只让该源本轮无新数据（P1-6）。
-    # linux.sb 2026-11-24 停用：开关在 fetch_linuxsb 内部（LINUXSB_ENABLED=0 → 直接返回空）。
+    # linux.sb 已恢复抓取（2026-11-27）；开关仍在 fetch_linuxsb 内部（LINUXSB_ENABLED=0 → 直接返回空）。
     # 接线**刻意保留**——守卫套件拿 fetch_linuxsb 当样本源注入桩，删掉它要重写二十多条断言；
-    # 而且它就是恢复开关：把环境变量设成 "1" 立刻回到旧行为。
+    # 而且它就是开关：环境变量设 "0" 立刻回到停用行为。
     linuxsb_topics = _guarded_source("linux.sb", lambda: fetch_linuxsb(known_linuxsb_ids))
     baipiao_topics = _guarded_source("baipiao", fetch_baipiao)
     nodeloc_topics = _guarded_source("nodeloc", fetch_nodeloc)
