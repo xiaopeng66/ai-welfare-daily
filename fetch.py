@@ -103,21 +103,43 @@ def _write_if_changed(path: str, text: str) -> bool:
     return True
 
 
-def fetch(url: str, timeout: int = 20) -> str:
-    proxy_handler = urllib.request.ProxyHandler({"http": _PROXY_URL, "https": _PROXY_URL})
-    opener = urllib.request.build_opener(proxy_handler)
-    req = urllib.request.Request(url, headers=HEADERS)
-    try:
-        with opener.open(req, timeout=timeout) as resp:
-            return resp.read().decode("utf-8", errors="replace")
-    except Exception:
+def fetch(url: str, timeout: int = 20, _retries: int = 2) -> str:
+    """GET via the configured proxy, with transport-level retries.
+
+    2026-11-27（linux.sb 复接实测）：代理链路上约 1/6 的连接在 TLS 握手阶段被掐
+    （Windows schannel "failed to receive handshake"、WSL 冷启动 Errno 101），
+    隔一次重试就好——不是源站拒绝。此前单发即败，一次抖动会把整个源打成 fail。
+    只重试**传输层**错误（URLError/超时/握手失败）；HTTPError（403/429/5xx 等）
+    是源站的明确裁决，重试无意义，且 CI 的 CI_TOLERATE_BLOCK 分支要靠读到它
+    才能把"源站拦截"降级成警告，原样向上抛。
+    保留原有直连兜底：代理地址是本地回环而本机没有代理时（GitHub Actions），
+    回环会"连接拒绝"秒败，改走直连。
+    """
+    last_err: Exception | None = None
+    for attempt in range(1 + _retries):
+        if attempt:
+            time.sleep(1.5 * attempt)
+        req = urllib.request.Request(url, headers=HEADERS)
+        try:
+            proxy_handler = urllib.request.ProxyHandler({"http": _PROXY_URL, "https": _PROXY_URL})
+            with urllib.request.build_opener(proxy_handler).open(req, timeout=timeout) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError:
+            raise                       # 源站裁决，不重试
+        except Exception as e:
+            last_err = e
         if _PROXY_HOST not in (None, "", "127.0.0.1", "localhost"):
-            raise
+            continue                    # 远程代理：只走代理重试
         # In GitHub Actions or when proxy is unavailable, retry direct
-        direct_opener = urllib.request.build_opener()
         req2 = urllib.request.Request(url, headers=HEADERS)
-        with direct_opener.open(req2, timeout=timeout) as resp:
-            return resp.read().decode("utf-8", errors="replace")
+        try:
+            with urllib.request.build_opener().open(req2, timeout=timeout) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            last_err = e
+    raise last_err  # loop always runs at least once
 
 
 def extract_published_time(html: str) -> str | None:
@@ -162,12 +184,12 @@ _HOST_MARKERS = {
 }
 
 
-# 已下线的源（2026-11-24 用户决定移除 linux.sb）：不参与源健康台账。
-# 台账按 _HOST_MARKERS 逐轮重建，若把已下线的源也算进去，它会被永久记成
-# down、fail_streak 一直增长，welfare-alert-triage.py 于是每 30 分钟报一次
-# source_health——而那个源是我们主动不要的。host_of/unhealthy_hosts 的行为
-# 不变（历史行的归源与"没看见就别删"仍按原语义）。
-RETIRED_SOURCES = {"linuxsb"}
+# 源健康台账的白名单（2026-11-27 恢复 linux.sb 后清空）。
+# 台账按 _HOST_MARKERS 逐轮重建；曾用 RETIRED_SOURCES={"linuxsb"} 把停用源排除在
+# 台账外（否则它会被永久记成 down、fail_streak 只涨不落，welfare-alert-triage.py
+# 每 30 分钟报一次 source_health）。源已复接，此机制暂无成员——留着空集合与
+# 跳过逻辑，下次下线某个源时只需把名字放进集合。
+RETIRED_SOURCES: set = set()
 
 
 def host_of(source: str) -> str | None:
@@ -928,22 +950,24 @@ def is_slide_captcha(raw: str) -> bool:
     return any(m in raw for m in SLIDE_CAPTCHA_MARKERS)
 
 
-LINUXSB_ENABLED_DEFAULT = "0"   # 2026-11-24 源站滑块验证 → 默认停用
+LINUXSB_ENABLED_DEFAULT = "1"   # 2026-11-27 恢复抓取：宝塔滑块已撤（现为 CF 托管质询，站方 UA 可直过）
 
 
 def fetch_linuxsb(known_ids: set | None = None) -> list:
     """Fetch linux.sb listings.
 
-    2026-11-24 停用：源站上了宝塔 WAF 滑块人机验证，全部端点 403/520；
-    直连、代理、换 UA、带 cookie、Scrapling 真 Chrome、复用已过关 profile
-    全部试过都不通（详见 skill §5）。用户决定摘掉这个源。
-    恢复方式：把环境变量 LINUXSB_ENABLED 设为 "1"（代码路径完整保留）。
+    2026-11-24 曾停用：当时源站挂宝塔 WAF 滑块人机验证，全部端点 403/520。
+    2026-11-27 复核实测滑块已撤：现在拦截是 Cloudflare managed challenge
+    （"Just a moment..."），但用站方 UA（HEADERS 原样）走 Clash 代理，
+    urllib 一把过——Windows python 10/10、WSL python 5/8（前 3 发是 WSL
+    网络抖动，重试即好）。列表 5 端点 + 详情页发布时间全部恢复正常解析
+    （72/72 条）。恢复方式：LINUXSB_ENABLED 默认已改 "1"。
 
     known_ids: ids already stored with a trustworthy created_at. Detail pages
     are only fetched for ids NOT in this set, keeping incremental runs cheap.
     """
     if os.environ.get("LINUXSB_ENABLED", LINUXSB_ENABLED_DEFAULT) != "1":
-        print("[info] linux.sb: skipped (LINUXSB_ENABLED=0, 源站滑块验证)", file=sys.stderr)
+        print("[info] linux.sb: skipped (LINUXSB_ENABLED=0)", file=sys.stderr)
         return []
     known_ids = known_ids or set()
     sources = [

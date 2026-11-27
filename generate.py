@@ -36,7 +36,8 @@ SOURCE_LABELS = {
     'vibex': 'vibex.iflow.cn',
     'nextbuf': 'nextbuf.com',
     'sb': 'sb.sb',
-    # linux.sb 2026-11-24 停用：源已不抓、历史行已清空，但**这张表必须留着它**。
+    # linux.sb 2026-11-24 曾停用（历史行当时已清空；2026-11-27 源恢复抓取），
+    # 但**这张表必须留着它**。
     # 页面折叠键 T:来源|#|标题 与 fetch.activity_source 同构；表里少一个来源，
     # sourceKey() 就只能退回原始 source 串，折叠键跟着变 —— 页面与 store 的
     # 活动计数会在"哪天数据库里又出现这个源的行"时分叉。来源筛选按钮由数据派生，

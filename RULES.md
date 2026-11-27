@@ -312,7 +312,7 @@ README 只讲数据源、站点功能和使用方式；改动判定逻辑前请�
   **B/M 的字母边界与 token 语境不动**：URL 邀请码里的 `73B`、模型参数 `Qwen3.8 27B` 靠它们挡住。
   对拍（改规则后先跑 `offer-rerun-diff` 看下一轮会改什么）里量值变动的多是**修正垃圾值**：
   `1000亿token`（数字串撞上 TOKEN_CAP）、`680亿token`（把别处的数当额度）→ 变成 `2亿token` / `$10`。
-- **抓什么（六源；linux.sb 2026-11-24 停用）**：baipiao `.Post-body`、
+- **抓什么（六源；linux.sb 2026-11-24 曾停用，2026-11-27 恢复）**：baipiao `.Post-body`、
   nextbuf `.markdown-body`（原始 HTML 就有，无需渲染）、sb.sb 主题页 `.post-content`、
   nodeloc 主题页 `.op-body` 里第一个 `.prose`（2026-11 改版后没有 JSON API）、
   vibex 的 `/t/topic/{id}.json`
@@ -573,21 +573,21 @@ Hermes cron 跑在 WSL systemd 下、无登录会话，所以能驱动同一套 
 ## 8. 维护须知（踩过的坑）
 
 - **别在 CI 里打开 linux.do**：runner 是数据中心 IP，linux.do 回 429，会让那条兜底构建变红。
-- **linux.sb 已于 2026-11-24 停用**（`LINUXSB_ENABLED=0`）：源站上了宝塔 WAF 滑块人机验证，
-  全部端点 403/520；直连、代理、换 UA、带 cookie、Scrapling 真 Chrome、复用已过关 profile
-  全部实测不通（详情见 skill §5）。`fetch_linuxsb` 与正文抽取器 `body_linuxsb` 保留完整实现，
-  把环境变量 `LINUXSB_ENABLED` 设为 `1` 即恢复；store 里的 `linuxsb_*` 历史行已清空。
-  **收尾（2026-11-25）**：它不再进源健康台账（`fetch.RETIRED_SOURCES`）——台账按源逐轮重建，
-  记进去就等于永久 `down`、`fail_streak` 只涨不落，`welfare-alert-triage.py` 会每 30 分钟
-  报一次 `source_health`，而这是主动下线的源。精选板里凭 15 天生命周期残留的 25 条
-  （`data/featured.jsonl`，全部 linux.sb 单源、无跨源合并条目）同批清掉，页面 `FEATURED` 65 → 40。
-  恢复时两处一起还原：删掉 `RETIRED_SOURCES` 里的 `linuxsb`，精选板条目由 store 重新入选。
-  旧的 `CI_TOLERATE_BLOCK` 说明（403/429/5xx 只记警告）保留在 `fetch_linuxsb` 内，恢复后仍生效：
-  源站 WAF 会拦数据中心 IP（实测 5 个列表端点全 403），源站自身故障时 Cloudflare 回 520。
-  CI 是兜底哨兵、本地腿才是主写者，
-  所以把"被拦"从 `.fetch_errors` 里摘出去（缓存行照常保留），避免本地健康时每 6 小时
-  红一次并给订阅者发邮件；源站解除封锁后下一轮自动恢复抓取。**本地腿不带这个环境变量，
-  403 仍按真实故障处理**（`tests/test_parsers.py` 两侧都钉了断言）。
+- **linux.sb：2026-11-24 停用 → 2026-11-27 恢复**（`LINUXSB_ENABLED` 默认已回 `"1"`）。
+  11-24 当时源站挂宝塔 WAF 滑块人机验证、全部端点 403/520，直连、代理、换 UA、带 cookie、
+  Scrapling 真 Chrome、复用已过关 profile 全部实测不通，遂下线并把 store 里 `linuxsb_*`
+  历史行清空。11-27 复核实测**滑块已撤**：现在的拦截是 Cloudflare managed challenge
+  （403 + `Just a moment...`），但用站方 UA（`fetch.HEADERS` 原样）走 Clash 代理直接放行——
+  Windows python 10/10、WSL python 8 发 5 中（前 3 发是 WSL 网络冷启动 `Errno 101`，
+  重试即好），列表 5 端点 + 详情页 `article:published_time` 全部正常（列表每页 72 条）。
+  恢复动作（2026-11-27 同批）：① `LINUXSB_ENABLED_DEFAULT` 回 `"1"`；
+  ② `RETIRED_SOURCES` 清空——源重新进健康台账；③ `fetch()` 加**传输层**重试
+  （只重试 URLError/超时/TLS 握手抖动，`HTTPError` 原样上抛，见下条）；④ 精选板条目
+  由 store 重新入选，无需手工补。`CI_TOLERATE_BLOCK`（403/429/5xx 只记警告）保留在
+  `fetch_linuxsb` 内且仍生效：CI runner 是数据中心 IP，Cloudflare 会拦；CI 是兜底哨兵、
+  本地腿才是主写者，把"被拦"从 `.fetch_errors` 里摘出去（缓存行照常保留），避免本地健康时
+  每 6 小时红一次并给订阅者发邮件；源站解除封锁后下一轮自动恢复抓取。**本地腿不带这个
+  环境变量，403 仍按真实故障处理**（`tests/test_parsers.py` 两侧都钉了断言）。
 - **源健康台账的字段契约**（`data/.source-health.json`，`fetch.py` 每轮重建，不进 git）：
   `state` ∈ `ok` / `partial` / `down`；`fail_streak` 只在 `down` 时累加，
   `partial_streak` 只在 `partial` 时累加（2026-11-25 加：一个源只剩一两个端点有行时，
