@@ -189,7 +189,7 @@ SB_BLOCK_MARKER = "not available in your region"
 def body_sb(raw: str, url: str) -> tuple[str, dict]:
     """sb.sb 主题页：楼主正文是第一个 .post-content（服务端直出，无需渲染）。
 
-    区域封锁页（HTTP 200，大陆直连时 Clash 不在位就会拿到）必须抛错：
+    区域封锁页（HTTP 200，大陆直连时 FlClash 代理不可用就会拿到）必须抛错：
     要是按「正文为空」处理，_fetch_with_cache 会把它连同空判定写进缓存，
     接下来一整个 TTL 里 sb 的行都判不出 offer。抛错 → 按失败处理，下轮重试。
     """

@@ -76,9 +76,9 @@ def _atomic_write(path: str, text: str) -> None:
         raise
 
 
-# Use Clash proxy for all HTTP requests
-_PROXY_HOST = os.environ.get("CLASH_PROXY_HOST", "127.0.0.1")
-_PROXY_PORT = int(os.environ.get("CLASH_PROXY_PORT", "7897"))
+# Use FlClash proxy for all HTTP requests
+_PROXY_HOST = os.environ.get("FLCLASH_PROXY_HOST", "127.0.0.1")
+_PROXY_PORT = int(os.environ.get("FLCLASH_PROXY_PORT", "7890"))
 _PROXY_URL = f"http://{_PROXY_HOST}:{_PROXY_PORT}"
 
 # Per-run counter of failed source fetches; used to refuse writing a store that
@@ -958,7 +958,7 @@ def fetch_linuxsb(known_ids: set | None = None) -> list:
 
     2026-11-24 曾停用：当时源站挂宝塔 WAF 滑块人机验证，全部端点 403/520。
     2026-11-27 复核实测滑块已撤：现在拦截是 Cloudflare managed challenge
-    （"Just a moment..."），但用站方 UA（HEADERS 原样）走 Clash 代理，
+    （"Just a moment..."），但用站方 UA（HEADERS 原样）走 FlClash 代理，
     urllib 一把过——Windows python 10/10、WSL python 5/8（前 3 发是 WSL
     网络抖动，重试即好）。列表 5 端点 + 详情页发布时间全部恢复正常解析
     （72/72 条）。恢复方式：LINUXSB_ENABLED 默认已改 "1"。
@@ -1596,7 +1596,7 @@ def parse_sb_published(raw: str) -> str | None:
 def _fetch_sb_page(url: str, attempts: int = 3) -> str:
     """GET 一个 sb.sb 页面，带重试与区域封锁判定。
 
-    Clash 节点对新连接偶发 TLS 握手失败（EOF / handshake timeout，实测 4 连里挂 2），
+    代理节点对新连接偶发 TLS 握手失败（EOF / handshake timeout，实测 4 连里挂 2），
     两次重试能把大部分抖动救回来；区域封锁页必须抛错而不是返回空列表，
     否则 `.fetch_errors` 会把「代理挂了」误报成「解析器坏了」。
     """

@@ -44,7 +44,7 @@ function Log($msg) {
     Add-Content -LiteralPath $log -Value $line -Encoding UTF8
 }
 
-# Network git commands with a direct-connection retry. Clash only starts at
+# Network git commands with a direct-connection retry. FlClash only starts at
 # logon, so a run triggered while nobody is logged on (Hermes cron) has no
 # proxy to reach, and the user-level http.proxy setting would fail the command.
 # Abort a transfer that stalls instead of hanging on it for the whole run.
@@ -55,10 +55,10 @@ function Invoke-Git {
     & $git @gitStall @GitArgs 2>&1 | ForEach-Object { Log $_ }
     if ($LASTEXITCODE -eq 0) { return 0 }
 
-    # Retry over a direct connection. Two different things point git at Clash:
+    # Retry over a direct connection. Two different things point git at FlClash:
     # the user-level http.proxy setting, and the HTTP(S)_PROXY env vars Hermes
-    # passes down to cmd.exe. When Clash is not running -- e.g. a run triggered
-    # with nobody logged on, since Clash itself starts at logon -- both have to
+    # passes down to cmd.exe. When FlClash is not running -- e.g. a run triggered
+    # with nobody logged on, since FlClash itself starts at logon -- both have to
     # be bypassed, not just the config, or the retry fails the same way.
     Log "  [retry] git $($GitArgs -join ' ') - proxy unreachable, retrying direct"
     $names = @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy')

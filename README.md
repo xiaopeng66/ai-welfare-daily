@@ -24,7 +24,7 @@
 > sb.sb 的列表行时间是「最后回复」，不能当发布时间；`fetch_sb()` 只为过闸门的
 > 候选逐条请求主题页，取楼主头部的 `.post-time`（与页面 JSON-LD 的
 > `datePublished` 一致）。大陆直连会拿到区域封锁页（HTTP 200），所以本机腿依赖
-> Clash；GitHub runner 侧暂未启用（`SB_ENABLED=0`），见 RULES.md。
+> FlClash；GitHub runner 侧暂未启用（`SB_ENABLED=0`），见 RULES.md。
 
 ## 站点功能
 
@@ -54,7 +54,7 @@ python3 generate.py -i data/topics.jsonl -o docs/index.html      # 生成页面
 | 环境变量 | 默认 | 用途 |
 |----------|------|------|
 | `LINUXDO_ENABLED` | `1` | 设 `0` 跳过 linux.do（CI 与 WSL 调试用） |
-| `CLASH_PROXY_HOST` / `CLASH_PROXY_PORT` | `127.0.0.1` / `7897` | 代理地址；设 `CLASH_PROXY_PORT=0` 直连 |
+| `FLCLASH_PROXY_HOST` / `FLCLASH_PROXY_PORT` | `127.0.0.1` / `7890` | 代理地址；设 `FLCLASH_PROXY_PORT=0` 直连 |
 
 ## 目录结构
 
